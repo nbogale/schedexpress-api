@@ -10,6 +10,9 @@ import { ScheduleChangeRequestsModule } from './schedule-change-requests/schedul
 import { ConflictsModule } from './conflicts/conflicts.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { SettingsModule } from './settings/settings.module';
+import { CourseRulesModule } from './course-rules/course-rules.module';
+import { RulesModule } from './rules/rules.module';
+import { StudentsModule } from './students/students.module';
 
 @Module({
   imports: [
@@ -25,6 +28,9 @@ import { SettingsModule } from './settings/settings.module';
     ConflictsModule,
     NotificationsModule,
     SettingsModule,
+    CourseRulesModule,
+    RulesModule,
+    StudentsModule,
   ],
 })
 export class AppModule {}

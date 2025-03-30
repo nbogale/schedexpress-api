@@ -36,6 +36,20 @@ export class ScheduleChangeRequestsController {
     return this.requestsService.findAll();
   }
 
+  @Get('my-requests')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get requests for the current user' })
+  @ApiResponse({ status: 200, description: 'Return current user requests' })
+  findMyRequests(@Request() req) {
+    // For students, show their own requests
+    if (req.user.role === UserRole.STUDENT) {
+      return this.requestsService.findByUser(req.user.id);
+    }
+    // For counselors and admins, show all pending requests
+    return this.requestsService.findPending();
+  }
+
   @Get('pending')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN, UserRole.COUNSELOR)

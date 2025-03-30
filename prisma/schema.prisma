@@ -74,6 +74,31 @@ model Course {
   currentRequests   ScheduleChangeRequest[] @relation("CurrentCourse")
   newRequests       ScheduleChangeRequest[] @relation("NewCourse")
   schedules         Schedule[]              @relation("CourseToSchedule")
+  courseRules       CourseRule[]            @relation("PrimaryCourse")
+  conflictingRules  CourseRule[]            @relation("ConflictingCourse")
+}
+
+model CourseRule {
+  id                  String   @id @default(cuid())
+  courseId            String
+  conflictingCourseId String
+  type                RuleType
+  description         String
+  isActive            Boolean  @default(true)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+  course              Course   @relation("PrimaryCourse", fields: [courseId], references: [id])
+  conflictingCourse   Course   @relation("ConflictingCourse", fields: [conflictingCourseId], references: [id])
+}
+
+model Rule {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  type        RuleType
+  description String
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }
 
 model ScheduleChangeRequest {
@@ -170,4 +195,12 @@ enum NotificationType {
   SYSTEM_UPDATE
   CONFLICT_DETECTED
   GENERAL
+}
+
+enum RuleType {
+  SCHEDULE_OVERLAP
+  PREREQUISITE
+  GRADE_REQUIREMENT
+  CAPACITY
+  OTHER
 }

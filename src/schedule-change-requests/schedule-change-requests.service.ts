@@ -4,7 +4,7 @@ import { CreateRequestDto } from './dto/create-request.dto';
 import { UpdateRequestDto } from './dto/update-request.dto';
 import { NotificationsService } from '../notifications/notifications.service';
 import { ConflictsService } from '../conflicts/conflicts.service';
-import { NotificationType, RequestStatus } from '@prisma/client';
+import { NotificationType, RequestStatus, UserRole } from '@prisma/client';
 
 @Injectable()
 export class ScheduleChangeRequestsService {
@@ -132,6 +132,57 @@ export class ScheduleChangeRequestsService {
         createdAt: 'desc',
       },
     });
+  }
+
+  async findByUser(userId: string) {
+    // First get the user to determine role
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        student: true,
+      },
+    });
+
+    if (!user) {
+      throw new NotFoundException(`User with ID ${userId} not found`);
+    }
+
+    // If student, get their schedule and requests
+    if (user.role === UserRole.STUDENT && user.student) {
+      // Get the student's schedule
+      const schedule = await this.prisma.schedule.findUnique({
+        where: { studentId: user.student.id },
+        include: {
+          courses: true,
+        },
+      });
+
+      // Get the student's requests
+      const requests = await this.prisma.scheduleChangeRequest.findMany({
+        where: { studentId: user.student.id },
+        include: {
+          counselor: {
+            include: {
+              user: true,
+            },
+          },
+          currentCourse: true,
+          newCourse: true,
+          conflicts: true,
+        },
+        orderBy: {
+          createdAt: 'desc',
+        },
+      });
+
+      return {
+        schedule,
+        requests,
+      };
+    }
+
+    // For counselors or admins, return pending requests
+    return this.findPending();
   }
 
   async findPending() {

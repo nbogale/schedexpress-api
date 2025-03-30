@@ -1,4 +1,4 @@
-import { PrismaClient, UserRole } from '@prisma/client';
+import { PrismaClient, UserRole, RuleType } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 
 const prisma = new PrismaClient();
@@ -7,6 +7,8 @@ async function main() {
   console.log('Starting seed...');
 
   // Clear existing data
+  await prisma.courseRule.deleteMany();
+  await prisma.rule.deleteMany();
   await prisma.notification.deleteMany();
   await prisma.conflict.deleteMany();
   await prisma.scheduleChangeRequest.deleteMany();
@@ -175,11 +177,115 @@ async function main() {
       room: 'Room 400',
       capacity: 25,
     },
+    {
+      name: 'Algebra I',
+      courseCode: 'MATH101',
+      teacher: 'Mrs. Thompson',
+      period: 1,
+      room: 'Room 102',
+      capacity: 28,
+    },
+    {
+      name: 'Advanced Biology',
+      courseCode: 'BIO201',
+      teacher: 'Dr. Wilson',
+      period: 2,
+      room: 'Room 231',
+      capacity: 22,
+    },
   ];
 
-  for (const course of coursesData) {
-    await prisma.course.create({
-      data: course,
+  const courses = {};
+
+  for (const courseData of coursesData) {
+    const course = await prisma.course.create({
+      data: courseData,
+    });
+    courses[courseData.courseCode] = course;
+  }
+
+  // Create general rules
+  const rulesData = [
+    {
+      name: 'Maximum Course Load',
+      type: RuleType.OTHER,
+      description: 'Students cannot take more than 8 courses per semester.',
+      isActive: true,
+    },
+    {
+      name: 'Schedule Conflicts',
+      type: RuleType.SCHEDULE_OVERLAP,
+      description: 'Students cannot have overlapping course periods.',
+      isActive: true,
+    },
+    {
+      name: 'Grade Level Requirements',
+      type: RuleType.GRADE_REQUIREMENT,
+      description: 'Students must meet the minimum grade level for certain courses.',
+      isActive: true,
+    },
+    {
+      name: 'Course Capacity Limits',
+      type: RuleType.CAPACITY,
+      description: 'Courses cannot exceed their maximum capacity.',
+      isActive: true,
+    },
+    {
+      name: 'Prerequisite Requirements',
+      type: RuleType.PREREQUISITE,
+      description: 'Students must complete prerequisite courses before advanced courses.',
+      isActive: true,
+    },
+  ];
+
+  for (const ruleData of rulesData) {
+    await prisma.rule.create({
+      data: ruleData,
+    });
+  }
+
+  // Create course-specific rules
+  const courseRulesData = [
+    {
+      courseId: courses['MATH201'].id, // Algebra II
+      conflictingCourseId: courses['MATH101'].id, // Algebra I
+      type: RuleType.PREREQUISITE,
+      description: 'Algebra I is a prerequisite for Algebra II',
+      isActive: true,
+    },
+    {
+      courseId: courses['CHEM201'].id, // Chemistry
+      conflictingCourseId: courses['BIO101'].id, // Biology
+      type: RuleType.PREREQUISITE,
+      description: 'Biology is a prerequisite for Chemistry',
+      isActive: true,
+    },
+    {
+      courseId: courses['PHYS201'].id, // Physics
+      conflictingCourseId: courses['MATH201'].id, // Algebra II
+      type: RuleType.PREREQUISITE,
+      description: 'Algebra II is a prerequisite for Physics',
+      isActive: true,
+    },
+    {
+      courseId: courses['BIO201'].id, // Advanced Biology
+      conflictingCourseId: courses['BIO101'].id, // Biology
+      type: RuleType.PREREQUISITE,
+      description: 'Biology is a prerequisite for Advanced Biology',
+      isActive: true,
+    },
+    {
+      courseId: courses['PHYS201'].id, // Physics
+      conflictingCourseId: courses['ENG103'].id, // English Literature
+      type: RuleType.SCHEDULE_OVERLAP,
+      description: 'Physics and English Literature are scheduled at the same time (Period 3)',
+      isActive: true,
+    },
+  ];
+
+  for (const courseRuleData of courseRulesData) {
+    await prisma.courseRule.create({
+      data: courseRuleData,
     });
   }
 
