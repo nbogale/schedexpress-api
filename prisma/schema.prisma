@@ -1,0 +1,173 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String     @id @default(cuid())
+  name      String?
+  email     String     @unique
+  password  String?
+  role      UserRole
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  admin     Admin?
+  counselor Counselor?
+  student   Student?
+}
+
+model Student {
+  id                     String                  @id @default(cuid())
+  userId                 String                  @unique
+  gradeLevel             Int
+  notifications          Notification[]
+  schedule               Schedule?
+  scheduleChangeRequests ScheduleChangeRequest[] @relation("StudentRequests")
+  user                   User                    @relation(fields: [userId], references: [id])
+}
+
+model Counselor {
+  id                     String                  @id @default(cuid())
+  userId                 String                  @unique
+  department             String?
+  user                   User                    @relation(fields: [userId], references: [id])
+  notifications          Notification[]
+  scheduleChangeRequests ScheduleChangeRequest[] @relation("CounselorRequests")
+}
+
+model Admin {
+  id            String         @id @default(cuid())
+  userId        String         @unique
+  department    String?
+  user          User           @relation(fields: [userId], references: [id])
+  notifications Notification[]
+  actions       AdminAction[]
+}
+
+model Schedule {
+  id        String   @id @default(cuid())
+  studentId String   @unique
+  semester  String
+  year      Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  student   Student  @relation(fields: [studentId], references: [id])
+  courses   Course[] @relation("CourseToSchedule")
+}
+
+model Course {
+  id                String                  @id @default(cuid())
+  name              String
+  courseCode        String                  @unique
+  teacher           String
+  period            Int
+  room              String
+  capacity          Int
+  currentEnrollment Int                     @default(0)
+  createdAt         DateTime                @default(now())
+  updatedAt         DateTime                @updatedAt
+  conflicts         Conflict[]
+  currentRequests   ScheduleChangeRequest[] @relation("CurrentCourse")
+  newRequests       ScheduleChangeRequest[] @relation("NewCourse")
+  schedules         Schedule[]              @relation("CourseToSchedule")
+}
+
+model ScheduleChangeRequest {
+  id              String        @id @default(cuid())
+  studentId       String
+  counselorId     String?
+  currentCourseId String
+  newCourseId     String
+  reason          String
+  comments        String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  status          RequestStatus @default(PENDING)
+  conflicts       Conflict[]
+  counselor       Counselor?    @relation("CounselorRequests", fields: [counselorId], references: [id])
+  currentCourse   Course        @relation("CurrentCourse", fields: [currentCourseId], references: [id])
+  newCourse       Course        @relation("NewCourse", fields: [newCourseId], references: [id])
+  student         Student       @relation("StudentRequests", fields: [studentId], references: [id])
+}
+
+model Conflict {
+  id          String                @id @default(cuid())
+  description String
+  courseId    String
+  requestId   String
+  resolved    Boolean               @default(false)
+  createdAt   DateTime              @default(now())
+  updatedAt   DateTime              @updatedAt
+  type        ConflictType
+  course      Course                @relation(fields: [courseId], references: [id])
+  request     ScheduleChangeRequest @relation(fields: [requestId], references: [id])
+}
+
+model Notification {
+  id          String           @id @default(cuid())
+  studentId   String?
+  counselorId String?
+  adminId     String?
+  message     String
+  read        Boolean          @default(false)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  type        NotificationType
+  admin       Admin?           @relation(fields: [adminId], references: [id])
+  counselor   Counselor?       @relation(fields: [counselorId], references: [id])
+  student     Student?         @relation(fields: [studentId], references: [id])
+}
+
+model Settings {
+  id            String   @id @default(cuid())
+  schoolName    String
+  academicYear  String
+  semester      String
+  maxCourseLoad Int     @default(8)
+  allowConflicts Boolean @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model AdminAction {
+  id        String   @id @default(cuid())
+  adminId   String
+  action    String
+  details   String?
+  createdAt DateTime @default(now())
+  admin     Admin    @relation(fields: [adminId], references: [id])
+}
+
+enum UserRole {
+  STUDENT
+  COUNSELOR
+  ADMIN
+}
+
+enum RequestStatus {
+  PENDING
+  APPROVED
+  DENIED
+}
+
+enum ConflictType {
+  SCHEDULE_OVERLAP
+  CAPACITY
+  PREREQUISITE
+  OTHER
+}
+
+enum NotificationType {
+  REQUEST_UPDATE
+  REQUEST_APPROVED
+  REQUEST_DENIED
+  CAPACITY_ALERT
+  DEADLINE_REMINDER
+  SYSTEM_UPDATE
+  CONFLICT_DETECTED
+  GENERAL
+}

@@ -1,0 +1,27 @@
+FROM node:18-alpine
+
+# Install OpenSSL for Prisma
+RUN apk add --no-cache openssl
+
+WORKDIR /app
+
+# Copy package files
+COPY package*.json ./
+
+# Install dependencies
+RUN npm install
+
+# Copy source code
+COPY . .
+
+# Set environment variable to use binary provider for Prisma
+ENV PRISMA_QUERY_ENGINE_LIBRARY_PROVIDER=binary
+
+# Generate Prisma client
+RUN npx prisma generate
+
+# Expose the API port
+EXPOSE 3001
+
+# Run the application in development mode
+CMD ["npm", "run", "start:dev"]
