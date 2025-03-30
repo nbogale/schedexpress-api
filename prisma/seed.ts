@@ -1,4 +1,4 @@
-import { PrismaClient, UserRole, RuleType } from '@prisma/client';
+import { PrismaClient, UserRole, RuleType, RequestStatus } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 
 const prisma = new PrismaClient();
@@ -62,7 +62,7 @@ async function main() {
     },
   });
 
-  await prisma.counselor.create({
+  const counselor = await prisma.counselor.create({
     data: {
       userId: counselorUser.id,
       department: 'Guidance',
@@ -93,6 +93,8 @@ async function main() {
     },
   ];
 
+  const students = {};
+
   for (const student of studentData) {
     const user = await prisma.user.create({
       data: {
@@ -103,12 +105,14 @@ async function main() {
       },
     });
 
-    await prisma.student.create({
+    const createdStudent = await prisma.student.create({
       data: {
         userId: user.id,
         gradeLevel: student.gradeLevel,
       },
     });
+    
+    students[student.name] = createdStudent;
   }
 
   // Create courses
@@ -288,6 +292,94 @@ async function main() {
       data: courseRuleData,
     });
   }
+
+  // Create a schedule for John Smith
+  const johnSmithSchedule = await prisma.schedule.create({
+    data: {
+      studentId: students['John Smith'].id,
+      semester: 'Fall',
+      year: 2024,
+      courses: {
+        connect: [
+          { id: courses['MATH101'].id }, // Algebra I
+          { id: courses['BIO101'].id },  // Biology
+          { id: courses['ENG103'].id },  // English Literature
+          { id: courses['HIST102'].id }, // World History
+          { id: courses['SPAN101'].id }, // Spanish I
+          { id: courses['ART102'].id },  // Art History
+        ]
+      }
+    }
+  });
+
+  console.log(`Created schedule for John Smith with ID: ${johnSmithSchedule.id}`);
+
+  // Update course enrollment numbers
+  await prisma.course.update({
+    where: { id: courses['MATH101'].id },
+    data: { currentEnrollment: { increment: 1 } }
+  });
+  await prisma.course.update({
+    where: { id: courses['BIO101'].id },
+    data: { currentEnrollment: { increment: 1 } }
+  });
+  await prisma.course.update({
+    where: { id: courses['ENG103'].id },
+    data: { currentEnrollment: { increment: 1 } }
+  });
+  await prisma.course.update({
+    where: { id: courses['HIST102'].id },
+    data: { currentEnrollment: { increment: 1 } }
+  });
+  await prisma.course.update({
+    where: { id: courses['SPAN101'].id },
+    data: { currentEnrollment: { increment: 1 } }
+  });
+  await prisma.course.update({
+    where: { id: courses['ART102'].id },
+    data: { currentEnrollment: { increment: 1 } }
+  });
+
+  // Create a schedule change request for John Smith
+  // John wants to switch from Algebra I to Algebra II
+  const scheduleChangeRequest = await prisma.scheduleChangeRequest.create({
+    data: {
+      studentId: students['John Smith'].id,
+      counselorId: counselor.id,
+      currentCourseId: courses['MATH101'].id, // Algebra I
+      newCourseId: courses['MATH201'].id,     // Algebra II
+      reason: "I've completed the Algebra I summer course and would like to advance to Algebra II.",
+      comments: "Student provided certificate of completion for summer Algebra I course.",
+      status: RequestStatus.PENDING
+    }
+  });
+
+  console.log(`Created schedule change request for John Smith with ID: ${scheduleChangeRequest.id}`);
+
+  // Create a conflict for this request based on the prerequisite rule
+  const conflict = await prisma.conflict.create({
+    data: {
+      description: "Prerequisite course (Algebra I) is currently enrolled and not completed",
+      courseId: courses['MATH201'].id,
+      requestId: scheduleChangeRequest.id,
+      resolved: false,
+      type: "PREREQUISITE"
+    }
+  });
+
+  console.log(`Created conflict for John's schedule change request with ID: ${conflict.id}`);
+
+  // Create a notification for John about his request
+  const notification = await prisma.notification.create({
+    data: {
+      studentId: students['John Smith'].id,
+      message: "Your schedule change request has been submitted. A counselor will review it shortly.",
+      read: false,
+      type: "REQUEST_UPDATE"
+    }
+  });
+
+  console.log(`Created notification for John Smith with ID: ${notification.id}`);
 
   console.log('Seed completed successfully!');
 }
