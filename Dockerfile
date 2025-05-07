@@ -43,5 +43,16 @@ ENV PRISMA_QUERY_ENGINE_LIBRARY_PROVIDER=binary
 # Expose the API port
 EXPOSE 3001
 
-# Command to run the application
-CMD ["node", "dist/src/main.js"]
+# Create startup script
+COPY --from=builder /app/prisma/schema.prisma ./prisma/
+RUN echo '#!/bin/sh\n\
+echo "Waiting for database to be ready..."\n\
+sleep 5\n\
+echo "Running database migrations..."\n\
+npx prisma migrate deploy\n\
+echo "Starting application..."\n\
+node dist/src/main.js' > /app/startup.sh \
+&& chmod +x /app/startup.sh
+
+# Command to run the application with migrations
+CMD ["/app/startup.sh"]
