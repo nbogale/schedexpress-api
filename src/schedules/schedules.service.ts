@@ -8,7 +8,7 @@ export class SchedulesService {
   constructor(private readonly prisma: PrismaService) {}
 
   async create(createScheduleDto: CreateScheduleDto) {
-    const { studentId, courseIds, ...scheduleData } = createScheduleDto;
+    const { studentId, courseSectionIds, ...scheduleData } = createScheduleDto;
 
     // Check if student exists
     const student = await this.prisma.student.findUnique({
@@ -26,32 +26,33 @@ export class SchedulesService {
     }
 
     // Validate courses
-    if (courseIds.length === 0) {
+    if (courseSectionIds.length === 0) {
       throw new BadRequestException('Schedule must include at least one course');
     }
 
     // Check if all courses exist
-    const courses = await this.prisma.course.findMany({
-      where: { id: { in: courseIds } },
+    const courseSections = await this.prisma.courseSection.findMany({
+      where: { id: { in: courseSectionIds } },
+      include: { course: true },
     });
 
-    if (courses.length !== courseIds.length) {
+    if (courseSections.length !== courseSectionIds.length) {
       throw new NotFoundException('One or more courses not found');
     }
 
     // Check capacity for each course
-    const overCapacityCourses = courses.filter(
-      course => course.currentEnrollment >= course.capacity
+    const overCapacityCourses = courseSections.filter(
+      course => course.currentEnrollment >= course.maxEnrollment
     );
 
     if (overCapacityCourses.length > 0) {
       throw new ConflictException(
-        `Some courses are at capacity: ${overCapacityCourses.map(c => c.name).join(', ')}`
+        `Some courses are at capacity: ${overCapacityCourses.map(c => c.course.name).join(', ')}`
       );
     }
 
     // Check for period conflicts
-    const periods = courses.map(course => course.period);
+    const periods = courseSections.map(course => course.timeBlockId);
     const uniquePeriods = new Set(periods);
     
     if (periods.length !== uniquePeriods.size) {
@@ -62,7 +63,7 @@ export class SchedulesService {
     const settings = await this.prisma.settings.findFirst();
     const maxCourseLoad = settings?.maxCourseLoad || 8;
 
-    if (courseIds.length > maxCourseLoad) {
+    if (courseSectionIds.length > maxCourseLoad) {
       throw new ConflictException(`Schedule exceeds maximum course load of ${maxCourseLoad}`);
     }
 
@@ -73,8 +74,8 @@ export class SchedulesService {
         data: {
           ...scheduleData,
           student: { connect: { id: studentId } },
-          courses: {
-            connect: courseIds.map(id => ({ id })),
+          courseSections: {
+            connect: courseSectionIds.map(id => ({ id })),
           },
         },
         include: {
@@ -82,20 +83,21 @@ export class SchedulesService {
             include: {
               user: {
                 select: {
-                  name: true,
+                  firstName: true,
+                  lastName: true,
                   email: true,
                 },
               },
             },
           },
-          courses: true,
+          courseSections: true,
         },
       });
 
       // Update course enrollments
-      for (const course of courses) {
-        await prisma.course.update({
-          where: { id: course.id },
+      for (const courseSection of courseSections) {
+        await prisma.courseSection.update({
+          where: { id: courseSection.id },
           data: { currentEnrollment: { increment: 1 } },
         });
       }
@@ -111,13 +113,14 @@ export class SchedulesService {
           include: {
             user: {
               select: {
-                name: true,
+                firstName: true,
+                lastName: true,
                 email: true,
               },
             },
           },
         },
-        courses: true,
+        courseSections: true,
       },
     });
   }
@@ -130,15 +133,16 @@ export class SchedulesService {
           include: {
             user: {
               select: {
-                name: true,
+                firstName: true,
+                lastName: true,
                 email: true,
               },
             },
           },
         },
-        courses: {
+        courseSections: {
           orderBy: {
-            period: 'asc',
+            timeBlockId: 'asc',
           },
         },
       },
@@ -167,15 +171,16 @@ export class SchedulesService {
           include: {
             user: {
               select: {
-                name: true,
+                firstName: true,
+                lastName: true,
                 email: true,
               },
             },
           },
         },
-        courses: {
+        courseSections: {
           orderBy: {
-            period: 'asc',
+            timeBlockId: 'asc',
           },
         },
       },
@@ -195,7 +200,7 @@ export class SchedulesService {
     const schedule = await this.prisma.schedule.findUnique({
       where: { id },
       include: {
-        courses: true,
+        courseSections: true,
       },
     });
 
@@ -209,28 +214,29 @@ export class SchedulesService {
 
     if (addCourseIds && addCourseIds.length > 0) {
       // Check if courses exist
-      const courses = await this.prisma.course.findMany({
+      const courseSections = await this.prisma.courseSection.findMany({
         where: { id: { in: addCourseIds } },
+        include: { course: true },
       });
 
-      if (courses.length !== addCourseIds.length) {
+      if (courseSections.length !== addCourseIds.length) {
         throw new NotFoundException('One or more courses to add not found');
       }
 
       // Check for capacity
-      const overCapacityCourses = courses.filter(
-        course => course.currentEnrollment >= course.capacity
+      const overCapacityCourses = courseSections.filter(
+        courseSection => courseSection.currentEnrollment >= courseSection.maxEnrollment
       );
 
       if (overCapacityCourses.length > 0) {
         throw new ConflictException(
-          `Some courses are at capacity: ${overCapacityCourses.map(c => c.name).join(', ')}`
+          `Some courses are at capacity: ${overCapacityCourses.map(c => c.course.name).join(', ')}`
         );
       }
 
       // Check for period conflicts with existing courses
-      const existingPeriods = schedule.courses.map(course => course.period);
-      const newPeriods = courses.map(course => course.period);
+      const existingPeriods = schedule.courseSections.map(courseSection => courseSection.timeBlockId);
+      const newPeriods = courseSections.map(courseSection => courseSection.timeBlockId);
       
       const allPeriods = [...existingPeriods];
       
@@ -246,7 +252,7 @@ export class SchedulesService {
 
     if (removeCourseIds && removeCourseIds.length > 0) {
       // Verify these courses are in the schedule
-      const coursesToRemove = schedule.courses.filter(
+      const coursesToRemove = schedule.courseSections.filter(
         course => removeCourseIds.includes(course.id)
       );
 
@@ -263,7 +269,7 @@ export class SchedulesService {
 
     // Calculate new total courses
     const newTotalCourses = 
-      schedule.courses.length + 
+      schedule.courseSections.length + 
       (coursesToConnect.length - coursesToDisconnect.length);
 
     if (newTotalCourses > maxCourseLoad) {
@@ -281,7 +287,7 @@ export class SchedulesService {
         where: { id },
         data: {
           ...scheduleData,
-          courses: {
+          courseSections: {
             connect: coursesToConnect,
             disconnect: coursesToDisconnect,
           },
@@ -291,30 +297,31 @@ export class SchedulesService {
             include: {
               user: {
                 select: {
-                  name: true,
+                  firstName: true,
+                  lastName: true,
                   email: true,
                 },
               },
             },
           },
-          courses: true,
+          courseSections: true,
         },
       });
 
       // Update course enrollments
       if (coursesToConnect.length > 0) {
-        for (const course of coursesToConnect) {
-          await prisma.course.update({
-            where: { id: course.id },
+        for (const courseSection of coursesToConnect) {
+          await prisma.courseSection.update({
+            where: { id: courseSection.id },
             data: { currentEnrollment: { increment: 1 } },
           });
         }
       }
 
       if (coursesToDisconnect.length > 0) {
-        for (const course of coursesToDisconnect) {
-          await prisma.course.update({
-            where: { id: course.id },
+        for (const courseSection of coursesToDisconnect) {
+          await prisma.courseSection.update({
+            where: { id: courseSection.id },
             data: { currentEnrollment: { decrement: 1 } },
           });
         }
@@ -329,7 +336,7 @@ export class SchedulesService {
     const schedule = await this.prisma.schedule.findUnique({
       where: { id },
       include: {
-        courses: true,
+        courseSections: true,
       },
     });
 
@@ -345,9 +352,9 @@ export class SchedulesService {
       });
 
       // Update course enrollments
-      for (const course of schedule.courses) {
-        await prisma.course.update({
-          where: { id: course.id },
+      for (const courseSection of schedule.courseSections) {
+        await prisma.courseSection.update({
+          where: { id: courseSection.id },
           data: { currentEnrollment: { decrement: 1 } },
         });
       }

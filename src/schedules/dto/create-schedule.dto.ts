@@ -3,8 +3,8 @@ import { ApiProperty } from '@nestjs/swagger';
 
 export class CreateScheduleDto {
   @ApiProperty({
-    example: 'student-id-123',
-    description: 'Student ID',
+    example: 'clg123xyz',
+    description: 'ID of the student',
   })
   @IsString()
   @IsNotEmpty()
@@ -12,14 +12,14 @@ export class CreateScheduleDto {
 
   @ApiProperty({
     example: 'Fall',
-    description: 'Semester',
+    description: 'Semester name',
   })
   @IsString()
   @IsNotEmpty()
   semester: string;
 
   @ApiProperty({
-    example: 2025,
+    example: 2024,
     description: 'Academic year',
   })
   @IsInt()
@@ -27,11 +27,11 @@ export class CreateScheduleDto {
   year: number;
 
   @ApiProperty({
-    example: ['course-id-1', 'course-id-2'],
-    description: 'Array of course IDs',
+    example: ['clg456abc', 'clg789def'],
+    description: 'Array of course section IDs',
     type: [String],
   })
   @IsArray()
   @IsString({ each: true })
-  courseIds: string[];
+  courseSectionIds: string[];
 }

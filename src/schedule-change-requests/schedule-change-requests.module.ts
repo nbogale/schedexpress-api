@@ -2,7 +2,7 @@ import { Module } from '@nestjs/common';
 import { ScheduleChangeRequestsService } from './schedule-change-requests.service';
 import { ScheduleChangeRequestsController } from './schedule-change-requests.controller';
 import { NotificationsModule } from '../notifications/notifications.module';
-import { ConflictsModule } from '../conflicts/conflicts.module';
+import { ConflictsModule } from '../course-conflicts/conflicts.module';
 
 @Module({
   imports: [NotificationsModule, ConflictsModule],

@@ -1,392 +1,178 @@
-import { PrismaClient, UserRole, RuleType, RequestStatus } from '@prisma/client';
+import { PrismaClient, UserRole, ConflictType, RequestStatus } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 
 const prisma = new PrismaClient();
 
 async function main() {
-  console.log('Starting seed...');
-
   // Clear existing data
-  await prisma.courseRule.deleteMany();
-  await prisma.rule.deleteMany();
-  await prisma.notification.deleteMany();
-  await prisma.conflict.deleteMany();
-  await prisma.scheduleChangeRequest.deleteMany();
-  await prisma.course.deleteMany();
-  await prisma.schedule.deleteMany();
-  await prisma.adminAction.deleteMany();
-  await prisma.admin.deleteMany();
-  await prisma.counselor.deleteMany();
-  await prisma.student.deleteMany();
-  await prisma.user.deleteMany();
-  await prisma.settings.deleteMany();
+  await prisma.$transaction([
+    prisma.auditLog.deleteMany(),
+    prisma.systemSetting.deleteMany(),
+    prisma.courseWaitlist.deleteMany(),
+    prisma.courseConflict.deleteMany(),
+    prisma.scheduleChangeAction.deleteMany(),
+    prisma.scheduleChangeRequest.deleteMany(),
+    prisma.studentCourseHistory.deleteMany(),
+    prisma.courseSection.deleteMany(),
+    prisma.schedule.deleteMany(),
+    prisma.coursePrerequisite.deleteMany(),
+    prisma.courseSequence.deleteMany(),
+    prisma.course.deleteMany(),
+    prisma.student.deleteMany(),
+    prisma.teacher.deleteMany(),
+    prisma.timeBlock.deleteMany(),
+    prisma.room.deleteMany(),
+    prisma.gradeLevel.deleteMany(),
+    prisma.courseLevel.deleteMany(),
+    prisma.department.deleteMany(),
+    prisma.term.deleteMany(),
+    prisma.schoolYear.deleteMany(),
+    prisma.user.deleteMany(),
+  ]);
 
-  // Create settings
-  await prisma.settings.create({
-    data: {
-      schoolName: 'East High School',
-      academicYear: '2024-2025',
-      semester: 'Fall',
-      maxCourseLoad: 8,
-      allowConflicts: false,
-    },
-  });
+  // Create Users
+  const users = await Promise.all([
+    prisma.user.create({ data: { email: 'admin@schedexpress.com', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.ADMIN, firstName: 'Admin', lastName: 'User' } }),
+    prisma.user.create({ data: { email: 'counselor@schedexpress.com', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.COUNSELOR, firstName: 'Counselor', lastName: 'Smith' } }),
+    prisma.user.create({ data: { email: 'teacher1@schedexpress.com', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.TEACHER, firstName: 'Teacher', lastName: 'Johnson' } }),
+    prisma.user.create({ data: { email: 'teacher2@schedexpress.com', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.TEACHER, firstName: 'Teacher', lastName: 'Williams' } }),
+    prisma.user.create({ data: { email: 'teacher3@schedexpress.com', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.TEACHER, firstName: 'Teacher', lastName: 'Brown' } }),
+    prisma.user.create({ data: { email: 'teacher4@schedexpress.com', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.TEACHER, firstName: 'Teacher', lastName: 'Davis' } }),
+    prisma.user.create({ data: { email: 'teacher5@schedexpress.com', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.TEACHER, firstName: 'Teacher', lastName: 'Miller' } }),
+    prisma.user.create({ data: { email: 'john.smith@schedexpress.com', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.STUDENT, firstName: 'John', lastName: 'Smith' } }),
+    prisma.user.create({ data: { email: 'student2@schedexpress.com', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.STUDENT, firstName: 'Emily', lastName: 'Johnson' } }),
+    prisma.user.create({ data: { email: 'student3@schedexpress.com', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.STUDENT, firstName: 'Michael', lastName: 'Williams' } }),
+  ]);
 
-  // Hash password for all test accounts
-  const password = await bcrypt.hash('Welcome2ES!', 10);
+  // Create School Years
+  const schoolYears = await Promise.all([
+    prisma.schoolYear.create({ data: { name: '2023-2024', startDate: new Date('2023-08-15'), endDate: new Date('2024-06-10'), isCurrent: false } }),
+    prisma.schoolYear.create({ data: { name: '2024-2025', startDate: new Date('2024-08-14'), endDate: new Date('2025-06-09'), isCurrent: true } }),
+    prisma.schoolYear.create({ data: { name: '2025-2026', startDate: new Date('2025-08-13'), endDate: new Date('2026-06-08'), isCurrent: false } }),
+  ]);
 
-  // Create admin user
-  const adminUser = await prisma.user.create({
-    data: {
-      name: 'Admin User',
-      email: 'admin@schedexpress.com',
-      password,
-      role: UserRole.ADMIN,
-    },
-  });
+  // Create Terms
+  const terms = await Promise.all([
+    prisma.term.create({ data: { schoolYearId: schoolYears[0].id, name: 'Fall Semester 2023', startDate: new Date('2023-08-15'), endDate: new Date('2023-12-20'), isCurrent: false } }),
+    prisma.term.create({ data: { schoolYearId: schoolYears[0].id, name: 'Spring Semester 2024', startDate: new Date('2024-01-05'), endDate: new Date('2024-06-10'), isCurrent: false } }),
+    prisma.term.create({ data: { schoolYearId: schoolYears[1].id, name: 'Fall Semester 2024', startDate: new Date('2024-08-14'), endDate: new Date('2024-12-19'), isCurrent: false } }),
+    prisma.term.create({ data: { schoolYearId: schoolYears[1].id, name: 'Spring Semester 2025', startDate: new Date('2025-01-06'), endDate: new Date('2025-06-09'), isCurrent: true } }),
+  ]);
 
-  await prisma.admin.create({
-    data: {
-      userId: adminUser.id,
-      department: 'Administration',
-    },
-  });
+  // Create Departments
+  const departments = await Promise.all([
+    prisma.department.create({ data: { name: 'Mathematics' } }),
+    prisma.department.create({ data: { name: 'English/Language Arts' } }),
+    prisma.department.create({ data: { name: 'Science' } }),
+    prisma.department.create({ data: { name: 'Social Studies' } }),
+    prisma.department.create({ data: { name: 'Art and Design' } }),
+  ]);
 
-  // Create counselor user
-  const counselorUser = await prisma.user.create({
-    data: {
-      name: 'Counselor User',
-      email: 'counselor@schedexpress.com',
-      password,
-      role: UserRole.COUNSELOR,
-    },
-  });
+  // Create Course Levels
+  const courseLevels = await Promise.all([
+    prisma.courseLevel.create({ data: { name: 'Regular', rank: 1 } }),
+    prisma.courseLevel.create({ data: { name: 'Advanced', rank: 2 } }),
+    prisma.courseLevel.create({ data: { name: 'Honors', rank: 3 } }),
+    prisma.courseLevel.create({ data: { name: 'AP', rank: 4 } }),
+    prisma.courseLevel.create({ data: { name: 'Dual Enrollment', rank: 5 } }),
+  ]);
 
-  const counselor = await prisma.counselor.create({
-    data: {
-      userId: counselorUser.id,
-      department: 'Guidance',
-    },
-  });
+  // Create Grade Levels
+  const gradeLevels = await Promise.all([
+    prisma.gradeLevel.create({ data: { name: '6th Grade', level: 6 } }),
+    prisma.gradeLevel.create({ data: { name: '7th Grade', level: 7 } }),
+    prisma.gradeLevel.create({ data: { name: '8th Grade', level: 8 } }),
+    prisma.gradeLevel.create({ data: { name: '9th Grade (Freshman)', level: 9 } }),
+    prisma.gradeLevel.create({ data: { name: '10th Grade (Sophomore)', level: 10 } }),
+  ]);
 
-  // Create student users
-  const studentData = [
-    {
-      name: 'John Smith',
-      email: 'john.smith@schedexpress.com',
-      gradeLevel: 10,
-    },
-    {
-      name: 'Emma Johnson',
-      email: 'emma.johnson@schedexpress.com',
-      gradeLevel: 11,
-    },
-    {
-      name: 'Alex Martinez',
-      email: 'alex.martinez@schedexpress.com',
-      gradeLevel: 9,
-    },
-    {
-      name: 'Sophia Lee',
-      email: 'sophia.lee@schedexpress.com',
-      gradeLevel: 12,
-    },
-  ];
+  // Create Rooms
+  const rooms = await Promise.all([
+    prisma.room.create({ data: { name: '101', capacity: 30 } }),
+    prisma.room.create({ data: { name: '102', capacity: 30 } }),
+    prisma.room.create({ data: { name: '103', capacity: 30 } }),
+    prisma.room.create({ data: { name: '104', capacity: 30 } }),
+    prisma.room.create({ data: { name: '105', capacity: 30 } }),
+  ]);
 
-  const students = {};
+  // Create Time Blocks
+  const timeBlocks = await Promise.all([
+    prisma.timeBlock.create({ data: { name: 'Period 1', startTime: new Date('2024-01-01T08:00:00'), endTime: new Date('2024-01-01T08:50:00') } }),
+    prisma.timeBlock.create({ data: { name: 'Period 2', startTime: new Date('2024-01-01T08:55:00'), endTime: new Date('2024-01-01T09:45:00') } }),
+    prisma.timeBlock.create({ data: { name: 'Period 3', startTime: new Date('2024-01-01T09:50:00'), endTime: new Date('2024-01-01T10:40:00') } }),
+    prisma.timeBlock.create({ data: { name: 'Period 4', startTime: new Date('2024-01-01T10:45:00'), endTime: new Date('2024-01-01T11:35:00') } }),
+    prisma.timeBlock.create({ data: { name: 'Period 5', startTime: new Date('2024-01-01T11:40:00'), endTime: new Date('2024-01-01T12:30:00') } }),
+  ]);
 
-  for (const student of studentData) {
-    const user = await prisma.user.create({
-      data: {
-        name: student.name,
-        email: student.email,
-        password,
-        role: UserRole.STUDENT,
-      },
-    });
+  // Create Teachers
+  const teachers = await Promise.all([
+    prisma.teacher.create({ data: { email: 'teacher1@edu.edu', departmentId: departments[0].id, maxCourses: 6 } }),
+    prisma.teacher.create({ data: { email: 'teacher2@edu.edu',departmentId: departments[1].id, maxCourses: 6 } }),
+    prisma.teacher.create({ data: { email: 'teacher3@edu.edu', departmentId: departments[2].id, maxCourses: 6 } }),
+    prisma.teacher.create({ data: { email: 'teacher4@edu.edu', departmentId: departments[3].id, maxCourses: 6 } }),
+    prisma.teacher.create({ data: { email: 'teacher5@edu.edu', departmentId: departments[4].id, maxCourses: 6 } }),
+  ]);
 
-    const createdStudent = await prisma.student.create({
-      data: {
-        userId: user.id,
-        gradeLevel: student.gradeLevel,
-      },
-    });
-    
-    students[student.name] = createdStudent;
-  }
+  /*
+   id           String     @id @default(cuid())
+  name         String?
+  email        String     @unique
+  password     String?
+  departmentId String
+  maxCourses   Int        @default(6)
+  isActive     Boolean    @default(true)
+  */
 
-  // Create courses
-  const coursesData = [
-    {
-      name: 'Algebra II',
-      courseCode: 'MATH201',
-      teacher: 'Mr. Johnson',
-      period: 1,
-      room: 'Room 101',
-      capacity: 25,
-    },
-    {
-      name: 'Biology',
-      courseCode: 'BIO101',
-      teacher: 'Mrs. Smith',
-      period: 2,
-      room: 'Room 230',
-      capacity: 24,
-    },
-    {
-      name: 'English Literature',
-      courseCode: 'ENG103',
-      teacher: 'Ms. Davis',
-      period: 3,
-      room: 'Room 310',
-      capacity: 30,
-    },
-    {
-      name: 'World History',
-      courseCode: 'HIST102',
-      teacher: 'Mr. Williams',
-      period: 4,
-      room: 'Room 220',
-      capacity: 28,
-    },
-    {
-      name: 'Chemistry',
-      courseCode: 'CHEM201',
-      teacher: 'Dr. Brown',
-      period: 5,
-      room: 'Room 240',
-      capacity: 20,
-    },
-    {
-      name: 'Physics',
-      courseCode: 'PHYS201',
-      teacher: 'Dr. Miller',
-      period: 3,
-      room: 'Room 245',
-      capacity: 20,
-    },
-    {
-      name: 'Spanish I',
-      courseCode: 'SPAN101',
-      teacher: 'Sr. Rodriguez',
-      period: 6,
-      room: 'Room 150',
-      capacity: 22,
-    },
-    {
-      name: 'Art History',
-      courseCode: 'ART102',
-      teacher: 'Ms. Wilson',
-      period: 7,
-      room: 'Room 400',
-      capacity: 25,
-    },
-    {
-      name: 'Algebra I',
-      courseCode: 'MATH101',
-      teacher: 'Mrs. Thompson',
-      period: 1,
-      room: 'Room 102',
-      capacity: 28,
-    },
-    {
-      name: 'Advanced Biology',
-      courseCode: 'BIO201',
-      teacher: 'Dr. Wilson',
-      period: 2,
-      room: 'Room 231',
-      capacity: 22,
-    },
-  ];
+  // Create Students
+  const students = await Promise.all([
+    prisma.student.create({ data: { userId: users[7].id, studentId: 'S100001', gradeLevelId: gradeLevels[3].id, graduationYear: 2028, hasIep: false, isDualEnrollment: false, isCollegeBound: true, isCreditRecovery: false, maxCreditsPerTerm: 8.0 } }),
+    prisma.student.create({ data: { userId: users[8].id, studentId: 'S100002', gradeLevelId: gradeLevels[4].id, graduationYear: 2027, hasIep: false, isDualEnrollment: false, isCollegeBound: true, isCreditRecovery: false, maxCreditsPerTerm: 8.0 } }),
+    prisma.student.create({ data: { userId: users[9].id, studentId: 'S100003', gradeLevelId: gradeLevels[4].id, graduationYear: 2027, hasIep: true, isDualEnrollment: false, isCollegeBound: true, isCreditRecovery: false, maxCreditsPerTerm: 7.0 } }),
+  ]);
 
-  const courses = {};
+  // Create Courses
+  const courses = await Promise.all([
+    // Mathematics Courses
+    prisma.course.create({ data: { code: 'MATH101', name: 'Algebra 1', description: 'Introduction to algebraic concepts', departmentId: departments[0].id, credits: 1.0, courseLevelId: courseLevels[0].id, minGradeLevelId: gradeLevels[3].id, isElective: false, isCore: true } }),
+    prisma.course.create({ data: { code: 'MATH201', name: 'Geometry', description: 'Study of shapes and spatial relationships', departmentId: departments[0].id, credits: 1.0, courseLevelId: courseLevels[0].id, minGradeLevelId: gradeLevels[3].id, isElective: false, isCore: true } }),
+    prisma.course.create({ data: { code: 'MATH301', name: 'Algebra 2', description: 'Advanced algebraic concepts', departmentId: departments[0].id, credits: 1.0, courseLevelId: courseLevels[0].id, minGradeLevelId: gradeLevels[4].id, isElective: false, isCore: true } }),
+  ]);
 
-  for (const courseData of coursesData) {
-    const course = await prisma.course.create({
-      data: courseData,
-    });
-    courses[courseData.courseCode] = course;
-  }
+  // Create Course Prerequisites
+  await Promise.all([
+    prisma.coursePrerequisite.create({ data: { courseId: courses[1].id, prerequisiteCourseId: courses[0].id } }),
+    prisma.coursePrerequisite.create({ data: { courseId: courses[2].id, prerequisiteCourseId: courses[1].id } }),
+  ]);
 
-  // Create general rules
-  const rulesData = [
-    {
-      name: 'Maximum Course Load',
-      type: RuleType.OTHER,
-      description: 'Students cannot take more than 8 courses per semester.',
-      isActive: true,
-    },
-    {
-      name: 'Schedule Conflicts',
-      type: RuleType.SCHEDULE_OVERLAP,
-      description: 'Students cannot have overlapping course periods.',
-      isActive: true,
-    },
-    {
-      name: 'Grade Level Requirements',
-      type: RuleType.GRADE_REQUIREMENT,
-      description: 'Students must meet the minimum grade level for certain courses.',
-      isActive: true,
-    },
-    {
-      name: 'Course Capacity Limits',
-      type: RuleType.CAPACITY,
-      description: 'Courses cannot exceed their maximum capacity.',
-      isActive: true,
-    },
-    {
-      name: 'Prerequisite Requirements',
-      type: RuleType.PREREQUISITE,
-      description: 'Students must complete prerequisite courses before advanced courses.',
-      isActive: true,
-    },
-  ];
+  // Create Course Sections
+  const sections = await Promise.all([
+    prisma.courseSection.create({ data: { courseId: courses[0].id, sectionNumber: 'A', schoolYearId: schoolYears[1].id, termId: terms[3].id, timeBlockId: timeBlocks[0].id, roomId: rooms[0].id, teacherId: teachers[0].id, maxEnrollment: 30, currentEnrollment: 28 } }),
+    prisma.courseSection.create({ data: { courseId: courses[0].id, sectionNumber: 'B', schoolYearId: schoolYears[1].id, termId: terms[3].id, timeBlockId: timeBlocks[2].id, roomId: rooms[0].id, teacherId: teachers[0].id, maxEnrollment: 30, currentEnrollment: 25 } }),
+    prisma.courseSection.create({ data: { courseId: courses[1].id, sectionNumber: 'A', schoolYearId: schoolYears[1].id, termId: terms[3].id, timeBlockId: timeBlocks[1].id, roomId: rooms[1].id, teacherId: teachers[0].id, maxEnrollment: 30, currentEnrollment: 30 } }),
+  ]);
 
-  for (const ruleData of rulesData) {
-    await prisma.rule.create({
-      data: ruleData,
-    });
-  }
+  // Create Course Conflicts
+  await Promise.all([
+    prisma.courseConflict.create({ data: { courseSectionId1: sections[0].id, courseSectionId2: sections[1].id, conflictType: ConflictType.SCHEDULE_OVERLAP, isResolvable: true, resolutionNotes: 'Students can choose either section' } }),
+  ]);
 
-  // Create course-specific rules
-  const courseRulesData = [
-    {
-      courseId: courses['MATH201'].id, // Algebra II
-      conflictingCourseId: courses['MATH101'].id, // Algebra I
-      type: RuleType.PREREQUISITE,
-      description: 'Algebra I is a prerequisite for Algebra II',
-      isActive: true,
-    },
-    {
-      courseId: courses['CHEM201'].id, // Chemistry
-      conflictingCourseId: courses['BIO101'].id, // Biology
-      type: RuleType.PREREQUISITE,
-      description: 'Biology is a prerequisite for Chemistry',
-      isActive: true,
-    },
-    {
-      courseId: courses['PHYS201'].id, // Physics
-      conflictingCourseId: courses['MATH201'].id, // Algebra II
-      type: RuleType.PREREQUISITE,
-      description: 'Algebra II is a prerequisite for Physics',
-      isActive: true,
-    },
-    {
-      courseId: courses['BIO201'].id, // Advanced Biology
-      conflictingCourseId: courses['BIO101'].id, // Biology
-      type: RuleType.PREREQUISITE,
-      description: 'Biology is a prerequisite for Advanced Biology',
-      isActive: true,
-    },
-    {
-      courseId: courses['PHYS201'].id, // Physics
-      conflictingCourseId: courses['ENG103'].id, // English Literature
-      type: RuleType.SCHEDULE_OVERLAP,
-      description: 'Physics and English Literature are scheduled at the same time (Period 3)',
-      isActive: true,
-    },
-  ];
+  // Create Course Waitlists
+  await Promise.all([
+    prisma.courseWaitlist.create({ data: { courseSectionId: sections[2].id, studentId: students[0].id, position: 1 } }),
+  ]);
 
-  for (const courseRuleData of courseRulesData) {
-    await prisma.courseRule.create({
-      data: courseRuleData,
-    });
-  }
+  // Create System Settings
+  await Promise.all([
+    prisma.systemSetting.create({ data: { key: 'MAX_COURSES_PER_STUDENT', value: '8', description: 'Maximum number of courses a student can enroll in per term' } }),
+    prisma.systemSetting.create({ data: { key: 'MIN_COURSES_PER_STUDENT', value: '6', description: 'Minimum number of courses a student must enroll in per term' } }),
+  ]);
 
-  // Create a schedule for John Smith
-  const johnSmithSchedule = await prisma.schedule.create({
-    data: {
-      studentId: students['John Smith'].id,
-      semester: 'Fall',
-      year: 2024,
-      courses: {
-        connect: [
-          { id: courses['MATH101'].id }, // Algebra I
-          { id: courses['BIO101'].id },  // Biology
-          { id: courses['ENG103'].id },  // English Literature
-          { id: courses['HIST102'].id }, // World History
-          { id: courses['SPAN101'].id }, // Spanish I
-          { id: courses['ART102'].id },  // Art History
-        ]
-      }
-    }
-  });
-
-  console.log(`Created schedule for John Smith with ID: ${johnSmithSchedule.id}`);
-
-  // Update course enrollment numbers
-  await prisma.course.update({
-    where: { id: courses['MATH101'].id },
-    data: { currentEnrollment: { increment: 1 } }
-  });
-  await prisma.course.update({
-    where: { id: courses['BIO101'].id },
-    data: { currentEnrollment: { increment: 1 } }
-  });
-  await prisma.course.update({
-    where: { id: courses['ENG103'].id },
-    data: { currentEnrollment: { increment: 1 } }
-  });
-  await prisma.course.update({
-    where: { id: courses['HIST102'].id },
-    data: { currentEnrollment: { increment: 1 } }
-  });
-  await prisma.course.update({
-    where: { id: courses['SPAN101'].id },
-    data: { currentEnrollment: { increment: 1 } }
-  });
-  await prisma.course.update({
-    where: { id: courses['ART102'].id },
-    data: { currentEnrollment: { increment: 1 } }
-  });
-
-  // Create a schedule change request for John Smith
-  // John wants to switch from Algebra I to Algebra II
-  const scheduleChangeRequest = await prisma.scheduleChangeRequest.create({
-    data: {
-      studentId: students['John Smith'].id,
-      counselorId: counselor.id,
-      currentCourseId: courses['MATH101'].id, // Algebra I
-      newCourseId: courses['MATH201'].id,     // Algebra II
-      reason: "I've completed the Algebra I summer course and would like to advance to Algebra II.",
-      comments: "Student provided certificate of completion for summer Algebra I course.",
-      status: RequestStatus.PENDING
-    }
-  });
-
-  console.log(`Created schedule change request for John Smith with ID: ${scheduleChangeRequest.id}`);
-
-  // Create a conflict for this request based on the prerequisite rule
-  const conflict = await prisma.conflict.create({
-    data: {
-      description: "Prerequisite course (Algebra I) is currently enrolled and not completed",
-      courseId: courses['MATH201'].id,
-      requestId: scheduleChangeRequest.id,
-      resolved: false,
-      type: "PREREQUISITE"
-    }
-  });
-
-  console.log(`Created conflict for John's schedule change request with ID: ${conflict.id}`);
-
-  // Create a notification for John about his request
-  const notification = await prisma.notification.create({
-    data: {
-      studentId: students['John Smith'].id,
-      message: "Your schedule change request has been submitted. A counselor will review it shortly.",
-      read: false,
-      type: "REQUEST_UPDATE"
-    }
-  });
-
-  console.log(`Created notification for John Smith with ID: ${notification.id}`);
-
-  console.log('Seed completed successfully!');
+  console.log('Seed data created successfully');
 }
 
 main()
   .catch((e) => {
-    console.error('Error in seed script:', e);
+    console.error(e);
     process.exit(1);
   })
   .finally(async () => {

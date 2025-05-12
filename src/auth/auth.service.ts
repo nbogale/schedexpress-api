@@ -20,12 +20,12 @@ export class AuthService {
       return null;
     }
 
-    const isPasswordValid = await bcrypt.compare(password, user.password);
+    const isPasswordValid = await bcrypt.compare(password, user.passwordHash);
     if (!isPasswordValid) {
       return null;
     }
 
-    const { password: _, ...result } = user;
+    const { passwordHash: _, ...result } = user;
     return result;
   }
 
@@ -40,16 +40,16 @@ export class AuthService {
     let roleData = null;
     
     if (user.role === 'STUDENT') {
-      roleData = await this.prisma.student.findUnique({
-        where: { userId: user.id },
+      roleData = await this.prisma.user.findUnique({
+        where: { id: user.id },
       });
     } else if (user.role === 'COUNSELOR') {
-      roleData = await this.prisma.counselor.findUnique({
-        where: { userId: user.id },
+      roleData = await this.prisma.user.findUnique({
+        where: { id: user.id },
       });
     } else if (user.role === 'ADMIN') {
-      roleData = await this.prisma.admin.findUnique({
-        where: { userId: user.id },
+      roleData = await this.prisma.user.findUnique({
+        where: { id: user.id },
       });
     }
 
@@ -63,7 +63,8 @@ export class AuthService {
       user: {
         id: user.id,
         email: user.email,
-        name: user.name,
+        firstName: user.firstName,
+        lastName: user.lastName,
         role: user.role,
         roleData,
       },

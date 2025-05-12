@@ -1,9 +1,18 @@
-import { IsInt, IsNotEmpty, IsPositive, IsString, Max, Min } from 'class-validator';
+import { IsBoolean, IsDecimal, IsNotEmpty, IsOptional, IsString, IsUUID } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
+import { Type } from 'class-transformer';
 
 export class CreateCourseDto {
   @ApiProperty({
-    example: 'Algebra II',
+    example: 'MATH101',
+    description: 'Unique course code',
+  })
+  @IsString()
+  @IsNotEmpty()
+  code: string;
+
+  @ApiProperty({
+    example: 'Algebra 1',
     description: 'Course name',
   })
   @IsString()
@@ -11,43 +20,74 @@ export class CreateCourseDto {
   name: string;
 
   @ApiProperty({
-    example: 'MATH201',
-    description: 'Unique course code',
+    example: 'Introduction to algebraic concepts',
+    description: 'Course description',
+    required: false,
+  })
+  @IsString()
+  @IsOptional()
+  description?: string;
+
+  @ApiProperty({
+    example: 'clg123xyz',
+    description: 'Department ID',
   })
   @IsString()
   @IsNotEmpty()
-  courseCode: string;
+  departmentId: string;
 
   @ApiProperty({
-    example: 'Mr. Johnson',
-    description: 'Teacher name',
+    example: 1.0,
+    description: 'Number of credits',
+  })
+  @IsDecimal()
+  @Type(() => Number)
+  credits: number;
+
+  @ApiProperty({
+    example: 'clg456abc',
+    description: 'Course level ID',
   })
   @IsString()
   @IsNotEmpty()
-  teacher: string;
+  courseLevelId: string;
 
   @ApiProperty({
-    example: 3,
-    description: 'Period number (1-8)',
-  })
-  @IsInt()
-  @Min(1)
-  @Max(8)
-  period: number;
-
-  @ApiProperty({
-    example: 'Room 304',
-    description: 'Classroom',
+    example: 'clg789def',
+    description: 'Minimum grade level ID',
   })
   @IsString()
   @IsNotEmpty()
-  room: string;
+  minGradeLevelId: string;
 
   @ApiProperty({
     example: 30,
     description: 'Maximum number of students',
   })
-  @IsInt()
-  @IsPositive()
-  capacity: number;
+  @IsOptional()
+  maxStudents?: number;
+
+  @ApiProperty({
+    example: false,
+    description: 'Whether the course is an elective',
+  })
+  @IsBoolean()
+  @IsOptional()
+  isElective?: boolean;
+
+  @ApiProperty({
+    example: true,
+    description: 'Whether the course is a core requirement',
+  })
+  @IsBoolean()
+  @IsOptional()
+  isCore?: boolean;
+
+  @ApiProperty({
+    example: true,
+    description: 'Whether the course is active',
+  })
+  @IsBoolean()
+  @IsOptional()
+  isActive?: boolean;
 }

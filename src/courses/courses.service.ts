@@ -10,17 +10,16 @@ export class CoursesService {
   async create(createCourseDto: CreateCourseDto) {
     // Check if course code already exists
     const existingCourse = await this.prisma.course.findUnique({
-      where: { courseCode: createCourseDto.courseCode },
+      where: { code: createCourseDto.code },
     });
 
     if (existingCourse) {
-      throw new ConflictException(`Course with code ${createCourseDto.courseCode} already exists`);
+      throw new ConflictException(`Course with code ${createCourseDto.code} already exists`);
     }
 
     return this.prisma.course.create({
       data: {
         ...createCourseDto,
-        currentEnrollment: 0,
       },
     });
   }
@@ -28,7 +27,7 @@ export class CoursesService {
   async findAll() {
     return this.prisma.course.findMany({
       orderBy: [
-        { period: 'asc' },
+        //{ period: 'asc' },
         { name: 'asc' },
       ],
     });
@@ -37,7 +36,7 @@ export class CoursesService {
   async findOne(id: string) {
     const course = await this.prisma.course.findUnique({
       where: { id },
-      include: {
+      /* include: {
         schedules: {
           include: {
             student: {
@@ -52,7 +51,7 @@ export class CoursesService {
             },
           },
         },
-      },
+      }, */
     });
 
     if (!course) {
@@ -73,13 +72,13 @@ export class CoursesService {
     }
 
     // If course code is being updated, check if it's unique
-    if (updateCourseDto.courseCode && updateCourseDto.courseCode !== course.courseCode) {
+    if (updateCourseDto.code && updateCourseDto.code !== course.code) {
       const existingCourse = await this.prisma.course.findUnique({
-        where: { courseCode: updateCourseDto.courseCode },
+        where: { code: updateCourseDto.code },
       });
 
       if (existingCourse) {
-        throw new ConflictException(`Course with code ${updateCourseDto.courseCode} already exists`);
+        throw new ConflictException(`Course with code ${updateCourseDto.code} already exists`);
       }
     }
 
@@ -93,11 +92,11 @@ export class CoursesService {
     // Check if course exists
     const course = await this.prisma.course.findUnique({
       where: { id },
-      include: {
+      /* include: {
         schedules: true,
         currentRequests: true,
         newRequests: true,
-      },
+      }, */
     });
 
     if (!course) {
@@ -105,13 +104,14 @@ export class CoursesService {
     }
 
     // Check if course is associated with any schedules or requests
-    if (course.schedules.length > 0) {
+    //TODO: revisi this below conditions
+   /*  if (course.schedules.length > 0) {
       throw new ConflictException('Cannot delete course that is in use by student schedules');
     }
 
     if (course.currentRequests.length > 0 || course.newRequests.length > 0) {
       throw new ConflictException('Cannot delete course that has pending change requests');
-    }
+    } */
 
     return this.prisma.course.delete({
       where: { id },

@@ -4,12 +4,20 @@ import { UserRole } from '@prisma/client';
 
 export class CreateUserDto {
   @ApiProperty({
-    example: 'John Smith',
-    description: 'User full name',
+    example: 'John',
+    description: 'User first name',
   })
   @IsString()
   @IsNotEmpty()
-  name: string;
+  firstName: string;
+
+  @ApiProperty({
+    example: 'Smith',
+    description: 'User last name',
+  })
+  @IsString()
+  @IsNotEmpty()
+  lastName: string;
 
   @ApiProperty({
     example: 'john.smith@schedexpress.com',
@@ -51,7 +59,7 @@ export class CreateUserDto {
     description: 'Grade level (for students)',
     required: false,
   })
-  @IsInt()
+  @IsString()
   @IsOptional()
-  gradeLevel?: number;
+  gradeLevel?: string;
 }

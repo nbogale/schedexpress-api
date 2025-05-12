@@ -21,11 +21,8 @@ export class StudentsService {
 
   async findByCounselor(counselorId: string) {
     // First get the counselor details to get department
-    const counselor = await this.prisma.counselor.findUnique({
-      where: { id: counselorId },
-      include: {
-        user: true,
-      },
+    const counselor = await this.prisma.user.findUnique({
+      where: { id: counselorId, role: UserRole.COUNSELOR },
     });
 
     if (!counselor) {
@@ -67,10 +64,10 @@ export class StudentsService {
     const student = await this.findOne(id);
 
     // Update the user's name if provided
-    if (updateStudentDto.name) {
+    if (updateStudentDto.firstName) {
       await this.prisma.user.update({
         where: { id },
-        data: { name: updateStudentDto.name },
+        data: { firstName: updateStudentDto.firstName },
         include: {
           student: true
         }
@@ -78,10 +75,10 @@ export class StudentsService {
     }
 
     // Update the student info if grade level provided
-    if (updateStudentDto.gradeLevel) {
+    if (updateStudentDto.gradeLevelId) {
       await this.prisma.student.update({
         where: { userId: id },
-        data: { gradeLevel: updateStudentDto.gradeLevel },
+        data: { gradeLevelId: updateStudentDto.gradeLevelId },
       });
     }
 

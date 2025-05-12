@@ -30,7 +30,7 @@ export class UsersService {
       const user = await prisma.user.create({
         data: {
           ...userData,
-          password: hashedPassword,
+          passwordHash: hashedPassword,
           role,
         },
       });
@@ -40,31 +40,33 @@ export class UsersService {
         if (!gradeLevel) {
           throw new ConflictException('Grade level is required for students');
         }
-        
-        await prisma.student.create({
+        // TODO: Add student record(grade level)
+       /*  await prisma.user.create({
           data: {
-            userId: user.id,
+            id: user.id,
             gradeLevel,
           },
-        });
+        }); */
       } else if (role === UserRole.COUNSELOR) {
-        await prisma.counselor.create({
+        // TODO: Add counselor record
+        /* await prisma.user.create({
           data: {
-            userId: user.id,
+            id: user.id,
             department,
           },
-        });
+        }); */
       } else if (role === UserRole.ADMIN) {
-        await prisma.admin.create({
+        // TODO: Add admin record
+       /*  await prisma.admin.create({
           data: {
             userId: user.id,
             department,
           },
-        });
+        }); */
       }
 
       // Return user without password
-      const { password, ...result } = user;
+      const { passwordHash, ...result } = user;
       return result;
     });
   }
@@ -74,7 +76,8 @@ export class UsersService {
       select: {
         id: true,
         email: true,
-        name: true,
+        firstName: true,
+        lastName: true,
         role: true,
         createdAt: true,
         updatedAt: true,
@@ -83,19 +86,7 @@ export class UsersService {
             id: true,
             gradeLevel: true,
           },
-        },
-        counselor: {
-          select: {
-            id: true,
-            department: true,
-          },
-        },
-        admin: {
-          select: {
-            id: true,
-            department: true,
-          },
-        },
+        }
       },
     });
 
@@ -108,7 +99,8 @@ export class UsersService {
       select: {
         id: true,
         email: true,
-        name: true,
+        firstName: true,
+        lastName: true,
         role: true,
         createdAt: true,
         updatedAt: true,
@@ -117,19 +109,7 @@ export class UsersService {
             id: true,
             gradeLevel: true,
           },
-        },
-        counselor: {
-          select: {
-            id: true,
-            department: true,
-          },
-        },
-        admin: {
-          select: {
-            id: true,
-            department: true,
-          },
-        },
+        }
       },
     });
 
@@ -170,28 +150,29 @@ export class UsersService {
       });
 
       // Update role-specific data if provided
-      if (user.role === UserRole.STUDENT && gradeLevel !== undefined) {
-        await prisma.student.update({
-          where: { userId: id },
+      // TODO: Add role-specific data if provided
+     /*  if (user.role === UserRole.STUDENT && gradeLevel !== undefined) {
+        await prisma.user.update({
+          where: { id },
           data: { gradeLevel },
         });
       } else if ((user.role === UserRole.COUNSELOR || user.role === UserRole.ADMIN) && 
                  department !== undefined) {
         if (user.role === UserRole.COUNSELOR) {
-          await prisma.counselor.update({
-            where: { userId: id },
+          await prisma.user.update({
+            where: { id },
             data: { department },
           });
         } else {
-          await prisma.admin.update({
-            where: { userId: id },
+          await prisma.user.update({
+            where: { id },
             data: { department },
           });
         }
-      }
+      } */
 
       // Return user without password
-      const { password, ...result } = updatedUser;
+      const { passwordHash, ...result } = updatedUser;
       return result;
     });
   }
@@ -212,16 +193,16 @@ export class UsersService {
     return this.prisma.$transaction(async (prisma) => {
       // Delete role-specific record
       if (user.role === UserRole.STUDENT) {
-        await prisma.student.delete({
-          where: { userId: id },
+        await prisma.user.delete({
+          where: { id },
         });
       } else if (user.role === UserRole.COUNSELOR) {
-        await prisma.counselor.delete({
-          where: { userId: id },
+        await prisma.user.delete({
+          where: { id },
         });
       } else if (user.role === UserRole.ADMIN) {
-        await prisma.admin.delete({
-          where: { userId: id },
+        await prisma.user.delete({
+          where: { id },
         });
       }
 

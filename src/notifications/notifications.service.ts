@@ -43,8 +43,8 @@ export class NotificationsService {
       where: { id: userId },
       include: {
         student: true,
-        counselor: true,
-        admin: true,
+       // counselor: true,
+       // admin: true,
       },
     });
 
@@ -55,10 +55,8 @@ export class NotificationsService {
     let query = {};
     if (user.student) {
       query = { studentId: user.student.id };
-    } else if (user.counselor) {
-      query = { counselorId: user.counselor.id };
-    } else if (user.admin) {
-      query = { adminId: user.admin.id };
+    } else {
+      query = { userId: user.id };
     }
 
     return this.prisma.notification.findMany({
@@ -81,8 +79,8 @@ export class NotificationsService {
       where: { id: userId },
       include: {
         student: true,
-        counselor: true,
-        admin: true,
+        //counselor: true,
+        //admin: true,
       },
     });
 
@@ -93,10 +91,8 @@ export class NotificationsService {
     let query = {};
     if (user.student) {
       query = { studentId: user.student.id };
-    } else if (user.counselor) {
-      query = { counselorId: user.counselor.id };
-    } else if (user.admin) {
-      query = { adminId: user.admin.id };
+    } else {
+      query = { userId: user.id };
     }
 
     return this.prisma.notification.updateMany({

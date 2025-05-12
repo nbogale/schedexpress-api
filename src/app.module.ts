@@ -7,7 +7,7 @@ import { UsersModule } from './users/users.module';
 import { CoursesModule } from './courses/courses.module';
 import { SchedulesModule } from './schedules/schedules.module';
 import { ScheduleChangeRequestsModule } from './schedule-change-requests/schedule-change-requests.module';
-import { ConflictsModule } from './conflicts/conflicts.module';
+import { ConflictsModule } from './course-conflicts/conflicts.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { SettingsModule } from './settings/settings.module';
 import { CourseRulesModule } from './course-rules/course-rules.module';

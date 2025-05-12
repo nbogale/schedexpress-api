@@ -1,21 +1,17 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { ConflictType } from '@prisma/client';
+import { CreateCourseConflictDto } from './dto/create-course-conflict.dto';
 
 @Injectable()
 export class ConflictsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async createConflict(data: {
-    description: string;
-    courseId: string;
-    requestId: string;
-    type: ConflictType;
-  }) {
-    return this.prisma.conflict.create({
+  async createConflict(data: CreateCourseConflictDto) {
+    return this.prisma.courseConflict.create({
       data: {
         ...data,
-        resolved: false,
+        isResolvable: false,
       },
     });
   }
@@ -27,7 +23,11 @@ export class ConflictsService {
     const schedule = await this.prisma.schedule.findUnique({
       where: { studentId },
       include: {
-        courses: true,
+        courseSections: {
+          include: {
+            course: true,
+          },
+        },
       },
     });
 
@@ -37,18 +37,20 @@ export class ConflictsService {
 
     // Get the current and new courses
     const [currentCourse, newCourse] = await Promise.all([
-      this.prisma.course.findUnique({ where: { id: currentCourseId } }),
-      this.prisma.course.findUnique({ where: { id: newCourseId } }),
+      this.prisma.courseSection.findUnique({ where: { id: currentCourseId } , include: {course: true}}),
+      this.prisma.courseSection.findUnique({ where: { id: newCourseId } , include: {course: true}}),
     ]);
 
     // Check for existing period conflict
-    const potentialPeriodConflict = schedule.courses.find(
-      course => course.period === newCourse.period && course.id !== currentCourseId
+    const potentialPeriodConflict = schedule.courseSections.find(
+      //TODO: revisit the below condition
+     // courseSection => courseSection.period === newCourse.period && courseSection.id !== currentCourseId
+     courseSection => courseSection.timeBlockId === newCourse.timeBlockId && courseSection.id !== currentCourseId
     );
 
     if (potentialPeriodConflict) {
       conflicts.push({
-        description: `Period conflict with ${potentialPeriodConflict.name} (Period ${potentialPeriodConflict.period})`,
+        description: `Period conflict with ${potentialPeriodConflict.course.name} (Period ${potentialPeriodConflict.timeBlockId})`,
         courseId: potentialPeriodConflict.id,
         requestId,
         type: ConflictType.SCHEDULE_OVERLAP,
@@ -56,12 +58,12 @@ export class ConflictsService {
     }
 
     // Check for capacity conflict
-    if (newCourse.currentEnrollment >= newCourse.capacity) {
+    if (newCourse.currentEnrollment >= newCourse.maxEnrollment) {
       conflicts.push({
-        description: `${newCourse.name} is at capacity (${newCourse.currentEnrollment}/${newCourse.capacity})`,
+        description: `${newCourse.courseId} is at capacity (${newCourse.currentEnrollment}/${newCourse.maxEnrollment})`,
         courseId: newCourse.id,
         requestId,
-        type: ConflictType.CAPACITY,
+        type: ConflictType.MAX_ENROLLMENT_REACHED,
       });
     }
 
@@ -76,8 +78,9 @@ export class ConflictsService {
   }
 
   async findAll() {
-    return this.prisma.conflict.findMany({
-      include: {
+    return this.prisma.courseConflict.findMany({
+      //TODO: revisit the below condition
+     /*  include: {
         course: true,
         request: {
           include: {
@@ -97,16 +100,16 @@ export class ConflictsService {
       },
       orderBy: {
         createdAt: 'desc',
-      },
+      }, */
     });
   }
 
   async findByRequest(requestId: string) {
-    return this.prisma.conflict.findMany({
+    return this.prisma.courseConflict.findMany({
       where: { requestId },
-      include: {
+     /*  include: {
         course: true,
-      },
+      }, */
       orderBy: {
         createdAt: 'desc',
       },
@@ -114,9 +117,9 @@ export class ConflictsService {
   }
 
   async resolveConflict(id: string) {
-    return this.prisma.conflict.update({
+    return this.prisma.courseConflict.update({
       where: { id },
-      data: { resolved: true },
+      data: { isResolvable: true },
     });
   }
 }

@@ -1,25 +1,98 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsNotEmpty, IsNumber, IsOptional, IsString, Min, Max } from 'class-validator';
+import { IsBoolean, IsDecimal, IsInt, IsOptional, IsString, Min, Max } from 'class-validator';
+import { Type } from 'class-transformer';
 
 export class UpdateStudentDto {
   @ApiProperty({
-    description: 'Student name',
-    example: 'John Doe',
+    description: 'Student ID number',
+    example: 'S100001',
     required: false,
   })
   @IsString()
-  @IsNotEmpty()
   @IsOptional()
-  name?: string;
+  studentId?: string;
 
   @ApiProperty({
-    description: 'Student grade level (9-12)',
-    example: 10,
+    description: 'Grade level ID',
+    example: 'clg123xyz',
     required: false,
   })
-  @IsNumber()
-  @Min(9)
-  @Max(12)
+  @IsString()
   @IsOptional()
-  gradeLevel?: number;
+  gradeLevelId?: string;
+
+  @ApiProperty({
+    description: 'Expected graduation year',
+    example: 2025,
+    required: false,
+  })
+  @IsInt()
+  @Min(2000)
+  @Max(2100)
+  @IsOptional()
+  graduationYear?: number;
+
+  @ApiProperty({
+    description: 'Whether the student has an Individualized Education Program',
+    example: false,
+    required: false,
+  })
+  @IsBoolean()
+  @IsOptional()
+  hasIep?: boolean;
+
+  @ApiProperty({
+    description: 'Whether the student is enrolled in dual enrollment programs',
+    example: false,
+    required: false,
+  })
+  @IsBoolean()
+  @IsOptional()
+  isDualEnrollment?: boolean;
+
+  @ApiProperty({
+    description: 'Whether the student is college-bound',
+    example: true,
+    required: false,
+  })
+  @IsBoolean()
+  @IsOptional()
+  isCollegeBound?: boolean;
+
+  @ApiProperty({
+    description: 'Whether the student is in credit recovery',
+    example: false,
+    required: false,
+  })
+  @IsBoolean()
+  @IsOptional()
+  isCreditRecovery?: boolean;
+
+  @ApiProperty({
+    description: 'Maximum credits allowed per term',
+    example: 8.0,
+    required: false,
+  })
+  @IsDecimal()
+  @Type(() => Number)
+  @IsOptional()
+  maxCreditsPerTerm?: number;
+
+  @ApiProperty({
+    description: 'First name',
+    example: 'John',
+    required: false,
+  })  
+  @IsString()
+  @IsOptional()
+  firstName?: string;
+
+  @ApiProperty({  
+    description: 'Last name',
+    example: 'Smith',
+    required: false,
+  })
+  @IsString()
+  @IsOptional()
+  lastName?: string;
 }

@@ -3,7 +3,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreateRequestDto } from './dto/create-request.dto';
 import { UpdateRequestDto } from './dto/update-request.dto';
 import { NotificationsService } from '../notifications/notifications.service';
-import { ConflictsService } from '../conflicts/conflicts.service';
+import { ConflictsService } from '../course-conflicts/conflicts.service';
 import { NotificationType, RequestStatus, UserRole } from '@prisma/client';
 
 @Injectable()
@@ -15,7 +15,7 @@ export class ScheduleChangeRequestsService {
   ) {}
 
   async create(createRequestDto: CreateRequestDto) {
-    const { studentId, currentCourseId, newCourseId } = createRequestDto;
+    const { studentId, currentCourseSectionId, requestedCourseId } = createRequestDto;
 
     // Check if student exists
     const student = await this.prisma.student.findUnique({
@@ -24,7 +24,7 @@ export class ScheduleChangeRequestsService {
         user: true,
         schedule: {
           include: {
-            courses: true,
+            courseSections: true,
           },
         },
       },
@@ -40,8 +40,8 @@ export class ScheduleChangeRequestsService {
     }
 
     // Check if current course is in student's schedule
-    const hasCourse = student.schedule.courses.some(
-      course => course.id === currentCourseId
+    const hasCourse = student.schedule.courseSections.some(
+      course => course.id === currentCourseSectionId
     );
 
     if (!hasCourse) {
@@ -50,21 +50,21 @@ export class ScheduleChangeRequestsService {
 
     // Check if courses exist
     const [currentCourse, newCourse] = await Promise.all([
-      this.prisma.course.findUnique({ where: { id: currentCourseId } }),
-      this.prisma.course.findUnique({ where: { id: newCourseId } }),
+      this.prisma.courseSection.findUnique({ where: { id: currentCourseSectionId } , include: {course: true}}),
+      this.prisma.courseSection.findUnique({ where: { id: requestedCourseId } , include: {course: true}}),
     ]);
 
     if (!currentCourse) {
-      throw new NotFoundException(`Current course with ID ${currentCourseId} not found`);
+      throw new NotFoundException(`Current course with ID ${currentCourseSectionId} not found`);
     }
 
     if (!newCourse) {
-      throw new NotFoundException(`New course with ID ${newCourseId} not found`);
+      throw new NotFoundException(`New course with ID ${requestedCourseId} not found`);
     }
 
     // Check if new course is already in student's schedule
-    const hasNewCourse = student.schedule.courses.some(
-      course => course.id === newCourseId
+    const hasNewCourse = student.schedule.courseSections.some(
+      course => course.id === requestedCourseId
     );
 
     if (hasNewCourse) {
@@ -80,30 +80,30 @@ export class ScheduleChangeRequestsService {
             user: true,
           },
         },
-        currentCourse: true,
-        newCourse: true,
+        currentCourseSection: true,
+        requestedCourse: true,
       },
     });
 
     // Detect conflicts
     await this.conflictsService.detectConflicts(
       studentId,
-      currentCourseId,
-      newCourseId,
+      currentCourseSectionId,
+      requestedCourseId,
       request.id
     );
 
     // Notify counselors
-    const counselors = await this.prisma.counselor.findMany({
-      include: {
-        user: true,
+    const counselors = await this.prisma.user.findMany({
+      where: {
+        role: UserRole.COUNSELOR,
       },
     });
-
+    //TODO: do we need to loop through counselors?
     for (const counselor of counselors) {
       await this.notificationsService.createNotification({
         counselorId: counselor.id,
-        message: `New schedule change request from ${student.user.name}: ${currentCourse.name} to ${newCourse.name}`,
+        message: `New schedule change request from ${student.user.firstName} ${student.user.lastName}: ${currentCourse.course.name} to ${newCourse.course.name}`,
         type: NotificationType.REQUEST_UPDATE,
       });
     }
@@ -119,14 +119,9 @@ export class ScheduleChangeRequestsService {
             user: true,
           },
         },
-        counselor: {
-          include: {
-            user: true,
-          },
-        },
-        currentCourse: true,
-        newCourse: true,
-        conflicts: true,
+        currentCourseSection: true,
+        requestedCourse: true,
+        courseConflicts: true,
       },
       orderBy: {
         createdAt: 'desc',
@@ -153,7 +148,7 @@ export class ScheduleChangeRequestsService {
       const schedule = await this.prisma.schedule.findUnique({
         where: { studentId: user.student.id },
         include: {
-          courses: true,
+          courseSections: true,
         },
       });
 
@@ -161,14 +156,9 @@ export class ScheduleChangeRequestsService {
       const requests = await this.prisma.scheduleChangeRequest.findMany({
         where: { studentId: user.student.id },
         include: {
-          counselor: {
-            include: {
-              user: true,
-            },
-          },
-          currentCourse: true,
-          newCourse: true,
-          conflicts: true,
+          currentCourseSection: true,
+          requestedCourse: true,
+          courseConflicts: true,
         },
         orderBy: {
           createdAt: 'desc',
@@ -194,9 +184,9 @@ export class ScheduleChangeRequestsService {
             user: true,
           },
         },
-        currentCourse: true,
-        newCourse: true,
-        conflicts: true,
+        currentCourseSection: true,
+        requestedCourse: true,
+        courseConflicts: true,
       },
       orderBy: {
         createdAt: 'asc',
@@ -213,14 +203,9 @@ export class ScheduleChangeRequestsService {
             user: true,
           },
         },
-        counselor: {
-          include: {
-            user: true,
-          },
-        },
-        currentCourse: true,
-        newCourse: true,
-        conflicts: true,
+        currentCourseSection: true,
+        requestedCourse: true,
+        courseConflicts: true,
       },
     });
 
@@ -243,14 +228,9 @@ export class ScheduleChangeRequestsService {
     return this.prisma.scheduleChangeRequest.findMany({
       where: { studentId },
       include: {
-        counselor: {
-          include: {
-            user: true,
-          },
-        },
-        currentCourse: true,
-        newCourse: true,
-        conflicts: true,
+        currentCourseSection: true,
+        requestedCourse: true,
+        courseConflicts: true,
       },
       orderBy: {
         createdAt: 'desc',
@@ -259,7 +239,7 @@ export class ScheduleChangeRequestsService {
   }
 
   async update(id: string, updateRequestDto: UpdateRequestDto, userId: string) {
-    const { status, counselorId, comments } = updateRequestDto;
+    const { status, reviewedById, resolutionNotes } = updateRequestDto;
 
     // Check if request exists
     const request = await this.prisma.scheduleChangeRequest.findUnique({
@@ -270,10 +250,14 @@ export class ScheduleChangeRequestsService {
             user: true,
           },
         },
-        currentCourse: true,
-        newCourse: true,
-        conflicts: {
-          where: { resolved: false },
+        currentCourseSection: {
+          include: {
+            course: true,
+          },
+        },
+        requestedCourse: true,
+        courseConflicts: {
+          where: { isResolvable: false },
         },
       },
     });
@@ -285,36 +269,39 @@ export class ScheduleChangeRequestsService {
     // Get user
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      include: {
+      /* include: {
         counselor: true,
-      },
+      }, */
     });
 
     // Ensure counselor exists if provided
-    if (counselorId) {
-      const counselor = await this.prisma.counselor.findUnique({
-        where: { id: counselorId },
+    if (reviewedById) {
+      const counselor = await this.prisma.user.findUnique({
+        where: { id: reviewedById, role: UserRole.COUNSELOR },
       });
 
       if (!counselor) {
-        throw new NotFoundException(`Counselor with ID ${counselorId} not found`);
+        throw new NotFoundException(`Counselor with ID ${reviewedById} not found`);
       }
     }
 
     // Handle approval
     if (status === RequestStatus.APPROVED) {
       // Check if there are unresolved conflicts
-      if (request.conflicts.length > 0) {
+      if (request.courseConflicts.length > 0) {
         throw new ConflictException('Cannot approve request with unresolved conflicts');
       }
 
       // Check if new course has capacity
-      const newCourse = await this.prisma.course.findUnique({
-        where: { id: request.newCourseId },
+      const newCourse = await this.prisma.courseSection.findUnique({
+        where: { id: request.requestedCourseId },
+        include: {
+          course: true,
+        },
       });
 
-      if (newCourse.currentEnrollment >= newCourse.capacity) {
-        throw new ConflictException(`New course ${newCourse.name} is at capacity`);
+      if (newCourse.currentEnrollment >= newCourse.maxEnrollment) {
+        throw new ConflictException(`New course ${newCourse.course.name} is at capacity`);
       }
 
       // Get student schedule
@@ -329,8 +316,8 @@ export class ScheduleChangeRequestsService {
           where: { id },
           data: {
             status,
-            counselorId: counselorId || (user.counselor ? user.counselor.id : null),
-            comments,
+            reviewedById,
+            resolutionNotes,
           },
         });
 
@@ -338,28 +325,28 @@ export class ScheduleChangeRequestsService {
         await prisma.schedule.update({
           where: { id: schedule.id },
           data: {
-            courses: {
-              disconnect: { id: request.currentCourseId },
-              connect: { id: request.newCourseId },
+            courseSections: {
+              disconnect: { id: request.currentCourseSectionId },
+              connect: { id: request.requestedCourseId },
             },
           },
         });
 
         // Update course enrollments
-        await prisma.course.update({
-          where: { id: request.currentCourseId },
+        await prisma.courseSection.update({
+          where: { id: request.currentCourseSectionId },
           data: { currentEnrollment: { decrement: 1 } },
         });
 
-        await prisma.course.update({
-          where: { id: request.newCourseId },
+        await prisma.courseSection.update({
+          where: { id: request.requestedCourseId },
           data: { currentEnrollment: { increment: 1 } },
         });
 
         // Create notification for student
         await this.notificationsService.createNotification({
           studentId: request.studentId,
-          message: `Your request to change from ${request.currentCourse.name} to ${request.newCourse.name} has been approved`,
+          message: `Your request to change from ${request.currentCourseSection.course.name} to ${request.requestedCourse.name} has been approved`,
           type: NotificationType.REQUEST_APPROVED,
         });
       });
@@ -369,15 +356,15 @@ export class ScheduleChangeRequestsService {
         where: { id },
         data: {
           status,
-          counselorId: counselorId || (user.counselor ? user.counselor.id : null),
-          comments,
+          reviewedById,
+          resolutionNotes,
         },
       });
 
       // Create notification for student
       await this.notificationsService.createNotification({
         studentId: request.studentId,
-        message: `Your request to change from ${request.currentCourse.name} to ${request.newCourse.name} has been denied${comments ? ': ' + comments : ''}`,
+        message: `Your request to change from ${request.currentCourseSection.course.name} to ${request.requestedCourse.name} has been denied${resolutionNotes ? ': ' + resolutionNotes : ''}`,
         type: NotificationType.REQUEST_DENIED,
       });
     } else {
@@ -385,8 +372,8 @@ export class ScheduleChangeRequestsService {
       await this.prisma.scheduleChangeRequest.update({
         where: { id },
         data: {
-          counselorId: counselorId || (user.counselor ? user.counselor.id : null),
-          comments,
+          reviewedById,
+          resolutionNotes,
         },
       });
 
@@ -412,7 +399,7 @@ export class ScheduleChangeRequestsService {
     }
 
     // Delete associated conflicts first
-    await this.prisma.conflict.deleteMany({
+    await this.prisma.courseConflict.deleteMany({
       where: { requestId: id },
     });
 
