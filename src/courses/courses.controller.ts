@@ -1,8 +1,8 @@
-import { Controller, Get, Post, Body, Param, Delete, Put, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Delete, Put, UseGuards, Query } from '@nestjs/common';
 import { CoursesService } from './courses.service';
 import { CreateCourseDto } from './dto/create-course.dto';
 import { UpdateCourseDto } from './dto/update-course.dto';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -32,8 +32,30 @@ export class CoursesController {
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get all courses' })
   @ApiResponse({ status: 200, description: 'Return all courses' })
-  findAll() {
-    return this.coursesService.findAll();
+  @ApiQuery({ name: 'departmentId', type: String, required: false })
+  @ApiQuery({ name: 'isElective', type: Boolean, required: false })
+  @ApiQuery({ name: 'isCore', type: Boolean, required: false })
+  findAll(
+    @Query('departmentId' ) departmentId?: string,
+    @Query('isElective') isElective?: boolean,
+    @Query('isCore') isCore?: boolean,
+  ) {
+
+    const filters: any = {};
+    
+    if (departmentId) {
+      filters.department = { id: departmentId };
+    }
+    
+    if (isElective !== undefined) {
+      filters.isElective = isElective;
+    }
+    
+    if (isCore !== undefined) {
+      filters.isCore = isCore;
+    }
+
+    return this.coursesService.findAll(filters);
   }
 
   @Get(':id')
@@ -68,5 +90,14 @@ export class CoursesController {
   @ApiResponse({ status: 409, description: 'Course is in use and cannot be deleted' })
   remove(@Param('id') id: string) {
     return this.coursesService.remove(id);
+  }
+
+  @Get(':id/prerequisites')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get all prerequisites for a course' })
+  @ApiResponse({ status: 200, description: 'Return all prerequisites for the course' })
+  getPrerequisites(@Param('id') id: string) { 
+    return this.coursesService.getPrerequisites(id);
   }
 }

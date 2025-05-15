@@ -13,19 +13,50 @@ export class CoursesService {
       where: { code: createCourseDto.code },
     });
 
+    const {prerequisiteIds, ...partialCourseDto} = createCourseDto;
+    
+    console.log('existingCourse - ', JSON.stringify(existingCourse));
+
     if (existingCourse) {
+
       throw new ConflictException(`Course with code ${createCourseDto.code} already exists`);
     }
 
-    return this.prisma.course.create({
+    const course = await this.prisma.course.create({
       data: {
-        ...createCourseDto,
+        ...partialCourseDto,
       },
     });
+
+
+   
+
+
+    //add new prerequisites or update existing ones
+   if (prerequisiteIds && prerequisiteIds.length > 0) {
+      await this.prisma.coursePrerequisite.deleteMany({
+        where: { courseId: course.id },
+      });
+
+      await this.prisma.coursePrerequisite.createMany({
+        data: prerequisiteIds.map(prerequisite => ({
+          courseId: course.id,
+          prerequisiteCourseId: prerequisite,
+        })),
+      });
+    }   
+
+    return course;
   }
 
-  async findAll() {
+  async findAll(options?: any) {
     return this.prisma.course.findMany({
+      where: options,
+      include: {
+        department: true,
+        courseLevel: true,
+        minGradeLevel: true,
+      },
       orderBy: [
         //{ period: 'asc' },
         { name: 'asc' },
@@ -36,6 +67,16 @@ export class CoursesService {
   async findOne(id: string) {
     const course = await this.prisma.course.findUnique({
       where: { id },
+      include: {
+        department: true,
+        courseLevel: true,
+        minGradeLevel: true,
+        prerequisites: {
+          include: {
+            prerequisiteCourse: true,
+          },
+        },
+      },
       /* include: {
         schedules: {
           include: {
@@ -115,6 +156,19 @@ export class CoursesService {
 
     return this.prisma.course.delete({
       where: { id },
+    });
+  }
+
+  async getPrerequisites(id: string) {
+    return this.prisma.course.findUnique({
+      where: { id },
+      include: {
+        prerequisites: {
+          include: {
+            prerequisiteCourse: true,
+          },
+        },
+      },
     });
   }
 }

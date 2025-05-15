@@ -1,5 +1,5 @@
-import { IsBoolean, IsDecimal, IsNotEmpty, IsOptional, IsString, IsUUID } from 'class-validator';
-import { ApiProperty } from '@nestjs/swagger';
+import { IsBoolean, IsNotEmpty, IsOptional, IsString, IsArray, ArrayMinSize, IsNumber } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 
 export class CreateCourseDto {
@@ -40,7 +40,7 @@ export class CreateCourseDto {
     example: 1.0,
     description: 'Number of credits',
   })
-  @IsDecimal()
+  @IsNumber()
   @Type(() => Number)
   credits: number;
 
@@ -90,4 +90,11 @@ export class CreateCourseDto {
   @IsBoolean()
   @IsOptional()
   isActive?: boolean;
+
+  @ApiPropertyOptional({ description: 'Prerequisite course IDs', type: [String] })
+  @IsArray()  
+  @IsString({ each: true })
+  @ArrayMinSize(0)  
+  @IsOptional()
+  prerequisiteIds?: string[];
 }
