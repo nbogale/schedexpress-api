@@ -355,4 +355,134 @@ INSERT INTO course_sections (course_id, section_number, school_year_id, term_id,
 INSERT INTO course_sections (course_id, section_number, school_year_id, term_id, time_block_id, room_id, teacher_id, max_enrollment, current_enrollment) VALUES
 (31, 'A', 2, 4, 1, 5, 4, 30, 28),  -- World History, Period 1
 (31, 'B', 2, 4, 3, 5, 4, 30, 27),  -- World History, Period 3
-(32, 'A
+(32, 'A', 2, 4, 2, 6, 4, 30, 26),  -- U.S. History, Period 2
+(32, 'B', 2, 4, 4, 6, 4, 30, 25),  -- U.S. History, Period 4
+(33, 'A', 2, 4, 5, 5, 4, 30, 23),  -- American Government, Period 5
+(34, 'A', 2, 4, 7, 6, 4, 30, 22);  -- Economics, Period 6
+
+-- Foreign Language Sections
+INSERT INTO course_sections (course_id, section_number, school_year_id, term_id, time_block_id, room_id, teacher_id, max_enrollment, current_enrollment) VALUES
+(45, 'A', 2, 4, 1, 7, 5, 25, 24),  -- Spanish I, Period 1
+(45, 'B', 2, 4, 3, 7, 5, 25, 23),  -- Spanish I, Period 3
+(46, 'A', 2, 4, 2, 8, 5, 25, 22),  -- Spanish II, Period 2
+(46, 'B', 2, 4, 4, 8, 5, 25, 21),  -- Spanish II, Period 4
+(47, 'A', 2, 4, 5, 7, 5, 20, 18),  -- Spanish III, Period 5
+(48, 'A', 2, 4, 7, 8, 5, 15, 12),  -- Spanish IV, Period 6
+(49, 'A', 2, 4, 1, 9, 5, 25, 20),  -- French I, Period 1
+(50, 'A', 2, 4, 2, 10, 5, 25, 18),  -- French II, Period 2
+(51, 'A', 2, 4, 5, 9, 5, 20, 15),  -- French III, Period 5
+(52, 'A', 2, 4, 7, 10, 5, 15, 10);  -- French IV, Period 6
+
+-- Physical Education & Health Sections
+INSERT INTO course_sections (course_id, section_number, school_year_id, term_id, time_block_id, room_id, teacher_id, max_enrollment, current_enrollment) VALUES
+(41, 'A', 2, 4, 1, 11, 5, 30, 28),  -- Physical Education, Period 1
+(41, 'B', 2, 4, 3, 11, 5, 30, 27),  -- Physical Education, Period 3
+(41, 'C', 2, 4, 5, 11, 5, 30, 26),  -- Physical Education, Period 5
+(42, 'A', 2, 4, 2, 11, 5, 30, 29),  -- Health, Period 2
+(42, 'B', 2, 4, 4, 11, 5, 30, 28),  -- Health, Period 4
+(42, 'C', 2, 4, 7, 11, 5, 30, 27);  -- Health, Period 6
+
+-- Elective Course Sections (Art, Music, Computer Science)
+INSERT INTO course_sections (course_id, section_number, school_year_id, term_id, time_block_id, room_id, teacher_id, max_enrollment, current_enrollment) VALUES
+(35, 'A', 2, 4, 1, 16, 5, 25, 22),  -- Visual Arts, Period 1
+(36, 'A', 2, 4, 2, 16, 5, 25, 20),  -- Drawing and Painting, Period 2
+(37, 'A', 2, 4, 3, 16, 5, 20, 15),  -- Sculpture, Period 3
+(38, 'A', 2, 4, 4, 16, 5, 20, 18),  -- Photography, Period 4
+(39, 'A', 2, 4, 5, 12, 5, 25, 23),  -- Digital Art, Period 5
+(40, 'A', 2, 4, 1, 17, 5, 30, 28),  -- Choir, Period 1
+(41, 'A', 2, 4, 2, 17, 5, 30, 25),  -- Band, Period 2
+(42, 'A', 2, 4, 3, 17, 5, 30, 22),  -- Orchestra, Period 3
+(43, 'A', 2, 4, 4, 17, 5, 25, 20),  -- Music Theory, Period 4
+(44, 'A', 2, 4, 5, 17, 5, 20, 18);  -- Guitar, Period 5
+
+-- AP Course Sections
+INSERT INTO course_sections (course_id, section_number, school_year_id, term_id, time_block_id, room_id, teacher_id, max_enrollment, current_enrollment) VALUES
+(7, 'A', 2, 4, 3, 2, 1, 20, 15),   -- AP Statistics, Period 3
+(19, 'A', 2, 4, 4, 3, 2, 20, 18),  -- AP English Language, Period 4
+(20, 'A', 2, 4, 8, 4, 2, 20, 16),  -- AP English Literature, Period 8
+(24, 'A', 2, 4, 4, 14, 3, 20, 17),  -- AP Biology, Period 4
+(25, 'A', 2, 4, 8, 15, 3, 20, 15),  -- AP Chemistry, Period 8
+(26, 'A', 2, 4, 7, 14, 3, 20, 16),  -- AP Physics 1, Period 7
+(36, 'A', 2, 4, 8, 6, 4, 20, 17),  -- AP U.S. History, Period 8
+(38, 'A', 2, 4, 8, 5, 4, 20, 14);  -- AP World History, Period 8
+
+-- Student Course History (completed courses from previous terms)
+INSERT INTO student_course_history (student_id, course_id, school_year_id, term_id, grade, is_passed, credit_earned) VALUES
+(1, 1, 1, 1, 'A', TRUE, 1.0),  -- Student 1 completed Algebra 1 with an A
+(1, 11, 1, 1, 'B+', TRUE, 1.0), -- Student 1 completed English 9 with a B+
+(1, 16, 1, 1, 'A-', TRUE, 1.0), -- Student 1 completed Biology with an A-
+(1, 31, 1, 1, 'B', TRUE, 1.0),  -- Student 1 completed World History with a B
+(2, 1, 1, 1, 'B', TRUE, 1.0),   -- Student 2 completed Algebra 1 with a B
+(2, 11, 1, 1, 'A', TRUE, 1.0),  -- Student 2 completed English 9 with an A
+(2, 16, 1, 1, 'B+', TRUE, 1.0), -- Student 2 completed Biology with a B+
+(2, 31, 1, 1, 'A-', TRUE, 1.0), -- Student 2 completed World History with an A-
+(3, 2, 1, 1, 'B-', TRUE, 1.0),  -- Student 3 completed Geometry with a B-
+(3, 12, 1, 1, 'C+', TRUE, 1.0), -- Student 3 completed English 10 with a C+
+(3, 17, 1, 1, 'B', TRUE, 1.0),  -- Student 3 completed Chemistry with a B
+(3, 31, 1, 1, 'B+', TRUE, 1.0); -- Student 3 completed World History with a B+
+
+-- Schedule (student current schedules)
+INSERT INTO schedule (student_id, semester, year) VALUES
+(1, 'Spring', 2025),
+(2, 'Spring', 2025),
+(3, 'Spring', 2025),
+(4, 'Spring', 2025),
+(5, 'Spring', 2025),
+(6, 'Spring', 2025),
+(7, 'Spring', 2025),
+(8, 'Spring', 2025),
+(9, 'Spring', 2025),
+(10, 'Spring', 2025);
+
+-- System Settings
+INSERT INTO system_settings (key, value, description) VALUES
+('school_name', 'Westside High School', 'Name of the school'),
+('enrollment_open', 'true', 'Whether course enrollment is currently open'),
+('max_credits_allowed', '8.0', 'Maximum credits a student can take per term'),
+('current_school_year', '2', 'ID of the current school year'),
+('current_term', '4', 'ID of the current term'),
+('schedule_change_deadline', '2025-01-20', 'Deadline for schedule changes'),
+('reporting_period_end', '2025-03-15', 'End of current reporting period'),
+('admin_email', 'admin@school.edu', 'Email for administrative notifications'),
+('counselor_assignment_method', 'alphabetical', 'How counselors are assigned to students'),
+('allow_student_requests', 'true', 'Whether students can submit schedule change requests');
+
+-- Schedule Change Requests (sample pending requests)
+INSERT INTO schedule_change_requests (student_id, school_year_id, term_id, current_course_section_id, requested_course_id, preferred_time_block_id, reason, status, priority, created_at, updated_at) VALUES
+(3, 2, 4, 15, 7, 3, 'I want to take AP Statistics instead of regular Pre-Calculus for college preparation', 'PENDING', 'MEDIUM', NOW(), NOW()),
+(5, 2, 4, 10, 19, 4, 'I would like to switch to AP English Language from regular English 11', 'PENDING', 'MEDIUM', NOW(), NOW()),
+(8, 2, 4, 26, 24, 4, 'I want to challenge myself with AP Biology instead of regular Biology', 'PENDING', 'HIGH', NOW(), NOW()),
+(10, 2, 4, 33, 36, 8, 'I need AP U.S. History for my college applications', 'PENDING', 'HIGH', NOW(), NOW());
+
+-- Course Conflicts (sample conflicts)
+INSERT INTO course_conflicts (course_section_id1, course_section_id2, conflict_type, is_resolvable, resolution_notes, created_at, updated_at) VALUES
+(1, 7, 'TIME_OVERLAP', TRUE, 'Sections scheduled at the same time (Period 1)', NOW(), NOW()),
+(2, 13, 'TIME_OVERLAP', TRUE, 'Sections scheduled at the same time (Period 2)', NOW(), NOW()),
+(3, 15, 'TIME_OVERLAP', TRUE, 'Sections scheduled at the same time (Period 3)', NOW(), NOW()),
+(5, 20, 'ROOM_CONFLICT', TRUE, 'Both sections scheduled in Room 101 during Period 5', NOW(), NOW()),
+(8, 14, 'TEACHER_CONFLICT', TRUE, 'Teacher 2 assigned to both sections during Period 4', NOW(), NOW());
+
+-- Course Waitlists (sample waitlists)
+INSERT INTO course_waitlists (course_section_id, student_id, position, created_at, updated_at) VALUES
+(7, 2, 1, NOW(), NOW()),   -- Student 2 on waitlist for AP Statistics
+(19, 4, 1, NOW(), NOW()),  -- Student 4 on waitlist for AP English Language
+(19, 6, 2, NOW(), NOW()),  -- Student 6 on waitlist for AP English Language
+(24, 9, 1, NOW(), NOW()),  -- Student 9 on waitlist for AP Biology
+(36, 1, 1, NOW(), NOW()),  -- Student 1 on waitlist for AP U.S. History
+(36, 3, 2, NOW(), NOW());  -- Student 3 on waitlist for AP U.S. History
+
+-- Rules
+INSERT INTO rule (name, type, description, is_active, created_at, updated_at) VALUES
+('Prerequisite Required', 'PREREQUISITE', 'Student must have completed prerequisite course before enrollment', TRUE, NOW(), NOW()),
+('Max Course Load', 'CAPACITY', 'Student cannot exceed maximum course load per term', TRUE, NOW(), NOW()),
+('Time Conflict Prevention', 'SCHEDULE_OVERLAP', 'Student cannot be enrolled in two courses at the same time', TRUE, NOW(), NOW()),
+('Grade Level Requirement', 'GRADE_REQUIREMENT', 'Student must meet minimum grade level for the course', TRUE, NOW(), NOW()),
+('Class Size Limit', 'CAPACITY', 'Course section cannot exceed maximum enrollment', TRUE, NOW(), NOW());
+
+-- Course Rules (specific rules for courses)
+INSERT INTO course_rule (course_id, conflicting_course_id, type, description, is_active, created_at, updated_at) VALUES
+(5, 7, 'SCHEDULE_OVERLAP', 'Student cannot take both AP Calculus AB and AP Statistics in the same term', TRUE, NOW(), NOW()),
+(6, 7, 'SCHEDULE_OVERLAP', 'Student cannot take both AP Calculus BC and AP Statistics in the same term', TRUE, NOW(), NOW()),
+(19, 20, 'SCHEDULE_OVERLAP', 'Student cannot take both AP English Language and AP English Literature in the same term', TRUE, NOW(), NOW()),
+(24, 25, 'SCHEDULE_OVERLAP', 'Student cannot take both AP Biology and AP Chemistry in the same term', TRUE, NOW(), NOW()),
+(24, 26, 'SCHEDULE_OVERLAP', 'Student cannot take both AP Biology and AP Physics in the same term', TRUE, NOW(), NOW());

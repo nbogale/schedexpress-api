@@ -66,6 +66,12 @@ async function main() {
     prisma.department.create({ data: { name: 'Science' } }),
     prisma.department.create({ data: { name: 'Social Studies' } }),
     prisma.department.create({ data: { name: 'Art and Design' } }),
+    prisma.department.create({ data: { name: 'Physical Education' } }),
+    prisma.department.create({ data: { name: 'Foreign Language' } }),
+    prisma.department.create({ data: { name: 'Music' } }),
+    prisma.department.create({ data: { name: 'Technology' } }),
+    prisma.department.create({ data: { name: 'Health' } }),
+    prisma.department.create({ data: { name: 'Business' } }),
   ]);
 
   // Create Course Levels
@@ -93,6 +99,24 @@ async function main() {
     prisma.room.create({ data: { name: '103', capacity: 30 } }),
     prisma.room.create({ data: { name: '104', capacity: 30 } }),
     prisma.room.create({ data: { name: '105', capacity: 30 } }),
+    prisma.room.create({ data: { name: '201', capacity: 30 } }),
+    prisma.room.create({ data: { name: '202', capacity: 30 } }),
+    prisma.room.create({ data: { name: '203', capacity: 30 } }),
+    prisma.room.create({ data: { name: '204', capacity: 30 } }),
+    prisma.room.create({ data: { name: '205', capacity: 30 } }),
+    prisma.room.create({ data: { name: 'Gym', capacity: 100 } }),
+    prisma.room.create({ data: { name: 'Auditorium', capacity: 200 } }),
+    prisma.room.create({ data: { name: 'Lab', capacity: 20 } }),
+    prisma.room.create({ data: { name: 'Art Room', capacity: 25 } }),
+    prisma.room.create({ data: { name: 'Music Room', capacity: 30 } }),
+    prisma.room.create({ data: { name: 'Cafeteria', capacity: 150 } }),
+    prisma.room.create({ data: { name: 'Library', capacity: 50 } }),
+    prisma.room.create({ data: { name: 'Computer Lab', capacity: 30 } }),
+    prisma.room.create({ data: { name: 'Science Lab', capacity: 20 } }),
+    prisma.room.create({ data: { name: 'Language Lab', capacity: 20 } }),
+    prisma.room.create({ data: { name: 'Health Room', capacity: 10 } }),
+    prisma.room.create({ data: { name: 'Business Lab', capacity: 20 } }),
+
   ]);
 
   // Create Time Blocks
@@ -102,6 +126,9 @@ async function main() {
     prisma.timeBlock.create({ data: { name: 'Period 3', startTime: new Date('2024-01-01T09:50:00'), endTime: new Date('2024-01-01T10:40:00') } }),
     prisma.timeBlock.create({ data: { name: 'Period 4', startTime: new Date('2024-01-01T10:45:00'), endTime: new Date('2024-01-01T11:35:00') } }),
     prisma.timeBlock.create({ data: { name: 'Period 5', startTime: new Date('2024-01-01T11:40:00'), endTime: new Date('2024-01-01T12:30:00') } }),
+    prisma.timeBlock.create({ data: { name: 'Period 6', startTime: new Date('2024-01-01T12:35:00'), endTime: new Date('2024-01-01T13:25:00') } }),
+    prisma.timeBlock.create({ data: { name: 'Period 7', startTime: new Date('2024-01-01T13:30:00'), endTime: new Date('2024-01-01T14:20:00') } }),
+    prisma.timeBlock.create({ data: { name: 'Period 8', startTime: new Date('2024-01-01T14:25:00'), endTime: new Date('2024-01-01T15:15:00') } }),
   ]);
 
   // Create Teachers
@@ -136,24 +163,119 @@ async function main() {
     prisma.course.create({ data: { code: 'MATH101', name: 'Algebra 1', description: 'Introduction to algebraic concepts', departmentId: departments[0].id, credits: 1.0, courseLevelId: courseLevels[0].id, minGradeLevelId: gradeLevels[3].id, isElective: false, isCore: true } }),
     prisma.course.create({ data: { code: 'MATH201', name: 'Geometry', description: 'Study of shapes and spatial relationships', departmentId: departments[0].id, credits: 1.0, courseLevelId: courseLevels[0].id, minGradeLevelId: gradeLevels[3].id, isElective: false, isCore: true } }),
     prisma.course.create({ data: { code: 'MATH301', name: 'Algebra 2', description: 'Advanced algebraic concepts', departmentId: departments[0].id, credits: 1.0, courseLevelId: courseLevels[0].id, minGradeLevelId: gradeLevels[4].id, isElective: false, isCore: true } }),
+    prisma.course.create({ data: { code: 'MATH401', name: 'Pre-Calculus', description: 'Preparation for calculus', departmentId: departments[0].id, credits: 1.0, courseLevelId: courseLevels[0].id, minGradeLevelId: gradeLevels[4].id, isElective: false, isCore: true } }),
+    prisma.course.create({ data: { code: 'MATH501', name: 'Calculus', description: 'Introduction to calculus concepts', departmentId: departments[0].id, credits: 1.0, courseLevelId: courseLevels[0].id, minGradeLevelId: gradeLevels[4].id, isElective: false, isCore: true } }),
+    prisma.course.create({ data: { code: 'MATH601', name: 'Statistics', description: 'Introduction to statistics and data analysis', departmentId: departments[0].id, credits: 1.0, courseLevelId: courseLevels[0].id, minGradeLevelId: gradeLevels[4].id, isElective: false, isCore: true } }),
+    prisma.course.create({ data: { code: 'MATH701', name: 'Discrete Mathematics', description: 'Study of mathematical structures that are fundamentally discrete', departmentId: departments[0].id, credits: 1.0, courseLevelId: courseLevels[0].id, minGradeLevelId: gradeLevels[4].id, isElective: false, isCore: true } }),
+    prisma.course.create({ data: { code: 'MATH801', name: 'Linear Algebra', description: 'Study of vector spaces and linear transformations', departmentId: departments[0].id, credits: 1.0, courseLevelId: courseLevels[0].id, minGradeLevelId: gradeLevels[4].id, isElective: false, isCore: true } }),
+    prisma.course.create({ data: { code: 'MATH901', name: 'Calculus 2', description: 'Continuation of Calculus 1', departmentId: departments[0].id, credits: 1.0, courseLevelId: courseLevels[0].id, minGradeLevelId: gradeLevels[4].id, isElective: false, isCore: true } }),
+    // English Courses
+    prisma.course.create({ data: { code: 'ENG101', name: 'English 1', description: 'Introduction to literature and writing', departmentId: departments[1].id, credits: 1.0, courseLevelId: courseLevels[0].id, minGradeLevelId: gradeLevels[3].id, isElective: false, isCore: true } }),
+    prisma.course.create({ data: { code: 'ENG201', name: 'English 2', description: 'Advanced literature and writing', departmentId: departments[1].id, credits: 1.0, courseLevelId: courseLevels[0].id, minGradeLevelId: gradeLevels[4].id, isElective: false, isCore: true } }),
+    prisma.course.create({ data: { code: 'ENG301', name: 'Creative Writing', description: 'Introduction to creative writing techniques', departmentId: departments[1].id, credits: 1.0, courseLevelId: courseLevels[0].id, minGradeLevelId: gradeLevels[3].id, isElective: true, isCore: false } }),
+    prisma.course.create({ data: { code: 'ENG401', name: 'Literature Analysis', description: 'In-depth analysis of literary works', departmentId: departments[1].id, credits: 1.0, courseLevelId: courseLevels[0].id, minGradeLevelId: gradeLevels[4].id, isElective: true, isCore: false } }),
+    prisma.course.create({ data: { code: 'ENG501', name: 'Public Speaking', description: 'Introduction to public speaking techniques', departmentId: departments[1].id, credits: 1.0, courseLevelId: courseLevels[0].id, minGradeLevelId: gradeLevels[3].id, isElective: true, isCore: false } }),
+    prisma.course.create({ data: { code: 'ENG601', name: 'Journalism', description: 'Introduction to journalism and reporting', departmentId: departments[1].id, credits: 1.0, courseLevelId: courseLevels[0].id, minGradeLevelId: gradeLevels[3].id, isElective: true, isCore: false } }),
+    prisma.course.create({ data: { code: 'ENG701', name: 'Debate', description: 'Introduction to debate techniques', departmentId: departments[1].id, credits: 1.0, courseLevelId: courseLevels[0].id, minGradeLevelId: gradeLevels[3].id, isElective: true, isCore: false } }),
+    prisma.course.create({ data: { code: 'ENG801', name: 'World Literature', description: 'Study of world literature', departmentId: departments[1].id, credits: 1.0, courseLevelId: courseLevels[0].id, minGradeLevelId: gradeLevels[4].id, isElective: true, isCore: false } }),
+    prisma.course.create({ data: { code: 'ENG901', name: 'American Literature', description: 'Study of American literature', departmentId: departments[1].id, credits: 1.0, courseLevelId: courseLevels[0].id, minGradeLevelId: gradeLevels[4].id, isElective: true, isCore: false } }),
+    // Science Courses
+    prisma.course.create({ data: { code: 'SCI101', name: 'Biology', description: 'Study of living organisms', departmentId: departments[2].id, credits: 1.0, courseLevelId: courseLevels[0].id, minGradeLevelId: gradeLevels[3].id, isElective: false, isCore: true } }),
+    prisma.course.create({ data: { code: 'SCI201', name: 'Chemistry', description: 'Study of matter and its interactions', departmentId: departments[2].id, credits: 1.0, courseLevelId: courseLevels[0].id, minGradeLevelId: gradeLevels[4].id, isElective: false, isCore: true } }),
+    prisma.course.create({ data: { code: 'SCI301', name: 'Physics', description: 'Study of matter and energy', departmentId: departments[2].id, credits: 1.0, courseLevelId: courseLevels[0].id, minGradeLevelId: gradeLevels[4].id, isElective: false, isCore: true } }),
+    prisma.course.create({ data: { code: 'SCI401', name: 'Environmental Science', description: 'Study of the environment and ecosystems', departmentId: departments[2].id, credits: 1.0, courseLevelId: courseLevels[0].id, minGradeLevelId: gradeLevels[3].id, isElective: true, isCore: false } }),
+    // Social Studies Courses
+    prisma.course.create({ data: { code: 'SS101', name: 'World History', description: 'Study of global history', departmentId: departments[3].id, credits: 1.0, courseLevelId: courseLevels[0].id, minGradeLevelId: gradeLevels[3].id, isElective: false, isCore: true } }),
+    prisma.course.create({ data: { code: 'SS201', name: 'US History', description: 'Study of American history', departmentId: departments[3].id, credits: 1.0, courseLevelId: courseLevels[0].id, minGradeLevelId: gradeLevels[4].id, isElective: false, isCore: true } }),
+    // Art Courses
+    prisma.course.create({ data: { code: 'ART101', name: 'Art History', description: 'Study of art movements and styles', departmentId: departments[4].id, credits: 1.0, courseLevelId: courseLevels[0].id, minGradeLevelId: gradeLevels[3].id, isElective: true, isCore: false } }),
+    prisma.course.create({ data: { code: 'ART201', name: 'Painting', description: 'Introduction to painting techniques', departmentId: departments[4].id, credits: 1.0, courseLevelId: courseLevels[0].id, minGradeLevelId: gradeLevels[3].id, isElective: true, isCore: false } }),
+    // Physical Education Courses
+    prisma.course.create({ data: { code: 'PE101', name: 'Physical Education 1', description: 'Introduction to physical fitness', departmentId: departments[5].id, credits: 0.5, courseLevelId: courseLevels[0].id, minGradeLevelId: gradeLevels[3].id, isElective: false, isCore: true } }),
+    prisma.course.create({ data: { code: 'PE201', name: 'Physical Education 2', description: 'Advanced physical fitness', departmentId: departments[5].id, credits: 0.5, courseLevelId: courseLevels[0].id, minGradeLevelId: gradeLevels[4].id, isElective: false, isCore: true } }),
+    // Foreign Language Courses
+    prisma.course.create({ data: { code: 'FL101', name: 'Spanish 1', description: 'Introduction to Spanish language', departmentId: departments[6].id, credits: 1.0, courseLevelId: courseLevels[0].id, minGradeLevelId: gradeLevels[3].id, isElective: true, isCore: false } }),
+    prisma.course.create({ data: { code: 'FL201', name: 'Spanish 2', description: 'Advanced Spanish language', departmentId: departments[6].id, credits: 1.0, courseLevelId: courseLevels[0].id, minGradeLevelId: gradeLevels[4].id, isElective: true, isCore: false } }),
+    // Music Courses
+    prisma.course.create({ data: { code: 'MUS101', name: 'Music Theory', description: 'Introduction to music theory', departmentId: departments[7].id, credits: 1.0, courseLevelId: courseLevels[0].id, minGradeLevelId: gradeLevels[3].id, isElective: true, isCore: false } }),
+    prisma.course.create({ data: { code: 'MUS201', name: 'Band', description: 'Introduction to band instruments', departmentId: departments[7].id, credits: 1.0, courseLevelId: courseLevels[0].id, minGradeLevelId: gradeLevels[3].id, isElective: true, isCore: false } }),
+    // Technology Courses
+    prisma.course.create({ data: { code: 'TECH101', name: 'Introduction to Computer Science', description: 'Basics of computer programming', departmentId: departments[8].id, credits: 1.0, courseLevelId: courseLevels[0].id, minGradeLevelId: gradeLevels[3].id, isElective: true, isCore: false } }),
+    prisma.course.create({ data: { code: 'TECH201', name: 'Web Development', description: 'Basics of web development', departmentId: departments[8].id, credits: 1.0, courseLevelId: courseLevels[0].id, minGradeLevelId: gradeLevels[4].id, isElective: true, isCore: false } }),
+    // Health Courses
+    prisma.course.create({ data: { code: 'HEALTH101', name: 'Health Education', description: 'Basics of health and wellness', departmentId: departments[9].id, credits: 0.5, courseLevelId: courseLevels[0].id, minGradeLevelId: gradeLevels[3].id, isElective: false, isCore: true } }),
+    prisma.course.create({ data: { code: 'HEALTH201', name: 'Nutrition', description: 'Basics of nutrition and diet', departmentId: departments[9].id, credits: 0.5, courseLevelId: courseLevels[0].id, minGradeLevelId: gradeLevels[4].id, isElective: false, isCore: true } }),
   ]);
 
   // Create Course Prerequisites
-  await Promise.all([
+  const prerequisiteCourses = await Promise.all([
     prisma.coursePrerequisite.create({ data: { courseId: courses[1].id, prerequisiteCourseId: courses[0].id } }),
     prisma.coursePrerequisite.create({ data: { courseId: courses[2].id, prerequisiteCourseId: courses[1].id } }),
+    prisma.coursePrerequisite.create({ data: { courseId: courses[3].id, prerequisiteCourseId: courses[0].id } }),
+    prisma.coursePrerequisite.create({ data: { courseId: courses[4].id, prerequisiteCourseId: courses[3].id } }),
+    prisma.coursePrerequisite.create({ data: { courseId: courses[5].id, prerequisiteCourseId: courses[3].id } }),
+    prisma.coursePrerequisite.create({ data: { courseId: courses[6].id, prerequisiteCourseId: courses[5].id } }),
+    prisma.coursePrerequisite.create({ data: { courseId: courses[7].id, prerequisiteCourseId: courses[6].id } }),
+    prisma.coursePrerequisite.create({ data: { courseId: courses[8].id, prerequisiteCourseId: courses[7].id } }),
+    prisma.coursePrerequisite.create({ data: { courseId: courses[9].id, prerequisiteCourseId: courses[8].id } }),
   ]);
+
+  // Create math Course Sequences
+  await Promise.all([
+    prisma.courseSequence.create({ data: { departmentId: departments[0].id, courseId: courses[0].id, sequenceOrder: 1 } }),
+    prisma.courseSequence.create({ data: { departmentId: departments[0].id, courseId: courses[1].id, sequenceOrder: 2 } }),
+    prisma.courseSequence.create({ data: { departmentId: departments[0].id, courseId: courses[2].id, sequenceOrder: 3 } }),
+    prisma.courseSequence.create({ data: { departmentId: departments[0].id, courseId: courses[3].id, sequenceOrder: 4 } }),
+    prisma.courseSequence.create({ data: { departmentId: departments[0].id, courseId: courses[4].id, sequenceOrder: 5 } }),
+    prisma.courseSequence.create({ data: { departmentId: departments[0].id, courseId: courses[5].id, sequenceOrder: 6 } }),
+    prisma.courseSequence.create({ data: { departmentId: departments[0].id, courseId: courses[6].id, sequenceOrder: 7 } }),
+  ]);
+
+  // crete english Course Sequences
+  await Promise.all([
+    prisma.courseSequence.create({ data: { departmentId: departments[1].id, courseId: courses[10].id, sequenceOrder: 1 } }),
+    prisma.courseSequence.create({ data: { departmentId: departments[1].id, courseId: courses[11].id, sequenceOrder: 2 } }),
+    prisma.courseSequence.create({ data: { departmentId: departments[1].id, courseId: courses[12].id, sequenceOrder: 3 } }),
+    prisma.courseSequence.create({ data: { departmentId: departments[1].id, courseId: courses[13].id, sequenceOrder: 4 } }),
+    prisma.courseSequence.create({ data: { departmentId: departments[1].id, courseId: courses[14].id, sequenceOrder: 5 } }),
+    prisma.courseSequence.create({ data: { departmentId: departments[1].id, courseId: courses[15].id, sequenceOrder: 6 } }),
+    prisma.courseSequence.create({ data: { departmentId: departments[1].id, courseId: courses[16].id, sequenceOrder: 7 } }),
+    prisma.courseSequence.create({ data: { departmentId: departments[1].id, courseId: courses[17].id, sequenceOrder: 8 } }),
+  ]);
+
+    // crete science Course Sequences
+  await Promise.all([
+    prisma.courseSequence.create({ data: { departmentId: departments[2].id, courseId: courses[18].id, sequenceOrder: 1 } }),
+    prisma.courseSequence.create({ data: { departmentId: departments[2].id, courseId: courses[19].id, sequenceOrder: 2 } }),
+    prisma.courseSequence.create({ data: { departmentId: departments[2].id, courseId: courses[20].id, sequenceOrder: 3 } }),
+  ]);
+  
 
   // Create Course Sections
   const sections = await Promise.all([
     prisma.courseSection.create({ data: { courseId: courses[0].id, sectionNumber: 'A', schoolYearId: schoolYears[1].id, termId: terms[3].id, timeBlockId: timeBlocks[0].id, roomId: rooms[0].id, teacherId: teachers[0].id, maxEnrollment: 30, currentEnrollment: 28 } }),
     prisma.courseSection.create({ data: { courseId: courses[0].id, sectionNumber: 'B', schoolYearId: schoolYears[1].id, termId: terms[3].id, timeBlockId: timeBlocks[2].id, roomId: rooms[0].id, teacherId: teachers[0].id, maxEnrollment: 30, currentEnrollment: 25 } }),
     prisma.courseSection.create({ data: { courseId: courses[1].id, sectionNumber: 'A', schoolYearId: schoolYears[1].id, termId: terms[3].id, timeBlockId: timeBlocks[1].id, roomId: rooms[1].id, teacherId: teachers[0].id, maxEnrollment: 30, currentEnrollment: 30 } }),
+    prisma.courseSection.create({ data: { courseId: courses[2].id, sectionNumber: 'A', schoolYearId: schoolYears[1].id, termId: terms[3].id, timeBlockId: timeBlocks[3].id, roomId: rooms[2].id, teacherId: teachers[0].id, maxEnrollment: 30, currentEnrollment: 20 } }),
+    prisma.courseSection.create({ data: { courseId: courses[3].id, sectionNumber: 'A', schoolYearId: schoolYears[1].id, termId: terms[3].id, timeBlockId: timeBlocks[4].id, roomId: rooms[3].id, teacherId: teachers[1].id, maxEnrollment: 30, currentEnrollment: 15 } }),
+    prisma.courseSection.create({ data: { courseId: courses[4].id, sectionNumber: 'A', schoolYearId: schoolYears[1].id, termId: terms[3].id, timeBlockId: timeBlocks[5].id, roomId: rooms[4].id, teacherId: teachers[1].id, maxEnrollment: 30, currentEnrollment: 10 } }),
+    prisma.courseSection.create({ data: { courseId: courses[5].id, sectionNumber: 'A', schoolYearId: schoolYears[1].id, termId: terms[3].id, timeBlockId: timeBlocks[6].id, roomId: rooms[5].id, teacherId: teachers[2].id, maxEnrollment: 30, currentEnrollment: 18 } }),
+    prisma.courseSection.create({ data: { courseId: courses[6].id, sectionNumber: 'A', schoolYearId: schoolYears[1].id, termId: terms[3].id, timeBlockId: timeBlocks[7].id, roomId: rooms[6].id, teacherId: teachers[2].id, maxEnrollment: 30, currentEnrollment: 22 } }),
+    prisma.courseSection.create({ data: { courseId: courses[7].id, sectionNumber: 'A', schoolYearId: schoolYears[1].id, termId: terms[3].id, timeBlockId: timeBlocks[0].id, roomId: rooms[7].id, teacherId: teachers[3].id, maxEnrollment: 30, currentEnrollment: 12 } }),
+    prisma.courseSection.create({ data: { courseId: courses[8].id, sectionNumber: 'A', schoolYearId: schoolYears[1].id, termId: terms[3].id, timeBlockId: timeBlocks[1].id, roomId: rooms[8].id, teacherId: teachers[3].id, maxEnrollment: 30, currentEnrollment: 8 } }),
+    prisma.courseSection.create({ data: { courseId: courses[9].id, sectionNumber: 'A', schoolYearId: schoolYears[1].id, termId: terms[3].id, timeBlockId: timeBlocks[2].id, roomId: rooms[9].id, teacherId: teachers[4].id, maxEnrollment: 30, currentEnrollment: 5 } }),
+    prisma.courseSection.create({ data: { courseId: courses[10].id, sectionNumber: 'A', schoolYearId: schoolYears[1].id, termId: terms[3].id, timeBlockId: timeBlocks[3].id, roomId: rooms[10].id, teacherId: teachers[4].id, maxEnrollment: 30, currentEnrollment: 20 } }),
   ]);
 
   // Create Course Conflicts
   await Promise.all([
     prisma.courseConflict.create({ data: { courseSectionId1: sections[0].id, courseSectionId2: sections[1].id, conflictType: ConflictType.SCHEDULE_OVERLAP, isResolvable: true, resolutionNotes: 'Students can choose either section' } }),
+    prisma.courseConflict.create({ data: { courseSectionId1: sections[2].id, courseSectionId2: sections[3].id, conflictType: ConflictType.SCHEDULE_OVERLAP, isResolvable: true, resolutionNotes: 'Students can choose either section' } }),
+    prisma.courseConflict.create({ data: { courseSectionId1: sections[4].id, courseSectionId2: sections[5].id, conflictType: ConflictType.SCHEDULE_OVERLAP, isResolvable: true, resolutionNotes: 'Students can choose either section' } }),
+    prisma.courseConflict.create({ data: { courseSectionId1: sections[6].id, courseSectionId2: sections[7].id, conflictType: ConflictType.SCHEDULE_OVERLAP, isResolvable: true, resolutionNotes: 'Students can choose either section' } }),
+    prisma.courseConflict.create({ data: { courseSectionId1: sections[0].id, courseSectionId2: sections[2].id, conflictType: ConflictType.TEACHER_CONFLICT, isResolvable: false, resolutionNotes: 'Teacher is not available for both sections' } }),
+    prisma.courseConflict.create({ data: { courseSectionId1: sections[1].id, courseSectionId2: sections[3].id, conflictType: ConflictType.TEACHER_CONFLICT, isResolvable: false, resolutionNotes: 'Teacher is not available for both sections' } }),
+    prisma.courseConflict.create({ data: { courseSectionId1: sections[4].id, courseSectionId2: sections[6].id, conflictType: ConflictType.TEACHER_CONFLICT, isResolvable: false, resolutionNotes: 'Teacher is not available for both sections' } }),
   ]);
 
   // Create Course Waitlists

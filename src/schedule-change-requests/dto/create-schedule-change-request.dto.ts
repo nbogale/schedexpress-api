@@ -1,32 +1,8 @@
 import { IsEnum, IsNotEmpty, IsOptional, IsString } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
-import { RequestPriority, RequestStatus } from '@prisma/client';
+import { RequestPriority } from '../enums/request-enums';
 
-export class CreateRequestDto {
-  @ApiProperty({
-    example: 'clg123xyz',
-    description: 'ID of the student making the request',
-  })
-  @IsString()
-  @IsNotEmpty()
-  studentId: string;
-
-  @ApiProperty({
-    example: 'clg456abc',
-    description: 'ID of the school year',
-  })
-  @IsString()
-  @IsNotEmpty()
-  schoolYearId: string;
-
-  @ApiProperty({
-    example: 'clg789def',
-    description: 'ID of the term',
-  })
-  @IsString()
-  @IsNotEmpty()
-  termId: string;
-
+export class CreateScheduleChangeRequestDto {
   @ApiProperty({
     example: 'clg101uvw',
     description: 'ID of the current course section',
@@ -69,14 +45,4 @@ export class CreateRequestDto {
   @IsEnum(RequestPriority)
   @IsOptional()
   priority?: RequestPriority;
-
-  @ApiProperty({
-    example: 'PENDING',
-    description: 'Status of the request',
-    enum: RequestStatus,
-    default: RequestStatus.PENDING,
-  })
-  @IsEnum(RequestStatus)
-  @IsOptional()
-  status?: RequestStatus;
 }

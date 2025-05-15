@@ -6,7 +6,7 @@ import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { CoursesModule } from './courses/courses.module';
 import { SchedulesModule } from './schedules/schedules.module';
-import { ScheduleChangeRequestsModule } from './schedule-change-requests/schedule-change-requests.module';
+import { ScheduleChangesModule } from './schedule-change-requests/schedule-changes.module';
 import { ConflictsModule } from './course-conflicts/conflicts.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { SettingsModule } from './settings/settings.module';
@@ -31,7 +31,7 @@ import { GradeLevelsModule } from './grade-levels/grade-levels.module';
     UsersModule,
     CoursesModule,
     SchedulesModule,
-    ScheduleChangeRequestsModule,
+    ScheduleChangesModule,
     ConflictsModule,
     NotificationsModule,
     SettingsModule,
