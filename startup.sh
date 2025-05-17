@@ -1,41 +1,31 @@
 #!/bin/sh
 
-# Function to check if database is ready
-check_db() {
-  echo "Checking database connection..."
-  pg_isready -h db -U postgres -d schedexpress
-  return $?
-}
-
-# Wait for database to be ready
-echo "Waiting for database to be ready..."
-until check_db; do
-  echo "Database is not ready yet. Waiting..."
+# Load Rails-style PG vars (already set by Railway)
+echo "Waiting for database at $PGHOST:$PGPORT…"
+until pg_isready --host="$PGHOST" --port="$PGPORT" --username="$PGUSER" --dbname="$PGDATABASE"; do
+  echo "  › Database not ready, retrying in 2s…"
   sleep 2
 done
-echo "Database is ready!"
+echo "✅ Database is ready!"
 
 # Generate Prisma client
-echo "Generating Prisma client..."
+echo "Generating Prisma client…"
 npx prisma generate
 
 # Run migrations
-echo "Running database migrations..."
+echo "Running Prisma migrations…"
 npx prisma migrate deploy
 
-# Run seed if needed
-echo "Checking if seeding is needed..."
+# Seed if needed
 if [ -f "prisma/seed.ts" ]; then
-  echo "Running database seed..."
+  echo "Seeding database…"
   npx prisma db seed-data-sql
-else
-  echo "No seed file found, skipping seeding."
 fi
 
-# Start the application
-echo "Starting the application..."
+# Start the app
+echo "Starting application…"
 if [ "$NODE_ENV" = "production" ]; then
   node dist/main.js
 else
   npm run start:dev
-fi 
+fi
