@@ -45,6 +45,7 @@ COPY --from=builder /app/tsconfig.json ./tsconfig.json
 
 # 8. Tell Prisma to use binary engine
 ENV PRISMA_QUERY_ENGINE_LIBRARY_PROVIDER=binary
+ENV NODE_ENV=production
 
 RUN chmod +x startup.sh
 EXPOSE 3001
