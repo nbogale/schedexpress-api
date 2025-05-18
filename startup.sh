@@ -54,5 +54,5 @@ echo "Starting application…"
 if [ "$NODE_ENV" = "production" ]; then
   node dist/main.js
 else
-  node dist/main.js
+  npm run start:dev
 fi
