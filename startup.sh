@@ -46,7 +46,7 @@ npx prisma migrate deploy
 # Seed if needed
 if [ -f "prisma/seed.ts" ]; then
   echo "Seeding database…"
-  npx prisma db seed-data-sql
+  npx prisma db seed
 fi
 
 # Start the app
@@ -54,5 +54,5 @@ echo "Starting application…"
 if [ "$NODE_ENV" = "production" ]; then
   node dist/main.js
 else
-  npm run start:dev
+  node dist/main.js
 fi
