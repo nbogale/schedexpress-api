@@ -49,10 +49,34 @@ if [ -f "prisma/seed.ts" ]; then
   npx prisma db seed
 fi
 
-# Start the app
-echo "Starting application…"
-if [ "$NODE_ENV" = "production" ]; then
+# Start the application - always try to run main.js regardless of NODE_ENV
+echo "Starting the application..."
+
+# Try the standard location first
+if [ -f "dist/main.js" ]; then
+  echo "Starting application from dist/main.js"
   node dist/main.js
+# Then try to find main.js anywhere
 else
-  npm run start:dev
-fi
+  echo "dist/main.js not found. Searching for main.js..."
+  MAIN_JS=$(find . -name "main.js" | grep -v "node_modules" | head -n 1)
+  
+  if [ -n "$MAIN_JS" ]; then
+    echo "Found main.js at $MAIN_JS. Starting the application..."
+    node "$MAIN_JS"
+  else
+    echo "ERROR: Could not find main.js file!"
+    echo "Listing all JS files in the project:"
+    find . -type f -name "*.js" | grep -v "node_modules" | sort
+    
+    echo "Trying the most likely location as a last resort..."
+    # As a last resort, check if dist/ contains any JavaScript files
+    DIST_FILES=$(find ./dist -type f -name "*.js" 2>/dev/null | head -n 1)
+    if [ -n "$DIST_FILES" ]; then
+      echo "Found JavaScript file in dist/: $DIST_FILES. Attempting to run..."
+      node "$DIST_FILES"
+    else
+      echo "FATAL ERROR: No JavaScript files found to run in dist/"
+      exit 1
+    fi
+  fi
