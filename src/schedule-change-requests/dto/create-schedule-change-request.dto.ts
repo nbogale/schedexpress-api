@@ -13,11 +13,11 @@ export class CreateScheduleChangeRequestDto {
 
   @ApiProperty({
     example: 'clg202xyz',
-    description: 'ID of the requested course',
+    description: 'ID of the requested course section',
   })
   @IsString()
   @IsNotEmpty()
-  requestedCourseId: string;
+  requestedCourseSectionId: string;
 
   @ApiProperty({
     example: 'clg303abc',

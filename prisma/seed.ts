@@ -214,7 +214,7 @@ async function main() {
     prisma.coursePrerequisite.create({ data: { courseId: courses[6].id, prerequisiteCourseId: courses[5].id } }),
     prisma.coursePrerequisite.create({ data: { courseId: courses[7].id, prerequisiteCourseId: courses[6].id } }),
     prisma.coursePrerequisite.create({ data: { courseId: courses[8].id, prerequisiteCourseId: courses[7].id } }),
-    prisma.coursePrerequisite.create({ data: { courseId: courses[9].id, prerequisiteCourseId: courses[8].id } }),
+    prisma.coursePrerequisite.create({ data: { courseId: courses[10].id, prerequisiteCourseId: courses[9].id } }),
   ]);
 
   // Create math Course Sequences

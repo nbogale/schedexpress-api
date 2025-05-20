@@ -89,6 +89,7 @@ model CourseSection {
   room            Room       @relation(fields: [roomId], references: [id])
   teacher         Teacher    @relation(fields: [teacherId], references: [id])
   currentChangeRequests ScheduleChangeRequest[] @relation("CurrentSection")
+  requestedInChangeRequests ScheduleChangeRequest[] @relation("RequestedSection")
   removedInActions ScheduleChangeAction[] @relation("RemovedSection")
   addedInActions  ScheduleChangeAction[] @relation("AddedSection")
   conflicts1      CourseConflict[] @relation("ConflictSection1")
@@ -252,7 +253,6 @@ model Course {
   sequences         CourseSequence[]
   sections          CourseSection[]
   courseHistory     StudentCourseHistory[]
-  requestedChanges  ScheduleChangeRequest[]
 
   @@map("course")
 }
@@ -374,7 +374,7 @@ model ScheduleChangeRequest {
   schoolYearId          String          @map("school_year_id")
   termId                String          @map("term_id")
   currentCourseSectionId String         @map("current_course_section_id")
-  requestedCourseId     String          @map("requested_course_id")
+  requestedCourseSectionId String       @map("requested_course_section_id")
   preferredTimeBlockId  String?         @map("preferred_time_block_id")
   reason                String          @db.Text
   status                RequestStatus   @default(PENDING)
@@ -387,7 +387,7 @@ model ScheduleChangeRequest {
   schoolYear            SchoolYear      @relation(fields: [schoolYearId], references: [id])
   term                  Term            @relation(fields: [termId], references: [id])
   currentCourseSection  CourseSection   @relation("CurrentSection", fields: [currentCourseSectionId], references: [id])
-  requestedCourse       Course          @relation(fields: [requestedCourseId], references: [id])
+  requestedCourseSection CourseSection  @relation("RequestedSection", fields: [requestedCourseSectionId], references: [id])
   preferredTimeBlock    TimeBlock?      @relation(fields: [preferredTimeBlockId], references: [id])
   reviewer              User?           @relation("RequestReviewer", fields: [reviewedById], references: [id])
   actions               ScheduleChangeAction[]
