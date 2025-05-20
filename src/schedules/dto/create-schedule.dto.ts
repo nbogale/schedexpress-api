@@ -28,7 +28,7 @@ export class CreateScheduleDto {
 
   @ApiProperty({
     example: ['clg456abc', 'clg789def'],
-    description: 'Array of course section IDs',
+    description: 'Array of course section IDs to connect to the schedule',
     type: [String],
   })
   @IsArray()

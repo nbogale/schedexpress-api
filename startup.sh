@@ -27,7 +27,7 @@ npx prisma migrate deploy
 echo "Checking if seeding is needed..."
 if [ -f "prisma/seed.ts" ]; then
   echo "Running database seed..."
-  npx prisma db seed-data-sql
+  npx prisma db seed
 else
   echo "No seed file found, skipping seeding."
 fi

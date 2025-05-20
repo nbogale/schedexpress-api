@@ -90,7 +90,14 @@ export class SchedulesService {
               },
             },
           },
-          courseSections: true,
+          courseSections: {
+            include: {
+              course: true,
+              timeBlock: true,
+              room: true,
+              teacher: true,
+            },
+          },
         },
       });
 
@@ -120,7 +127,14 @@ export class SchedulesService {
             },
           },
         },
-        courseSections: true,
+        courseSections: {
+          include: {
+            course: true,
+            timeBlock: true,
+            room: true,
+            teacher: true,
+          },
+        },
       },
     });
   }
@@ -141,8 +155,16 @@ export class SchedulesService {
           },
         },
         courseSections: {
+          include: {
+            course: true,
+            timeBlock: true,
+            room: true,
+            teacher: true,
+          },
           orderBy: {
-            timeBlockId: 'asc',
+            timeBlock: {
+              startTime: 'asc',
+            },
           },
         },
       },
@@ -157,7 +179,7 @@ export class SchedulesService {
 
   async findByStudent(studentId: string) {
     const student = await this.prisma.student.findUnique({
-      where: { id: studentId },
+      where: { userId: studentId },
     });
 
     if (!student) {
@@ -165,7 +187,7 @@ export class SchedulesService {
     }
 
     const schedule = await this.prisma.schedule.findUnique({
-      where: { studentId },
+      where: { studentId: student.id },
       include: {
         student: {
           include: {
@@ -179,8 +201,16 @@ export class SchedulesService {
           },
         },
         courseSections: {
+          include: {
+            course: true,
+            timeBlock: true,
+            room: true,
+            teacher: true,
+          },
           orderBy: {
-            timeBlockId: 'asc',
+            timeBlock: {
+              startTime: 'asc',
+            },
           },
         },
       },
@@ -304,7 +334,14 @@ export class SchedulesService {
               },
             },
           },
-          courseSections: true,
+          courseSections: {
+            include: {
+              course: true,
+              timeBlock: true,
+              room: true,
+              teacher: true,
+            },
+          },
         },
       });
 

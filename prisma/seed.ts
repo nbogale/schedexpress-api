@@ -40,8 +40,15 @@ async function main() {
     prisma.user.create({ data: { email: 'teacher4@schedexpress.com', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.TEACHER, firstName: 'Teacher', lastName: 'Davis' } }),
     prisma.user.create({ data: { email: 'teacher5@schedexpress.com', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.TEACHER, firstName: 'Teacher', lastName: 'Miller' } }),
     prisma.user.create({ data: { email: 'john.smith@schedexpress.com', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.STUDENT, firstName: 'John', lastName: 'Smith' } }),
-    prisma.user.create({ data: { email: 'student2@schedexpress.com', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.STUDENT, firstName: 'Emily', lastName: 'Johnson' } }),
-    prisma.user.create({ data: { email: 'student3@schedexpress.com', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.STUDENT, firstName: 'Michael', lastName: 'Williams' } }),
+    prisma.user.create({ data: { email: 'emily.johnson@schedexpress.com', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.STUDENT, firstName: 'Emily', lastName: 'Johnson' } }),
+    prisma.user.create({ data: { email: 'michael.williams@schedexpress.com', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.STUDENT, firstName: 'Michael', lastName: 'Williams' } }),
+    prisma.user.create({ data: { email: 'olivia.brown@schedexpress.com', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.STUDENT, firstName: 'Olivia', lastName: 'Brown' } }),
+    prisma.user.create({ data: { email: 'daniel.davis@schedexpress.com', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.STUDENT, firstName: 'Daniel', lastName: 'Davis' } }),   
+    prisma.user.create({ data: { email: 'sophia.wilson  @schedexpress.com', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.STUDENT, firstName: 'Sophia', lastName: 'Wilson' } }),  
+    prisma.user.create({ data: { email: 'james.taylor@schedexpress.com', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.STUDENT, firstName: 'James', lastName: 'Taylor' } }),  
+    prisma.user.create({ data: { email: 'ava.moore@schedexpress.com', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.STUDENT, firstName: 'Ava', lastName: 'Moore' } }),  
+    prisma.user.create({ data: { email: 'william.martin@schedexpress.com', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.STUDENT, firstName: 'William', lastName: 'Martin' } }),  
+    prisma.user.create({ data: { email: 'isabella.harris@schedexpress.com', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.STUDENT, firstName: 'Isabella', lastName: 'Harris' } }),  
   ]);
 
   // Create School Years
@@ -133,22 +140,12 @@ async function main() {
 
   // Create Teachers
   const teachers = await Promise.all([
-    prisma.teacher.create({ data: { email: 'teacher1@edu.edu', departmentId: departments[0].id, maxCourses: 6 } }),
-    prisma.teacher.create({ data: { email: 'teacher2@edu.edu',departmentId: departments[1].id, maxCourses: 6 } }),
-    prisma.teacher.create({ data: { email: 'teacher3@edu.edu', departmentId: departments[2].id, maxCourses: 6 } }),
-    prisma.teacher.create({ data: { email: 'teacher4@edu.edu', departmentId: departments[3].id, maxCourses: 6 } }),
-    prisma.teacher.create({ data: { email: 'teacher5@edu.edu', departmentId: departments[4].id, maxCourses: 6 } }),
+    prisma.teacher.create({ data: {name: 'Teacher Johnson', email: 'teacher1@edu.edu', departmentId: departments[0].id, maxCourses: 6 } }),
+    prisma.teacher.create({ data: {name: 'Teacher Williams', email: 'teacher2@edu.edu',departmentId: departments[1].id, maxCourses: 6 } }),
+    prisma.teacher.create({ data: {name: 'Teacher Brown', email: 'teacher3@edu.edu', departmentId: departments[2].id, maxCourses: 6 } }),
+    prisma.teacher.create({ data: {name: 'Teacher Davis', email: 'teacher4@edu.edu', departmentId: departments[3].id, maxCourses: 6 } }),
+    prisma.teacher.create({ data: {name: 'Teacher Miller', email: 'teacher5@edu.edu', departmentId: departments[4].id, maxCourses: 6 } }),
   ]);
-
-  /*
-   id           String     @id @default(cuid())
-  name         String?
-  email        String     @unique
-  password     String?
-  departmentId String
-  maxCourses   Int        @default(6)
-  isActive     Boolean    @default(true)
-  */
 
   // Create Students
   const students = await Promise.all([
@@ -265,6 +262,45 @@ async function main() {
     prisma.courseSection.create({ data: { courseId: courses[8].id, sectionNumber: 'A', schoolYearId: schoolYears[1].id, termId: terms[3].id, timeBlockId: timeBlocks[1].id, roomId: rooms[8].id, teacherId: teachers[3].id, maxEnrollment: 30, currentEnrollment: 8 } }),
     prisma.courseSection.create({ data: { courseId: courses[9].id, sectionNumber: 'A', schoolYearId: schoolYears[1].id, termId: terms[3].id, timeBlockId: timeBlocks[2].id, roomId: rooms[9].id, teacherId: teachers[4].id, maxEnrollment: 30, currentEnrollment: 5 } }),
     prisma.courseSection.create({ data: { courseId: courses[10].id, sectionNumber: 'A', schoolYearId: schoolYears[1].id, termId: terms[3].id, timeBlockId: timeBlocks[3].id, roomId: rooms[10].id, teacherId: teachers[4].id, maxEnrollment: 30, currentEnrollment: 20 } }),
+  ]);
+
+  // Create Schedules for Students
+  const schedules = await Promise.all([
+    // Student 1 Schedule (Freshman)
+    prisma.schedule.create({
+      data: {
+        studentId: students[0].id,
+        semester: 'Spring',
+        year: 2025,
+        courseSections: {
+          connect: sections.slice(0, 6).map(section => ({ id: section.id }))
+        }
+      }
+    }),
+
+    // Student 2 Schedule (Sophomore)
+    prisma.schedule.create({
+      data: {
+        studentId: students[1].id,
+        semester: 'Spring',
+        year: 2025,
+        courseSections: {
+          connect: sections.slice(0, 7).map(section => ({ id: section.id }))
+        }
+      }
+    }),
+
+    // Student 3 Schedule (Junior with IEP)
+    prisma.schedule.create({
+      data: {
+        studentId: students[2].id,
+        semester: 'Spring',
+        year: 2025,
+        courseSections: {
+          connect: sections.slice(0, 7).map(section => ({ id: section.id }))
+        }
+      }
+    })
   ]);
 
   // Create Course Conflicts
