@@ -1,58 +1,52 @@
+### Builder stage ###
 FROM node:18 AS builder
-
 WORKDIR /app
 
-# Copy package files
+# 1. Install all deps
 COPY package*.json ./
-
-# Install dependencies and rebuild bcrypt
 RUN npm install
-RUN npm rebuild bcrypt --build-from-source
 
-# Copy source code
+# 2. Generate Prisma client
+COPY prisma ./prisma
+RUN npx prisma generate
+
+# 3. Copy source & build
 COPY . .
-
-# Build the application
 RUN npm run build
 
-# Production stage
+### Production stage ###
 FROM node:18-slim
-
-# Install build dependencies and postgresql-client
-RUN apt-get update && \
-    apt-get install -y \
-    python3 \
-    make \
-    g++ \
-    netcat-traditional \
-    postgresql-client && \
-    rm -rf /var/lib/apt/lists/*
-
 WORKDIR /app
 
-# Copy package files
+# 4. Install OS requirements for Prisma
+RUN apt-get update && \
+    apt-get install -y \
+      openssl \
+      python3 \
+      make \
+      g++ \
+      netcat-traditional \
+      postgresql-client && \
+    rm -rf /var/lib/apt/lists/*
+
+# 5. Install only production deps
 COPY package*.json ./
+RUN npm install --only=production
 
-# Install production dependencies, rebuild bcrypt, and install necessary tools
-RUN npm install --only=production && \
-    npm rebuild bcrypt --build-from-source && \
-    npm install -g @nestjs/cli && \
-    npm install -g ts-node typescript @types/node
+# 6. Copy Prisma binaries & client into prod image
+COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
+COPY --from=builder /app/node_modules/@prisma/client ./node_modules/@prisma/client
 
-# Copy built application from builder stage
+# 7. Copy built app and config
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/startup.sh ./startup.sh
 COPY --from=builder /app/tsconfig.json ./tsconfig.json
 
-# Set environment variable to use binary provider for Prisma
+# 8. Tell Prisma to use binary engine
 ENV PRISMA_QUERY_ENGINE_LIBRARY_PROVIDER=binary
+ENV NODE_ENV=production
 
-# Make startup script executable
 RUN chmod +x startup.sh
-
-# Expose the API port
 EXPOSE 3001
-
-# Run the startup script using sh
 CMD ["sh", "./startup.sh"]
