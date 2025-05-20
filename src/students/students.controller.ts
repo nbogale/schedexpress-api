@@ -62,6 +62,6 @@ export class StudentsController {
   getSchedule(@Param('id') id: string) {
     // This is a proxy endpoint that will redirect to the schedules controller
     // We'll implement this redirection in a way that's compatible with the frontend expectations
-    return this.findOne(id);
+    return this.studentsService.getStudentSchedule(id);
   }
 }

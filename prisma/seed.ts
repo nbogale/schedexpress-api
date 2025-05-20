@@ -152,6 +152,13 @@ async function main() {
     prisma.student.create({ data: { userId: users[7].id, studentId: 'S100001', gradeLevelId: gradeLevels[3].id, graduationYear: 2028, hasIep: false, isDualEnrollment: false, isCollegeBound: true, isCreditRecovery: false, maxCreditsPerTerm: 8.0 } }),
     prisma.student.create({ data: { userId: users[8].id, studentId: 'S100002', gradeLevelId: gradeLevels[4].id, graduationYear: 2027, hasIep: false, isDualEnrollment: false, isCollegeBound: true, isCreditRecovery: false, maxCreditsPerTerm: 8.0 } }),
     prisma.student.create({ data: { userId: users[9].id, studentId: 'S100003', gradeLevelId: gradeLevels[4].id, graduationYear: 2027, hasIep: true, isDualEnrollment: false, isCollegeBound: true, isCreditRecovery: false, maxCreditsPerTerm: 7.0 } }),
+    prisma.student.create({ data: { userId: users[10].id, studentId: 'S100004', gradeLevelId: gradeLevels[4].id, graduationYear: 2027, hasIep: false, isDualEnrollment: false, isCollegeBound: true, isCreditRecovery: false, maxCreditsPerTerm: 8.0 } }),  
+    prisma.student.create({ data: { userId: users[11].id, studentId: 'S100005', gradeLevelId: gradeLevels[4].id, graduationYear: 2027, hasIep: false, isDualEnrollment: false, isCollegeBound: true, isCreditRecovery: false, maxCreditsPerTerm: 8.0 } }),  
+    prisma.student.create({ data: { userId: users[12].id, studentId: 'S100006', gradeLevelId: gradeLevels[4].id, graduationYear: 2027, hasIep: false, isDualEnrollment: false, isCollegeBound: true, isCreditRecovery: false, maxCreditsPerTerm: 8.0 } }),  
+    prisma.student.create({ data: { userId: users[13].id, studentId: 'S100007', gradeLevelId: gradeLevels[4].id, graduationYear: 2027, hasIep: false, isDualEnrollment: false, isCollegeBound: true, isCreditRecovery: false, maxCreditsPerTerm: 8.0 } }),  
+    prisma.student.create({ data: { userId: users[14].id, studentId: 'S100008', gradeLevelId: gradeLevels[4].id, graduationYear: 2027, hasIep: false, isDualEnrollment: false, isCollegeBound: true, isCreditRecovery: false, maxCreditsPerTerm: 8.0 } }),  
+    prisma.student.create({ data: { userId: users[15].id, studentId: 'S100009', gradeLevelId: gradeLevels[4].id, graduationYear: 2027, hasIep: false, isDualEnrollment: false, isCollegeBound: true, isCreditRecovery: false, maxCreditsPerTerm: 8.0 } }),  
+    prisma.student.create({ data: { userId: users[16].id, studentId: 'S100010', gradeLevelId: gradeLevels[4].id, graduationYear: 2027, hasIep: false, isDualEnrollment: false, isCollegeBound: true, isCreditRecovery: false, maxCreditsPerTerm: 8.0 } }),  
   ]);
 
   // Create Courses
