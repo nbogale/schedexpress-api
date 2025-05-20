@@ -20,6 +20,10 @@ import { TermsModule } from './terms/terms.module';
 import { SchoolYearsModule } from './school-years/school-years.module';
 import { CourseLevelsModule } from './course-levels/course-levels.module';
 import { GradeLevelsModule } from './grade-levels/grade-levels.module';
+import { CourseSectionsModule } from './course-sections/course-sections.module';
+import { CoursePrerequisitesModule } from './course-prerequisites/course-prerequisites.module';
+import { CourseSequencesModule } from './course-sequences/course-sequences.module';
+import { TeachersModule } from './teachers/teachers.module';
 
 @Module({
   imports: [
@@ -45,6 +49,10 @@ import { GradeLevelsModule } from './grade-levels/grade-levels.module';
     SchoolYearsModule,
     CourseLevelsModule,
     GradeLevelsModule,
+    CourseSectionsModule,
+    CoursePrerequisitesModule,
+    CourseSequencesModule,
+    TeachersModule,
   ],
 })
 export class AppModule {}

@@ -26,8 +26,8 @@ export class ScheduleChangesService {
         student: { include: { user: true } },
         schoolYear: true,
         term: true,
-        currentCourseSection: { include: { course: true } },
-        requestedCourse: true,
+        currentCourseSection: { include: { course: true, timeBlock: true } },
+        requestedCourseSection: { include: { course: true } },
         preferredTimeBlock: true,
         reviewer: true,
       },
@@ -48,7 +48,7 @@ export class ScheduleChangesService {
         currentCourseSection: {
           include: { course: true, teacher: true, room: true, timeBlock: true },
         },
-        requestedCourse: true,
+        requestedCourseSection: { include: { course: true } },
         preferredTimeBlock: true,
         reviewer: true,
         actions: {
@@ -90,7 +90,7 @@ export class ScheduleChangesService {
       where: {
         studentId: student.id,
         currentCourseSectionId: dto.currentCourseSectionId,
-        requestedCourseId: dto.requestedCourseId,
+        requestedCourseSectionId: dto.requestedCourseSectionId,
         status: RequestStatus.PENDING,
       },
     });
@@ -101,11 +101,11 @@ export class ScheduleChangesService {
     const term = await this.prisma.term.findFirst({ where: { schoolYearId: year.id, isCurrent: true } });
     if (!term) throw new BadRequestException('No active term found');
 
-    const course = await this.prisma.course.findUnique({ where: { id: dto.requestedCourseId } });
-    if (!course) throw new NotFoundException(`Requested course with ID ${dto.requestedCourseId} not found`);
+    const requestedCourseSection = await this.prisma.courseSection.findUnique({ where: { id: dto.requestedCourseSectionId }, include: { course: true } });
+    if (!requestedCourseSection) throw new NotFoundException(`Requested course with ID ${dto.requestedCourseSectionId} not found`);
 
     // Check prerequisites
-    const prereqs = await this.coursesService.getPrerequisites(dto.requestedCourseId);
+    const prereqs = await this.coursesService.getPrerequisites(requestedCourseSection.course.id);
     const prerequisiteCourses = prereqs?.prerequisites || [];
     
     if (prerequisiteCourses.length > 0) {
@@ -126,13 +126,34 @@ export class ScheduleChangesService {
       if (!tb) throw new NotFoundException(`Preferred time block with ID ${preferredTimeBlockId} not found`);
     }
 
+    //check if the student has an existing course schedule for the preferred Time block
+    const existingCourseSchedule = await this.prisma.schedule.findFirst({
+      where: {
+        studentId: student.id,
+        courseSections: {
+          some: {
+            timeBlockId: preferredTimeBlockId,
+          },
+        },
+      },
+      include: {
+        courseSections: true,
+      },
+    });
+
+    if (existingCourseSchedule ) {
+      if(existingCourseSchedule.courseSections.some(section => section.id !== dto.currentCourseSectionId)) {
+       // throw new BadRequestException('You already have a course schedule for this time block');
+      }
+    }
+
     const req = await this.prisma.scheduleChangeRequest.create({
       data: {
         studentId: student.id,
         schoolYearId: year.id,
         termId: term.id,
         currentCourseSectionId: dto.currentCourseSectionId,
-        requestedCourseId: dto.requestedCourseId,
+        requestedCourseSectionId: dto.requestedCourseSectionId,
         preferredTimeBlockId,
         reason: dto.reason,
         priority: dto.priority ?? RequestPriority.MEDIUM,
@@ -235,7 +256,7 @@ export class ScheduleChangesService {
       if (dto.status === RequestStatus.APPROVED) updateData.status = RequestStatus.COMPLETED;
     } else if (dto.status === RequestStatus.APPROVED) {
       // Check for available sections and add to waitlist if none are available
-      const avail = await this.findAvailableSections(req.requestedCourseId, req.studentId, req.preferredTimeBlockId);
+      const avail = await this.findAvailableSections(req.requestedCourseSection.course.id, req.studentId, req.preferredTimeBlockId);
       if (!avail.length) await this.addToWaitlist(req);
     }
 

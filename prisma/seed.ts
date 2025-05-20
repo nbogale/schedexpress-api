@@ -40,8 +40,15 @@ async function main() {
     prisma.user.create({ data: { email: 'teacher4@schedexpress.com', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.TEACHER, firstName: 'Teacher', lastName: 'Davis' } }),
     prisma.user.create({ data: { email: 'teacher5@schedexpress.com', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.TEACHER, firstName: 'Teacher', lastName: 'Miller' } }),
     prisma.user.create({ data: { email: 'john.smith@schedexpress.com', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.STUDENT, firstName: 'John', lastName: 'Smith' } }),
-    prisma.user.create({ data: { email: 'student2@schedexpress.com', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.STUDENT, firstName: 'Emily', lastName: 'Johnson' } }),
-    prisma.user.create({ data: { email: 'student3@schedexpress.com', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.STUDENT, firstName: 'Michael', lastName: 'Williams' } }),
+    prisma.user.create({ data: { email: 'emily.johnson@schedexpress.com', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.STUDENT, firstName: 'Emily', lastName: 'Johnson' } }),
+    prisma.user.create({ data: { email: 'michael.williams@schedexpress.com', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.STUDENT, firstName: 'Michael', lastName: 'Williams' } }),
+    prisma.user.create({ data: { email: 'olivia.brown@schedexpress.com', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.STUDENT, firstName: 'Olivia', lastName: 'Brown' } }),
+    prisma.user.create({ data: { email: 'daniel.davis@schedexpress.com', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.STUDENT, firstName: 'Daniel', lastName: 'Davis' } }),   
+    prisma.user.create({ data: { email: 'sophia.wilson  @schedexpress.com', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.STUDENT, firstName: 'Sophia', lastName: 'Wilson' } }),  
+    prisma.user.create({ data: { email: 'james.taylor@schedexpress.com', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.STUDENT, firstName: 'James', lastName: 'Taylor' } }),  
+    prisma.user.create({ data: { email: 'ava.moore@schedexpress.com', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.STUDENT, firstName: 'Ava', lastName: 'Moore' } }),  
+    prisma.user.create({ data: { email: 'william.martin@schedexpress.com', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.STUDENT, firstName: 'William', lastName: 'Martin' } }),  
+    prisma.user.create({ data: { email: 'isabella.harris@schedexpress.com', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.STUDENT, firstName: 'Isabella', lastName: 'Harris' } }),  
   ]);
 
   // Create School Years
@@ -133,28 +140,25 @@ async function main() {
 
   // Create Teachers
   const teachers = await Promise.all([
-    prisma.teacher.create({ data: { email: 'teacher1@edu.edu', departmentId: departments[0].id, maxCourses: 6 } }),
-    prisma.teacher.create({ data: { email: 'teacher2@edu.edu',departmentId: departments[1].id, maxCourses: 6 } }),
-    prisma.teacher.create({ data: { email: 'teacher3@edu.edu', departmentId: departments[2].id, maxCourses: 6 } }),
-    prisma.teacher.create({ data: { email: 'teacher4@edu.edu', departmentId: departments[3].id, maxCourses: 6 } }),
-    prisma.teacher.create({ data: { email: 'teacher5@edu.edu', departmentId: departments[4].id, maxCourses: 6 } }),
+    prisma.teacher.create({ data: {name: 'Teacher Johnson', email: 'teacher1@edu.edu', departmentId: departments[0].id, maxCourses: 6 } }),
+    prisma.teacher.create({ data: {name: 'Teacher Williams', email: 'teacher2@edu.edu',departmentId: departments[1].id, maxCourses: 6 } }),
+    prisma.teacher.create({ data: {name: 'Teacher Brown', email: 'teacher3@edu.edu', departmentId: departments[2].id, maxCourses: 6 } }),
+    prisma.teacher.create({ data: {name: 'Teacher Davis', email: 'teacher4@edu.edu', departmentId: departments[3].id, maxCourses: 6 } }),
+    prisma.teacher.create({ data: {name: 'Teacher Miller', email: 'teacher5@edu.edu', departmentId: departments[4].id, maxCourses: 6 } }),
   ]);
-
-  /*
-   id           String     @id @default(cuid())
-  name         String?
-  email        String     @unique
-  password     String?
-  departmentId String
-  maxCourses   Int        @default(6)
-  isActive     Boolean    @default(true)
-  */
 
   // Create Students
   const students = await Promise.all([
     prisma.student.create({ data: { userId: users[7].id, studentId: 'S100001', gradeLevelId: gradeLevels[3].id, graduationYear: 2028, hasIep: false, isDualEnrollment: false, isCollegeBound: true, isCreditRecovery: false, maxCreditsPerTerm: 8.0 } }),
     prisma.student.create({ data: { userId: users[8].id, studentId: 'S100002', gradeLevelId: gradeLevels[4].id, graduationYear: 2027, hasIep: false, isDualEnrollment: false, isCollegeBound: true, isCreditRecovery: false, maxCreditsPerTerm: 8.0 } }),
     prisma.student.create({ data: { userId: users[9].id, studentId: 'S100003', gradeLevelId: gradeLevels[4].id, graduationYear: 2027, hasIep: true, isDualEnrollment: false, isCollegeBound: true, isCreditRecovery: false, maxCreditsPerTerm: 7.0 } }),
+    prisma.student.create({ data: { userId: users[10].id, studentId: 'S100004', gradeLevelId: gradeLevels[4].id, graduationYear: 2027, hasIep: false, isDualEnrollment: false, isCollegeBound: true, isCreditRecovery: false, maxCreditsPerTerm: 8.0 } }),  
+    prisma.student.create({ data: { userId: users[11].id, studentId: 'S100005', gradeLevelId: gradeLevels[4].id, graduationYear: 2027, hasIep: false, isDualEnrollment: false, isCollegeBound: true, isCreditRecovery: false, maxCreditsPerTerm: 8.0 } }),  
+    prisma.student.create({ data: { userId: users[12].id, studentId: 'S100006', gradeLevelId: gradeLevels[4].id, graduationYear: 2027, hasIep: false, isDualEnrollment: false, isCollegeBound: true, isCreditRecovery: false, maxCreditsPerTerm: 8.0 } }),  
+    prisma.student.create({ data: { userId: users[13].id, studentId: 'S100007', gradeLevelId: gradeLevels[4].id, graduationYear: 2027, hasIep: false, isDualEnrollment: false, isCollegeBound: true, isCreditRecovery: false, maxCreditsPerTerm: 8.0 } }),  
+    prisma.student.create({ data: { userId: users[14].id, studentId: 'S100008', gradeLevelId: gradeLevels[4].id, graduationYear: 2027, hasIep: false, isDualEnrollment: false, isCollegeBound: true, isCreditRecovery: false, maxCreditsPerTerm: 8.0 } }),  
+    prisma.student.create({ data: { userId: users[15].id, studentId: 'S100009', gradeLevelId: gradeLevels[4].id, graduationYear: 2027, hasIep: false, isDualEnrollment: false, isCollegeBound: true, isCreditRecovery: false, maxCreditsPerTerm: 8.0 } }),  
+    prisma.student.create({ data: { userId: users[16].id, studentId: 'S100010', gradeLevelId: gradeLevels[4].id, graduationYear: 2027, hasIep: false, isDualEnrollment: false, isCollegeBound: true, isCreditRecovery: false, maxCreditsPerTerm: 8.0 } }),  
   ]);
 
   // Create Courses
@@ -217,7 +221,7 @@ async function main() {
     prisma.coursePrerequisite.create({ data: { courseId: courses[6].id, prerequisiteCourseId: courses[5].id } }),
     prisma.coursePrerequisite.create({ data: { courseId: courses[7].id, prerequisiteCourseId: courses[6].id } }),
     prisma.coursePrerequisite.create({ data: { courseId: courses[8].id, prerequisiteCourseId: courses[7].id } }),
-    prisma.coursePrerequisite.create({ data: { courseId: courses[9].id, prerequisiteCourseId: courses[8].id } }),
+    prisma.coursePrerequisite.create({ data: { courseId: courses[10].id, prerequisiteCourseId: courses[9].id } }),
   ]);
 
   // Create math Course Sequences
@@ -265,6 +269,45 @@ async function main() {
     prisma.courseSection.create({ data: { courseId: courses[8].id, sectionNumber: 'A', schoolYearId: schoolYears[1].id, termId: terms[3].id, timeBlockId: timeBlocks[1].id, roomId: rooms[8].id, teacherId: teachers[3].id, maxEnrollment: 30, currentEnrollment: 8 } }),
     prisma.courseSection.create({ data: { courseId: courses[9].id, sectionNumber: 'A', schoolYearId: schoolYears[1].id, termId: terms[3].id, timeBlockId: timeBlocks[2].id, roomId: rooms[9].id, teacherId: teachers[4].id, maxEnrollment: 30, currentEnrollment: 5 } }),
     prisma.courseSection.create({ data: { courseId: courses[10].id, sectionNumber: 'A', schoolYearId: schoolYears[1].id, termId: terms[3].id, timeBlockId: timeBlocks[3].id, roomId: rooms[10].id, teacherId: teachers[4].id, maxEnrollment: 30, currentEnrollment: 20 } }),
+  ]);
+
+  // Create Schedules for Students
+  const schedules = await Promise.all([
+    // Student 1 Schedule (Freshman)
+    prisma.schedule.create({
+      data: {
+        studentId: students[0].id,
+        semester: 'Spring',
+        year: 2025,
+        courseSections: {
+          connect: sections.slice(0, 6).map(section => ({ id: section.id }))
+        }
+      }
+    }),
+
+    // Student 2 Schedule (Sophomore)
+    prisma.schedule.create({
+      data: {
+        studentId: students[1].id,
+        semester: 'Spring',
+        year: 2025,
+        courseSections: {
+          connect: sections.slice(0, 7).map(section => ({ id: section.id }))
+        }
+      }
+    }),
+
+    // Student 3 Schedule (Junior with IEP)
+    prisma.schedule.create({
+      data: {
+        studentId: students[2].id,
+        semester: 'Spring',
+        year: 2025,
+        courseSections: {
+          connect: sections.slice(0, 7).map(section => ({ id: section.id }))
+        }
+      }
+    })
   ]);
 
   // Create Course Conflicts

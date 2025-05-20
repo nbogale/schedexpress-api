@@ -36,7 +36,12 @@ export class StudentsService {
         role: UserRole.STUDENT,
       },
       include: {
-        student: true,
+        student: {
+          include: {
+            gradeLevel: true,
+            changeRequests: true,
+          },
+        },
       },
     });
   }
@@ -48,7 +53,11 @@ export class StudentsService {
         role: UserRole.STUDENT,
       },
       include: {
-        student: true,
+        student: {
+          include: {
+            gradeLevel: true
+          },
+        },
       },
     });
 
@@ -85,4 +94,38 @@ export class StudentsService {
     // Get the updated student with all data
     return this.findOne(id);
   }
+
+  async getStudentSchedule(id: string) {
+    const studentSchedule = await this.prisma.student.findUnique({
+      where: { id },
+      include: {
+        gradeLevel: true,
+        user: {
+          select: {
+            firstName: true,
+            lastName: true,
+            email: true,
+          },
+        },
+        schedule: {
+          include: {
+            courseSections: {
+              include: {
+                course: true,
+                room: true,
+                timeBlock: true,
+                teacher: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!studentSchedule) {
+      throw new NotFoundException(`Student schedule with ID ${id} not found`);
+    }
+
+    return studentSchedule;
+  } 
 }

@@ -89,12 +89,14 @@ model CourseSection {
   room            Room       @relation(fields: [roomId], references: [id])
   teacher         Teacher    @relation(fields: [teacherId], references: [id])
   currentChangeRequests ScheduleChangeRequest[] @relation("CurrentSection")
+  requestedInChangeRequests ScheduleChangeRequest[] @relation("RequestedSection")
   removedInActions ScheduleChangeAction[] @relation("RemovedSection")
   addedInActions  ScheduleChangeAction[] @relation("AddedSection")
   conflicts1      CourseConflict[] @relation("ConflictSection1")
   conflicts2      CourseConflict[] @relation("ConflictSection2")
   waitlist        CourseWaitlist[]
-  schedules       Schedule[] @relation("CourseSectionSchedule")
+  schedules       Schedule[] @relation("ScheduleCourseSection")
+  scheduleCourseSections ScheduleCourseSection[]
 
   @@unique([courseId, sectionNumber, schoolYearId, termId])
   @@index([courseId])
@@ -111,9 +113,25 @@ model Schedule {
   createdAt DateTime @map("created_at") @default(now())
   updatedAt DateTime @map("updated_at") @updatedAt
   student   Student  @relation(fields: [studentId], references: [id])
-  courseSections   CourseSection[] @relation("CourseSectionSchedule")
+  courseSections   CourseSection[] @relation("ScheduleCourseSection")
+  scheduleCourseSections ScheduleCourseSection[]
 
   @@map("schedule")
+}
+
+model ScheduleCourseSection {
+  id              String        @id @default(cuid())
+  scheduleId      String        @map("schedule_id")
+  courseSectionId String        @map("course_section_id")
+  createdAt       DateTime      @map("created_at") @default(now())
+  updatedAt       DateTime      @map("updated_at") @updatedAt
+  schedule        Schedule      @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+  courseSection   CourseSection @relation(fields: [courseSectionId], references: [id], onDelete: Cascade)
+
+  @@unique([scheduleId, courseSectionId])
+  @@index([scheduleId])
+  @@index([courseSectionId])
+  @@map("schedule_course_section")
 }
 
 model Notification {
@@ -235,7 +253,6 @@ model Course {
   sequences         CourseSequence[]
   sections          CourseSection[]
   courseHistory     StudentCourseHistory[]
-  requestedChanges  ScheduleChangeRequest[]
 
   @@map("course")
 }
@@ -357,7 +374,7 @@ model ScheduleChangeRequest {
   schoolYearId          String          @map("school_year_id")
   termId                String          @map("term_id")
   currentCourseSectionId String         @map("current_course_section_id")
-  requestedCourseId     String          @map("requested_course_id")
+  requestedCourseSectionId String       @map("requested_course_section_id")
   preferredTimeBlockId  String?         @map("preferred_time_block_id")
   reason                String          @db.Text
   status                RequestStatus   @default(PENDING)
@@ -370,7 +387,7 @@ model ScheduleChangeRequest {
   schoolYear            SchoolYear      @relation(fields: [schoolYearId], references: [id])
   term                  Term            @relation(fields: [termId], references: [id])
   currentCourseSection  CourseSection   @relation("CurrentSection", fields: [currentCourseSectionId], references: [id])
-  requestedCourse       Course          @relation(fields: [requestedCourseId], references: [id])
+  requestedCourseSection CourseSection  @relation("RequestedSection", fields: [requestedCourseSectionId], references: [id])
   preferredTimeBlock    TimeBlock?      @relation(fields: [preferredTimeBlockId], references: [id])
   reviewer              User?           @relation("RequestReviewer", fields: [reviewedById], references: [id])
   actions               ScheduleChangeAction[]

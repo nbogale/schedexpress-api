@@ -5,8 +5,8 @@ import { CreateScheduleDto } from './create-schedule.dto';
 
 export class UpdateScheduleDto extends PartialType(CreateScheduleDto) {
   @ApiProperty({
-    example: ['course-id-1', 'course-id-2'],
-    description: 'Array of course IDs to add to the schedule',
+    example: ['course-section-id-1', 'course-section-id-2'],
+    description: 'Array of course section IDs to add to the schedule',
     type: [String],
     required: false,
   })
@@ -16,8 +16,8 @@ export class UpdateScheduleDto extends PartialType(CreateScheduleDto) {
   addCourseIds?: string[];
 
   @ApiProperty({
-    example: ['course-id-3', 'course-id-4'],
-    description: 'Array of course IDs to remove from the schedule',
+    example: ['course-section-id-3', 'course-section-id-4'],
+    description: 'Array of course section IDs to remove from the schedule',
     type: [String],
     required: false,
   })
