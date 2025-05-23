@@ -41,7 +41,7 @@ async function main() {
     prisma.user.create({ data: { email: 'teacher4@schedexpress.com', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.TEACHER, firstName: 'Teacher', lastName: 'Davis' } }),
     prisma.user.create({ data: { email: 'teacher5@schedexpress.com', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.TEACHER, firstName: 'Teacher', lastName: 'Miller' } }),
     prisma.user.create({ data: { email: 'john.smith@schedexpress.com', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.STUDENT, firstName: 'John', lastName: 'Smith' } }),
-    prisma.user.create({ data: { email: 'emily.johnson@schedexpress.com', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.STUDENT, firstName: 'Emily', lastName: 'Johnson' } }),
+    prisma.user.create({ data: { email: 'yirguit@gmail.com', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.STUDENT, firstName: 'Emily', lastName: 'Johnson' } }),
     prisma.user.create({ data: { email: 'michael.williams@schedexpress.com', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.STUDENT, firstName: 'Michael', lastName: 'Williams' } }),
     prisma.user.create({ data: { email: 'olivia.brown@schedexpress.com', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.STUDENT, firstName: 'Olivia', lastName: 'Brown' } }),
     prisma.user.create({ data: { email: 'daniel.davis@schedexpress.com', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.STUDENT, firstName: 'Daniel', lastName: 'Davis' } }),   
