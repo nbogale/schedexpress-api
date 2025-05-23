@@ -1,4 +1,4 @@
-import { PrismaClient, UserRole, ConflictType, RequestStatus } from '@prisma/client';
+import { PrismaClient, UserRole, ConflictType, RequestStatus, NotificationType } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 
 const prisma = new PrismaClient();
@@ -17,6 +17,7 @@ async function main() {
     prisma.schedule.deleteMany(),
     prisma.coursePrerequisite.deleteMany(),
     prisma.courseSequence.deleteMany(),
+    prisma.courseRule.deleteMany(),
     prisma.course.deleteMany(),
     prisma.student.deleteMany(),
     prisma.teacher.deleteMany(),
@@ -40,7 +41,7 @@ async function main() {
     prisma.user.create({ data: { email: 'teacher4@schedexpress.com', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.TEACHER, firstName: 'Teacher', lastName: 'Davis' } }),
     prisma.user.create({ data: { email: 'teacher5@schedexpress.com', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.TEACHER, firstName: 'Teacher', lastName: 'Miller' } }),
     prisma.user.create({ data: { email: 'john.smith@schedexpress.com', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.STUDENT, firstName: 'John', lastName: 'Smith' } }),
-    prisma.user.create({ data: { email: 'emily.johnson@schedexpress.com', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.STUDENT, firstName: 'Emily', lastName: 'Johnson' } }),
+    prisma.user.create({ data: { email: 'yirguit@gmail.com', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.STUDENT, firstName: 'Emily', lastName: 'Johnson' } }),
     prisma.user.create({ data: { email: 'michael.williams@schedexpress.com', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.STUDENT, firstName: 'Michael', lastName: 'Williams' } }),
     prisma.user.create({ data: { email: 'olivia.brown@schedexpress.com', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.STUDENT, firstName: 'Olivia', lastName: 'Brown' } }),
     prisma.user.create({ data: { email: 'daniel.davis@schedexpress.com', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.STUDENT, firstName: 'Daniel', lastName: 'Davis' } }),   
@@ -330,6 +331,11 @@ async function main() {
   await Promise.all([
     prisma.systemSetting.create({ data: { key: 'MAX_COURSES_PER_STUDENT', value: '8', description: 'Maximum number of courses a student can enroll in per term' } }),
     prisma.systemSetting.create({ data: { key: 'MIN_COURSES_PER_STUDENT', value: '6', description: 'Minimum number of courses a student must enroll in per term' } }),
+  ]);
+
+  // Create for Notifications
+  await Promise.all([
+    prisma.notification.create({ data: { studentId: students[0].id, userId: users[7].id, message: 'Your schedule change request has been created for Math', type: NotificationType.REQUEST_UPDATE } }),
   ]);
 
   console.log('Seed data created successfully');

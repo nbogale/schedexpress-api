@@ -4,13 +4,15 @@ import { CoursesService } from '../courses/courses.service';
 import { CreateScheduleChangeRequestDto } from './dto/create-schedule-change-request.dto';
 import { UpdateScheduleChangeRequestDto } from './dto/update-schedule-change-request.dto';
 import { ProcessChangeRequestDto } from './dto/process-change-request.dto';
-import { RequestStatus, RequestPriority } from './enums/request-enums';
+import { RequestStatus, RequestPriority, NotificationType } from './enums/request-enums';
+import { NotificationsService } from 'src/notifications/notifications.service';
 
 @Injectable()
 export class ScheduleChangesService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly coursesService: CoursesService,
+    private readonly notificationsService: NotificationsService,
   ) {}
 
   async findAll(filters?: any) {
@@ -65,7 +67,21 @@ export class ScheduleChangesService {
   }
 
   async create(dto: CreateScheduleChangeRequestDto, userId: string) {
-    const student = await this.prisma.student.findUnique({ where: { userId } });
+    const student = await this.prisma.student.findUnique({ where: { userId }, include: { user: {
+      select: {
+        firstName: true,
+        lastName: true,
+        email: true,
+        id: true,
+      }
+    },
+      gradeLevel: {
+        select: {
+          name: true,
+          level: true,
+        }
+      }
+     } });
     if (!student) throw new BadRequestException('Only students can create schedule change requests');
 
     // Check if the student has this course in their schedule
@@ -160,7 +176,40 @@ export class ScheduleChangesService {
         status: RequestStatus.PENDING,
       },
     });
-    return this.findOne(req.id);
+
+    try {
+      const currentCourseSection = await this.prisma.courseSection.findUnique(
+        { where: { id: dto.currentCourseSectionId }, include: { course: { select: { name: true } } } });
+  
+        //Create notification for the student
+        const notification = await this.notificationsService.createNotification({
+            studentId: student.id,
+            userId: userId,
+            message: `Your request to change from ${currentCourseSection.course.name} to ${requestedCourseSection.course.name} has been submitted`,
+            type: NotificationType.REQUEST_UPDATE
+        }, true);
+  
+        console.log('Email notification created successfully', notification);
+  
+        //Get counselor for notification
+        const counselor = await this.prisma.user.findFirst({
+          where: {
+            role: 'COUNSELOR',
+          },
+        });
+  
+        if(counselor) {
+          const message = `New schedule change request from ${student.user.firstName} ${student.user.lastName || 'a student'} (Grade ${student.gradeLevel.level})`;
+          await this.notificationsService.createNotification({
+            userId: counselor.id,
+            type: NotificationType.REQUEST_UPDATE,
+            message: message,
+          }, true);
+        }
+    } catch (error) {
+      console.log('Error creating notification', error);
+    }
+    return this.findOne(req.id);    
   }
 
   async update(id: string, dto: UpdateScheduleChangeRequestDto, userId: string) {
@@ -194,6 +243,15 @@ export class ScheduleChangesService {
     }
 
     await this.prisma.scheduleChangeRequest.update({ where: { id }, data });
+
+    //not
+    const notification = await this.notificationsService.createNotification({
+      studentId: req.studentId,
+      userId: userId,
+      message: `Your schedule change request has been updated for ${req.requestedCourseSection.course.name}`,
+      type: NotificationType.REQUEST_UPDATE,
+    });
+
     return this.findOne(id);
   }
 
@@ -259,6 +317,15 @@ export class ScheduleChangesService {
       const avail = await this.findAvailableSections(req.requestedCourseSection.course.id, req.studentId, req.preferredTimeBlockId);
       if (!avail.length) await this.addToWaitlist(req);
     }
+
+    await this.notificationsService.createNotification({
+      studentId: req.studentId,
+      userId: req.student.userId,
+      message: `Your schedule change request has been ${dto.status.toLowerCase()}${
+        dto.resolutionNotes ? `: ${dto.resolutionNotes}` : ''
+      }`,
+      type: NotificationType.REQUEST_UPDATE, 
+    }, true);
 
     await this.prisma.scheduleChangeRequest.update({ where: { id }, data: updateData });
     return this.findOne(id);

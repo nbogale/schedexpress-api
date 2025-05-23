@@ -253,6 +253,8 @@ model Course {
   sequences         CourseSequence[]
   sections          CourseSection[]
   courseHistory     StudentCourseHistory[]
+  courseRules       CourseRule[]      @relation("CourseRules")
+  conflictingRules  CourseRule[]      @relation("ConflictingCourseRules")
 
   @@map("course")
 }
@@ -335,6 +337,7 @@ enum NotificationType {
   REQUEST_UPDATE
   REQUEST_APPROVED
   REQUEST_DENIED
+  REQUEST_CREATED
 
   @@map("notification_type")
 }
@@ -503,9 +506,15 @@ model CourseRule {
   type                RuleType
   description         String
   isActive            Boolean  @map("is_active") @default(true)
+  isOverridable       Boolean  @map("is_overridable") @default(false)
   createdAt           DateTime @map("created_at") @default(now())
   updatedAt           DateTime @map("updated_at") @updatedAt
+  course              Course   @relation("CourseRules", fields: [courseId], references: [id])
+  conflictingCourse   Course   @relation("ConflictingCourseRules", fields: [conflictingCourseId], references: [id])
 
+  @@unique([courseId, conflictingCourseId])
+  @@index([courseId])
+  @@index([conflictingCourseId])
   @@map("course_rule")
 }
 
@@ -522,8 +531,10 @@ enum ConflictType {
 }
 
 enum RuleType {
-  SCHEDULE_OVERLAP
   PREREQUISITE
+  COURSE_CONFLICT
+  SEQUENCE
+  SCHEDULE_OVERLAP
   GRADE_REQUIREMENT
   CAPACITY
   OTHER

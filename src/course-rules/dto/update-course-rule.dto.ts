@@ -1,7 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { IsBoolean, IsEnum, IsNotEmpty, IsOptional, IsString } from 'class-validator';
-import { RuleType } from './create-course-rule.dto';
-
+import { RuleType } from '../enums/course-rule-enums';
 export class UpdateCourseRuleDto {
   @ApiProperty({
     description: 'The ID of the primary course',

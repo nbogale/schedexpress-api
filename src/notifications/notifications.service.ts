@@ -1,24 +1,38 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationType } from '@prisma/client';
-
+import { EmailService } from './email.service';
 @Injectable()
 export class NotificationsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService, private readonly emailService: EmailService) {}
 
   async createNotification(data: {
     studentId?: string;
-    counselorId?: string;
-    adminId?: string;
+    userId?: string;
     message: string;
     type: NotificationType;
-  }) {
-    return this.prisma.notification.create({
+  }, sendEmail: boolean = false) {
+    //If userId or studentId is not provided throw exception
+    if (!data.studentId && !data.userId) {
+      throw new Error('StudentId or User Id is required');
+    }
+
+
+    const notification = await this.prisma.notification.create({
       data: {
         ...data,
         read: false,
       },
     });
+
+    if(sendEmail) {
+      await this.sendEmailNotification({
+        userId: data.userId,
+        message: data.message,
+        type: data.type,
+      });
+    }
+    return notification;
   }
 
   async createRequestNotification(data: {
@@ -43,8 +57,6 @@ export class NotificationsService {
       where: { id: userId },
       include: {
         student: true,
-       // counselor: true,
-       // admin: true,
       },
     });
 
@@ -79,8 +91,6 @@ export class NotificationsService {
       where: { id: userId },
       include: {
         student: true,
-        //counselor: true,
-        //admin: true,
       },
     });
 
@@ -103,4 +113,32 @@ export class NotificationsService {
       data: { read: true },
     });
   }
+
+
+  async sendEmailNotification(data: {
+    userId: string;
+    message: string;
+    type: NotificationType;
+  }) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: data.userId },
+    });
+
+    if (!user) {
+      return;
+    }
+
+    //Send email to user.email  
+    const email = user.email;
+    const subject = 'Schedule Change Request';
+    const body = data.message;
+    const emailData = {
+      to: email,
+      subject: subject,
+      text: body,
+    };    
+    
+    //Send email
+    await this.emailService.sendEmail(emailData);
+  } 
 }
