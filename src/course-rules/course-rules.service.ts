@@ -33,45 +33,44 @@ export class CourseRulesService {
 
   async findAll() {
     return this.prisma.courseRule.findMany({
-      //TODO: Need revisit to Add include for course and conflicting course
-      /* include: {
+      include: {
         course: {
           select: {
             id: true,
             name: true,
-            courseCode: true,
+            code: true,
           },
         },
         conflictingCourse: {
           select: {
             id: true,
             name: true,
-            courseCode: true,
+            code: true,
           },
         },
-      }, */
+      },
     });
   }
 
   async findOne(id: string) {
     const rule = await this.prisma.courseRule.findUnique({
       where: { id },
-     /*  include: {
+      include: {
         course: {
           select: {
             id: true,
             name: true,
-            courseCode: true,
+            code: true,
           },
         },
         conflictingCourse: {
           select: {
             id: true,
             name: true,
-            courseCode: true,
+            code: true,
           },
         },
-      }, */
+      },
     });
 
     if (!rule) {

@@ -24,6 +24,7 @@ export class CourseRulesController {
   })
   @ApiResponse({ status: 409, description: 'Rule already exists' })
   create(@Body() createCourseRuleDto: CreateCourseRuleDto) {
+    console.log('createCourseRuleDto',createCourseRuleDto);
     return this.courseRulesService.create(createCourseRuleDto);
   }
 

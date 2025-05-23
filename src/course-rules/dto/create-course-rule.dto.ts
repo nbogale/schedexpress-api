@@ -1,13 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsBoolean, IsEnum, IsNotEmpty, IsString } from 'class-validator';
+import { IsBoolean, IsDate, IsEnum, IsNotEmpty, IsString } from 'class-validator';
+import { RuleType } from '../enums/course-rule-enums';
 
-export enum RuleType {
-  SCHEDULE_OVERLAP = 'SCHEDULE_OVERLAP',
-  PREREQUISITE = 'PREREQUISITE',
-  GRADE_REQUIREMENT = 'GRADE_REQUIREMENT',
-  CAPACITY = 'CAPACITY',
-  OTHER = 'OTHER',
-}
 
 export class CreateCourseRuleDto {
   @ApiProperty({
@@ -49,4 +43,13 @@ export class CreateCourseRuleDto {
   })
   @IsBoolean()
   isActive: boolean = true;
+
+  @ApiProperty({
+    description: 'Whether the rule is overridable',
+    example: false,
+    default: false,
+  })
+  @IsBoolean()
+  isOverridable: boolean = false;
+  
 }

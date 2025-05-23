@@ -481,7 +481,7 @@ INSERT INTO rule (name, type, description, is_active, created_at, updated_at) VA
 
 -- Course Rules (specific rules for courses)
 INSERT INTO course_rule (course_id, conflicting_course_id, type, description, is_active, created_at, updated_at) VALUES
-(5, 7, 'SCHEDULE_OVERLAP', 'Student cannot take both AP Calculus AB and AP Statistics in the same term', TRUE, NOW(), NOW()),
+(5, 7, 'PREREQUISITE', 'Student cannot take both AP Calculus AB and AP Statistics in the same term', TRUE, NOW(), NOW()),
 (6, 7, 'SCHEDULE_OVERLAP', 'Student cannot take both AP Calculus BC and AP Statistics in the same term', TRUE, NOW(), NOW()),
 (19, 20, 'SCHEDULE_OVERLAP', 'Student cannot take both AP English Language and AP English Literature in the same term', TRUE, NOW(), NOW()),
 (24, 25, 'SCHEDULE_OVERLAP', 'Student cannot take both AP Biology and AP Chemistry in the same term', TRUE, NOW(), NOW()),
