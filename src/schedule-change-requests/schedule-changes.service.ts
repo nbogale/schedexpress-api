@@ -6,6 +6,7 @@ import { UpdateScheduleChangeRequestDto } from './dto/update-schedule-change-req
 import { ProcessChangeRequestDto } from './dto/process-change-request.dto';
 import { RequestStatus, RequestPriority, NotificationType } from './enums/request-enums';
 import { NotificationsService } from 'src/notifications/notifications.service';
+import { ConflictType, CourseRule, RuleType } from '@prisma/client';
 
 @Injectable()
 export class ScheduleChangesService {
@@ -32,6 +33,7 @@ export class ScheduleChangesService {
         requestedCourseSection: { include: { course: true } },
         preferredTimeBlock: true,
         reviewer: true,
+        courseConflicts: true,
       },
       orderBy: [
         { priority: 'desc' },
@@ -177,6 +179,43 @@ export class ScheduleChangesService {
       },
     });
 
+    // Check Course rules for the requested course
+    const courseRules = await this.prisma.courseRule.findMany({
+      where: {
+        courseId: requestedCourseSection.course.id,
+      },
+    });
+
+    if (courseRules?.length > 0) {
+      const unsatisfiedRules: CourseRule[] = [];
+      const courseHistory = await this.getStudentCourseHistory(student.id);
+      for (const rule of courseRules) {
+        if (!courseHistory.some(h => h.courseId === rule.conflictingCourseId && h.isPassed)) {
+          unsatisfiedRules.push(rule);
+        }
+      }
+
+      if(unsatisfiedRules.length > 0) {
+        for(const rule of unsatisfiedRules) {
+          if(!rule.isOverridable) {
+            throw new BadRequestException(`You cannot change to this course because it conflicts with another course: ${rule.description}`);
+          } else {
+            //Save it to course conflict table  
+            await this.prisma.courseConflict.create({
+              data: {
+                courseSectionId1: dto.currentCourseSectionId,
+                courseSectionId2: dto.requestedCourseSectionId,
+                conflictType: this.mapRuleTypeToConflictType(rule.type),
+                isResolvable: false,
+                resolutionNotes: rule.description,
+                requestId: req.id,
+              },
+            });
+          }
+        }
+      }
+    }
+
     try {
       const currentCourseSection = await this.prisma.courseSection.findUnique(
         { where: { id: dto.currentCourseSectionId }, include: { course: { select: { name: true } } } });
@@ -210,6 +249,19 @@ export class ScheduleChangesService {
       console.log('Error creating notification', error);
     }
     return this.findOne(req.id);    
+  }
+
+  private mapRuleTypeToConflictType(ruleType: RuleType): ConflictType {
+    switch(ruleType) {
+      case RuleType.PREREQUISITE:
+        return ConflictType.PREREQUISITE_NOT_MET;
+      case RuleType.SEQUENCE:
+        return ConflictType.COURSE_SEQUENCE_NOT_MET;
+      case RuleType.COURSE_CONFLICT:
+        return ConflictType.COURSE_CONFLICT;
+      default:
+        return ConflictType.OTHER;
+    }
   }
 
   async update(id: string, dto: UpdateScheduleChangeRequestDto, userId: string) {

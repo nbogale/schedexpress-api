@@ -34,7 +34,7 @@ async function main() {
   // Create Users
   const users = await Promise.all([
     prisma.user.create({ data: { email: 'admin@schedexpress.com', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.ADMIN, firstName: 'Admin', lastName: 'User' } }),
-    prisma.user.create({ data: { email: 'counselor@schedexpress.com', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.COUNSELOR, firstName: 'Counselor', lastName: 'Smith' } }),
+    prisma.user.create({ data: { email: 'yirgu15@gmail.com', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.COUNSELOR, firstName: 'Counselor', lastName: 'Smith' } }),
     prisma.user.create({ data: { email: 'teacher1@schedexpress.com', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.TEACHER, firstName: 'Teacher', lastName: 'Johnson' } }),
     prisma.user.create({ data: { email: 'teacher2@schedexpress.com', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.TEACHER, firstName: 'Teacher', lastName: 'Williams' } }),
     prisma.user.create({ data: { email: 'teacher3@schedexpress.com', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.TEACHER, firstName: 'Teacher', lastName: 'Brown' } }),
