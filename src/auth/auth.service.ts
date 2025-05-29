@@ -1,11 +1,16 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../prisma/prisma.service';
 import { LoginDto } from './dto/login.dto';
+import { ApiErrorResponse } from 'src/common/api-error';
+import { ErrorCode } from 'src/common/error-codes';
+import { ApiErrorResponseBuilder } from 'src/common/api-error-builder';
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly jwtService: JwtService,
@@ -22,7 +27,13 @@ export class AuthService {
 
     const isPasswordValid = await bcrypt.compare(password, user.passwordHash);
     if (!isPasswordValid) {
-      return null;
+      const errorResponse = ApiErrorResponseBuilder.create(
+        ErrorCode.AUTH,
+        'Invalid credentials'
+      )
+        .withLogger(this.logger)
+        .build();
+      throw new UnauthorizedException(errorResponse);
     }
 
     const { passwordHash: _, ...result } = user;
@@ -30,10 +41,17 @@ export class AuthService {
   }
 
   async login(loginDto: LoginDto) {
+    this.logger.log('Login request received');
     const user = await this.validateUser(loginDto.email, loginDto.password);
     
     if (!user) {
-      throw new UnauthorizedException('Invalid credentials');
+      const errorResponse = ApiErrorResponseBuilder.create(
+        ErrorCode.AUTH,
+        'Invalid credentials'
+      )
+        .withLogger(this.logger)
+        .build();
+      throw new UnauthorizedException(errorResponse);
     }
 
     // Get additional user data based on role

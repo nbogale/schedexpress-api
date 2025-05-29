@@ -1,12 +1,17 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateCourseSectionDto } from './dto/create-course-section.dto';
 import { UpdateCourseSectionDto } from './dto/update-course-section.dto';
 import { Prisma } from '@prisma/client';
+import { ApiErrorResponse } from 'src/common/api-error';
+import { ErrorCode } from 'src/common/error-codes';
+import { ApiErrorResponseBuilder } from 'src/common/api-error-builder';
 
 @Injectable()
 export class CourseSectionsService {
-  constructor(private prisma: PrismaService) {}
+  private readonly logger = new Logger(CourseSectionsService.name);
+
+  constructor(private readonly prisma: PrismaService) {}
 
   async create(createCourseSectionDto: CreateCourseSectionDto) {
     // Check if course exists
@@ -14,7 +19,13 @@ export class CourseSectionsService {
       where: { id: createCourseSectionDto.courseId },
     });
     if (!course) {
-      throw new NotFoundException('Course not found');
+      const errorResponse = ApiErrorResponseBuilder.create(
+        ErrorCode.CSSN,
+        'Course not found'
+      )
+        .withLogger(this.logger)
+        .build();
+      throw new NotFoundException(errorResponse);
     }
 
     // Check if school year exists
@@ -22,7 +33,13 @@ export class CourseSectionsService {
       where: { id: createCourseSectionDto.schoolYearId },
     });
     if (!schoolYear) {
-      throw new NotFoundException('School year not found');
+      const errorResponse = ApiErrorResponseBuilder.create(
+        ErrorCode.CSSN,
+        'School year not found'
+      )
+        .withLogger(this.logger)
+        .build();
+      throw new NotFoundException(errorResponse);
     }
 
     // Check if term exists
@@ -30,7 +47,13 @@ export class CourseSectionsService {
       where: { id: createCourseSectionDto.termId },
     });
     if (!term) {
-      throw new NotFoundException('Term not found');
+      const errorResponse = ApiErrorResponseBuilder.create(
+        ErrorCode.CSSN,
+        'Term not found'
+      )
+        .withLogger(this.logger)
+        .build();
+      throw new NotFoundException(errorResponse);
     }
 
     // Check if time block exists
@@ -38,7 +61,13 @@ export class CourseSectionsService {
       where: { id: createCourseSectionDto.timeBlockId },
     });
     if (!timeBlock) {
-      throw new NotFoundException('Time block not found');
+      const errorResponse = ApiErrorResponseBuilder.create(
+        ErrorCode.CSSN,
+        'Time block not found'
+      )
+        .withLogger(this.logger)
+        .build();
+      throw new NotFoundException(errorResponse);
     }
 
     // Check if room exists
@@ -46,7 +75,13 @@ export class CourseSectionsService {
       where: { id: createCourseSectionDto.roomId },
     });
     if (!room) {
-      throw new NotFoundException('Room not found');
+      const errorResponse = ApiErrorResponseBuilder.create(
+        ErrorCode.CSSN,
+        'Room not found'
+      )
+        .withLogger(this.logger)
+        .build();
+      throw new NotFoundException(errorResponse);
     }
 
     // Check if teacher exists
@@ -54,7 +89,13 @@ export class CourseSectionsService {
       where: { id: createCourseSectionDto.teacherId },
     });
     if (!teacher) {
-      throw new NotFoundException('Teacher not found');
+      const errorResponse = ApiErrorResponseBuilder.create(
+        ErrorCode.CSSN,
+        'Teacher not found'
+      )
+        .withLogger(this.logger)
+        .build();
+      throw new NotFoundException(errorResponse);
     }
 
     // Check for time block conflicts
@@ -69,7 +110,13 @@ export class CourseSectionsService {
     });
 
     if (existingSection) {
-      throw new BadRequestException('Time block conflict: Room or teacher is already assigned during this time');
+      const errorResponse = ApiErrorResponseBuilder.create(
+        ErrorCode.CSSB,
+        'Time block conflict: Room or teacher is already assigned during this time'
+      )
+        .withLogger(this.logger)
+        .build();
+      throw new BadRequestException(errorResponse);
     }
 
     return this.prisma.courseSection.create({
@@ -122,7 +169,13 @@ export class CourseSectionsService {
     });
 
     if (!section) {
-      throw new NotFoundException('Course section not found');
+      const errorResponse = ApiErrorResponseBuilder.create(
+        ErrorCode.CSSN,
+        `Course section with ID ${id} not found`
+      )
+        .withLogger(this.logger)
+        .build();
+      throw new NotFoundException(errorResponse);
     }
 
     return section;
@@ -134,7 +187,13 @@ export class CourseSectionsService {
       where: { id },
     });
     if (!section) {
-      throw new NotFoundException('Course section not found');
+      const errorResponse = ApiErrorResponseBuilder.create(
+        ErrorCode.CSSN,
+        'Course section not found'
+      )
+        .withLogger(this.logger)
+        .build();
+      throw new NotFoundException(errorResponse);
     }
 
     // If updating time block, room, or teacher, check for conflicts
@@ -151,7 +210,13 @@ export class CourseSectionsService {
       });
 
       if (existingSection) {
-        throw new BadRequestException('Time block conflict: Room or teacher is already assigned during this time');
+        const errorResponse = ApiErrorResponseBuilder.create(
+          ErrorCode.CSSC,
+          'Time block conflict: Room or teacher is already assigned during this time'
+        )
+          .withLogger(this.logger)
+          .build();
+        throw new BadRequestException(errorResponse);
       }
     }
 
@@ -175,12 +240,24 @@ export class CourseSectionsService {
       where: { id },
     });
     if (!section) {
-      throw new NotFoundException('Course section not found');
+      const errorResponse = ApiErrorResponseBuilder.create(
+        ErrorCode.CSSN,
+        'Course section not found'
+      )
+        .withLogger(this.logger)
+        .build();
+      throw new NotFoundException(errorResponse);
     }
 
     // Check if section has enrolled students
     if (section.currentEnrollment > 0) {
-      throw new BadRequestException('Cannot delete section with enrolled students');
+      const errorResponse = ApiErrorResponseBuilder.create(
+        ErrorCode.CSSD,
+        'Cannot delete section with enrolled students'
+      )
+        .withLogger(this.logger)
+        .build();
+      throw new BadRequestException(errorResponse);
     }
 
     return this.prisma.courseSection.delete({
@@ -194,11 +271,23 @@ export class CourseSectionsService {
     });
 
     if (!section) {
-      throw new NotFoundException('Course section not found');
+      const errorResponse = ApiErrorResponseBuilder.create(
+        ErrorCode.CSSN,
+        'Course section not found'
+      )
+        .withLogger(this.logger)
+        .build();
+      throw new NotFoundException(errorResponse);
     }
 
     if (section.currentEnrollment >= section.maxEnrollment) {
-      throw new BadRequestException('Section is already at maximum enrollment');
+      const errorResponse = ApiErrorResponseBuilder.create(
+        ErrorCode.CSSE,
+        'Section is already at maximum enrollment'
+      )
+        .withLogger(this.logger)
+        .build();
+      throw new BadRequestException(errorResponse);
     }
 
     return this.prisma.courseSection.update({
@@ -217,11 +306,23 @@ export class CourseSectionsService {
     });
 
     if (!section) {
-      throw new NotFoundException('Course section not found');
+      const errorResponse = ApiErrorResponseBuilder.create(
+        ErrorCode.CSSN,
+        'Course section not found'
+      )
+        .withLogger(this.logger)
+        .build();
+      throw new NotFoundException(errorResponse);
     }
 
     if (section.currentEnrollment <= 0) {
-      throw new BadRequestException('Section has no enrolled students');
+      const errorResponse = ApiErrorResponseBuilder.create(
+        ErrorCode.CSSF,
+        'Section has no enrolled students'
+      )
+        .withLogger(this.logger)
+        .build();
+      throw new BadRequestException(errorResponse);
     }
 
     return this.prisma.courseSection.update({

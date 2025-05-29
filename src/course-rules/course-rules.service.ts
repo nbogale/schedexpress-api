@@ -1,29 +1,63 @@
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import { Injectable, ConflictException, NotFoundException, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateCourseRuleDto } from './dto/create-course-rule.dto';
 import { UpdateCourseRuleDto } from './dto/update-course-rule.dto';
+import { ApiErrorResponse } from 'src/common/api-error';
+import { ErrorCode } from 'src/common/error-codes';
+import { ApiErrorResponseBuilder } from 'src/common/api-error-builder';
 
 @Injectable()
 export class CourseRulesService {
-  constructor(private prisma: PrismaService) {}
+  private readonly logger = new Logger(CourseRulesService.name);
+
+  constructor(private readonly prisma: PrismaService) {}
 
   async create(createCourseRuleDto: CreateCourseRuleDto) {
-    const { courseId, conflictingCourseId } = createCourseRuleDto;
-
-    // Verify both courses exist
-    await this.validateCourses(courseId, conflictingCourseId);
-
-    // Check if rule already exists
+    // Check if a similar rule already exists
     const existingRule = await this.prisma.courseRule.findFirst({
       where: {
-        courseId,
-        conflictingCourseId,
-        type: createCourseRuleDto.type,
+        courseId: createCourseRuleDto.courseId,
+        conflictingCourseId: createCourseRuleDto.conflictingCourseId,
       },
     });
 
     if (existingRule) {
-      throw new ConflictException('A similar rule already exists for these courses');
+      const errorResponse = ApiErrorResponseBuilder.create(
+        ErrorCode.CRLC,
+        'A similar rule already exists for these courses'
+      )
+        .withLogger(this.logger)
+        .build();
+      throw new ConflictException(errorResponse);
+    }
+
+    // Verify that both courses exist
+    const course = await this.prisma.course.findUnique({
+      where: { id: createCourseRuleDto.courseId },
+    });
+
+    if (!course) {
+      const errorResponse = ApiErrorResponseBuilder.create(
+        ErrorCode.CRLN,
+        `Course with ID ${createCourseRuleDto.courseId} not found`
+      )
+        .withLogger(this.logger)
+        .build();
+      throw new NotFoundException(errorResponse);
+    }
+
+    const conflictingCourse = await this.prisma.course.findUnique({
+      where: { id: createCourseRuleDto.conflictingCourseId },
+    });
+
+    if (!conflictingCourse) {
+      const errorResponse = ApiErrorResponseBuilder.create(
+        ErrorCode.CRLN,
+        `Conflicting course with ID ${createCourseRuleDto.conflictingCourseId} not found`
+      )
+        .withLogger(this.logger)
+        .build();
+      throw new NotFoundException(errorResponse);
     }
 
     return this.prisma.courseRule.create({
@@ -53,95 +87,94 @@ export class CourseRulesService {
   }
 
   async findOne(id: string) {
-    const rule = await this.prisma.courseRule.findUnique({
+    const courseRule = await this.prisma.courseRule.findUnique({
       where: { id },
-      include: {
-        course: {
-          select: {
-            id: true,
-            name: true,
-            code: true,
-          },
-        },
-        conflictingCourse: {
-          select: {
-            id: true,
-            name: true,
-            code: true,
-          },
-        },
-      },
     });
 
-    if (!rule) {
-      throw new NotFoundException(`Course rule with ID ${id} not found`);
+    if (!courseRule) {
+      const errorResponse = ApiErrorResponseBuilder.create(
+        ErrorCode.CRLN,
+        `Course rule with ID ${id} not found`
+      )
+        .withLogger(this.logger)
+        .build();
+      throw new NotFoundException(errorResponse);
     }
 
-    return rule;
+    return courseRule;
   }
 
   async update(id: string, updateCourseRuleDto: UpdateCourseRuleDto) {
-    // Check if rule exists
-    await this.findOne(id);
+    const courseRule = await this.prisma.courseRule.findUnique({
+      where: { id },
+    });
 
-    // Validate courses if they're being updated
-    if (updateCourseRuleDto.courseId || updateCourseRuleDto.conflictingCourseId) {
-      const courseId = updateCourseRuleDto.courseId || (await this.findOne(id)).courseId;
-      const conflictingCourseId = 
-        updateCourseRuleDto.conflictingCourseId || 
-        (await this.findOne(id)).conflictingCourseId;
-      
-      await this.validateCourses(courseId, conflictingCourseId);
+    if (!courseRule) {
+      const errorResponse = ApiErrorResponseBuilder.create(
+        ErrorCode.CRLN,
+        `Course rule with ID ${id} not found`
+      )
+        .withLogger(this.logger)
+        .build();
+      throw new NotFoundException(errorResponse);
+    }
+
+    // If course or conflicting course is being updated, verify they exist
+    if (updateCourseRuleDto.courseId) {
+      const course = await this.prisma.course.findUnique({
+        where: { id: updateCourseRuleDto.courseId },
+      });
+
+      if (!course) {
+        const errorResponse = ApiErrorResponseBuilder.create(
+          ErrorCode.CRLN,
+          `Course with ID ${updateCourseRuleDto.courseId} not found`
+        )
+          .withLogger(this.logger)
+          .build();
+        throw new NotFoundException(errorResponse);
+      }
+    }
+
+    if (updateCourseRuleDto.conflictingCourseId) {
+      const conflictingCourse = await this.prisma.course.findUnique({
+        where: { id: updateCourseRuleDto.conflictingCourseId },
+      });
+
+      if (!conflictingCourse) {
+        const errorResponse = ApiErrorResponseBuilder.create(
+          ErrorCode.CRLN,
+          `Conflicting course with ID ${updateCourseRuleDto.conflictingCourseId} not found`
+        )
+          .withLogger(this.logger)
+          .build();
+        throw new NotFoundException(errorResponse);
+      }
     }
 
     return this.prisma.courseRule.update({
       where: { id },
       data: updateCourseRuleDto,
-     /*  include: {
-        course: {
-          select: {
-            id: true,
-            name: true,
-            courseCode: true,
-          },
-        },
-        conflictingCourse: {
-          select: {
-            id: true,
-            name: true,
-            courseCode: true,
-          },
-        },
-      }, */
     });
   }
 
   async remove(id: string) {
-    // Check if rule exists
-    await this.findOne(id);
+    const courseRule = await this.prisma.courseRule.findUnique({
+      where: { id },
+    });
+
+    if (!courseRule) {
+      const errorResponse = ApiErrorResponseBuilder.create(
+        ErrorCode.CRLN,
+        `Course rule with ID ${id} not found`
+      )
+        .withLogger(this.logger)
+        .build();
+      throw new NotFoundException(errorResponse);
+    }
 
     return this.prisma.courseRule.delete({
       where: { id },
     });
-  }
-
-  private async validateCourses(courseId: string, conflictingCourseId: string) {
-    // Verify primary course exists
-    const course = await this.prisma.course.findUnique({
-      where: { id: courseId },
-    });
-
-    if (!course) {
-      throw new NotFoundException(`Course with ID ${courseId} not found`);
-    }
-
-    // Verify conflicting course exists
-    const conflictingCourse = await this.prisma.course.findUnique({
-      where: { id: conflictingCourseId },
-    });
-
-    if (!conflictingCourse) {
-      throw new NotFoundException(`Conflicting course with ID ${conflictingCourseId} not found`);
-    }
   }
 }

@@ -1,10 +1,15 @@
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateCourseDto } from './dto/create-course.dto';
 import { UpdateCourseDto } from './dto/update-course.dto';
+import { ApiErrorResponse } from 'src/common/api-error';
+import { ErrorCode } from 'src/common/error-codes';
+import { ApiErrorResponseBuilder } from 'src/common/api-error-builder';
 
 @Injectable()
 export class CoursesService {
+  private readonly logger = new Logger(CoursesService.name);
+
   constructor(private readonly prisma: PrismaService) {}
 
   async create(createCourseDto: CreateCourseDto) {
@@ -18,8 +23,13 @@ export class CoursesService {
     console.log('existingCourse - ', JSON.stringify(existingCourse));
 
     if (existingCourse) {
-
-      throw new ConflictException(`Course with code ${createCourseDto.code} already exists`);
+      const errorResponse = ApiErrorResponseBuilder.create(
+        ErrorCode.CRSC,
+        `Course with code ${createCourseDto.code} already exists`
+      )
+        .withLogger(this.logger)
+        .build();
+      throw new ConflictException(errorResponse);
     }
 
     const course = await this.prisma.course.create({
@@ -28,12 +38,8 @@ export class CoursesService {
       },
     });
 
-
-   
-
-
     //add new prerequisites or update existing ones
-   if (prerequisiteIds && prerequisiteIds.length > 0) {
+    if (prerequisiteIds && prerequisiteIds.length > 0) {
       await this.prisma.coursePrerequisite.deleteMany({
         where: { courseId: course.id },
       });
@@ -76,6 +82,8 @@ export class CoursesService {
             prerequisiteCourse: true,
           },
         },
+        //schedules: true,
+        //changeRequests: true,
       },
       /* include: {
         schedules: {
@@ -96,7 +104,13 @@ export class CoursesService {
     });
 
     if (!course) {
-      throw new NotFoundException(`Course with ID ${id} not found`);
+      const errorResponse = ApiErrorResponseBuilder.create(
+        ErrorCode.CRSN,
+        `Course with ID ${id} not found`
+      )
+        .withLogger(this.logger)
+        .build();
+      throw new NotFoundException(errorResponse);
     }
 
     return course;
@@ -109,7 +123,13 @@ export class CoursesService {
     });
 
     if (!course) {
-      throw new NotFoundException(`Course with ID ${id} not found`);
+      const errorResponse = ApiErrorResponseBuilder.create(
+        ErrorCode.CRSN,
+        `Course with ID ${id} not found`
+      )
+        .withLogger(this.logger)
+        .build();
+      throw new NotFoundException(errorResponse);
     }
 
     // If course code is being updated, check if it's unique
@@ -119,7 +139,13 @@ export class CoursesService {
       });
 
       if (existingCourse) {
-        throw new ConflictException(`Course with code ${updateCourseDto.code} already exists`);
+        const errorResponse = ApiErrorResponseBuilder.create(
+          ErrorCode.CRSC,
+          `Course with code ${updateCourseDto.code} already exists`
+        )
+          .withLogger(this.logger)
+          .build();
+        throw new ConflictException(errorResponse);
       }
     }
 
@@ -130,29 +156,58 @@ export class CoursesService {
   }
 
   async remove(id: string) {
-    // Check if course exists
     const course = await this.prisma.course.findUnique({
       where: { id },
-      /* include: {
-        schedules: true,
-        currentRequests: true,
-        newRequests: true,
-      }, */
     });
 
     if (!course) {
-      throw new NotFoundException(`Course with ID ${id} not found`);
+      const errorResponse = ApiErrorResponseBuilder.create(
+        ErrorCode.CRSN,
+        `Course with ID ${id} not found`
+      )
+        .withLogger(this.logger)
+        .build();
+      throw new NotFoundException(errorResponse);
     }
 
-    // Check if course is associated with any schedules or requests
-    //TODO: revisi this below conditions
-   /*  if (course.schedules.length > 0) {
-      throw new ConflictException('Cannot delete course that is in use by student schedules');
+    // Check if course is in use
+    const scheduleCount = await this.prisma.schedule.count({
+      where: {
+        courseSections: {
+          some: {
+            courseId: id
+          }
+        }
+      }
+    });
+
+    if (scheduleCount > 0) {
+      const errorResponse = ApiErrorResponseBuilder.create(
+        ErrorCode.CRSD,
+        'Cannot delete course that is in use by student schedules'
+      )
+        .withLogger(this.logger)
+        .build();
+      throw new ConflictException(errorResponse);
     }
 
-    if (course.currentRequests.length > 0 || course.newRequests.length > 0) {
-      throw new ConflictException('Cannot delete course that has pending change requests');
-    } */
+    const changeRequestCount = await this.prisma.scheduleChangeRequest.count({
+      where: {
+        requestedCourseSection: {
+          courseId: id
+        }
+      }
+    });
+
+    if (changeRequestCount > 0) {
+      const errorResponse = ApiErrorResponseBuilder.create(
+        ErrorCode.CRSE,
+        'Cannot delete course that has pending change requests'
+      )
+        .withLogger(this.logger)
+        .build();
+      throw new ConflictException(errorResponse);
+    }
 
     return this.prisma.course.delete({
       where: { id },

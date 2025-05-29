@@ -1,12 +1,17 @@
-import { Injectable, ConflictException, NotFoundException } from '@nestjs/common';
+import { Injectable, ConflictException, NotFoundException, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import * as bcrypt from 'bcrypt';
 import { UserRole } from '@prisma/client';
+import { ApiErrorResponse } from 'src/common/api-error';
+import { ErrorCode } from 'src/common/error-codes';
+import { ApiErrorResponseBuilder } from 'src/common/api-error-builder';
 
 @Injectable()
 export class UsersService {
+  private readonly logger = new Logger(UsersService.name);
+
   constructor(private readonly prisma: PrismaService) {}
 
   async create(createUserDto: CreateUserDto) {
@@ -18,7 +23,24 @@ export class UsersService {
     });
 
     if (existingUser) {
-      throw new ConflictException('Email already in use');
+      const errorResponse = ApiErrorResponseBuilder.create(
+        ErrorCode.USRC,
+        'Email already in use'
+      )
+        .withLogger(this.logger)
+        .build();
+      throw new ConflictException(errorResponse);
+    }
+
+    // If user is a student, ensure grade level is provided
+    if (role === UserRole.STUDENT && !gradeLevel) {
+      const errorResponse = ApiErrorResponseBuilder.create(
+        ErrorCode.USRD,
+        'Grade level is required for students'
+      )
+        .withLogger(this.logger)
+        .build();
+      throw new ConflictException(errorResponse);
     }
 
     // Hash password
@@ -38,7 +60,13 @@ export class UsersService {
       // Create role-specific record
       if (role === UserRole.STUDENT) {
         if (!gradeLevel) {
-          throw new ConflictException('Grade level is required for students');
+          const errorResponse = ApiErrorResponseBuilder.create(
+            ErrorCode.USRD,
+            'Grade level is required for students'
+          )
+            .withLogger(this.logger)
+            .build();
+          throw new ConflictException(errorResponse);
         }
         // TODO: Add student record(grade level)
        /*  await prisma.user.create({
@@ -114,7 +142,13 @@ export class UsersService {
     });
 
     if (!user) {
-      throw new NotFoundException(`User with ID ${id} not found`);
+      const errorResponse = ApiErrorResponseBuilder.create(
+        ErrorCode.USRN,
+        `User with ID ${id} not found`
+      )
+        .withLogger(this.logger)
+        .build();
+      throw new NotFoundException(errorResponse);
     }
 
     return user;
@@ -132,10 +166,44 @@ export class UsersService {
     });
 
     if (!user) {
-      throw new NotFoundException(`User with ID ${id} not found`);
+      const errorResponse = ApiErrorResponseBuilder.create(
+        ErrorCode.USRN,
+        `User with ID ${id} not found`
+      )
+        .withLogger(this.logger)
+        .build();
+      throw new NotFoundException(errorResponse);
     }
 
     const { role, department, gradeLevel, ...userData } = updateUserDto;
+
+    // If email is being updated, check if it's unique
+    if (userData.email && userData.email !== user.email) {
+      const existingUser = await this.prisma.user.findUnique({
+        where: { email: userData.email },
+      });
+
+      if (existingUser) {
+        const errorResponse = ApiErrorResponseBuilder.create(
+          ErrorCode.USRC,
+          'Email already in use'
+        )
+          .withLogger(this.logger)
+          .build();
+        throw new ConflictException(errorResponse);
+      }
+    }
+
+    // If user is a student, ensure grade level is provided
+    if (role === UserRole.STUDENT && !gradeLevel) {
+      const errorResponse = ApiErrorResponseBuilder.create(
+        ErrorCode.USRD,
+        'Grade level is required for students'
+      )
+        .withLogger(this.logger)
+        .build();
+      throw new ConflictException(errorResponse);
+    }
 
     // Hash password if provided
     if (userData.password) {
@@ -187,7 +255,13 @@ export class UsersService {
     });
 
     if (!user) {
-      throw new NotFoundException(`User with ID ${id} not found`);
+      const errorResponse = ApiErrorResponseBuilder.create(
+        ErrorCode.USRN,
+        `User with ID ${id} not found`
+      )
+        .withLogger(this.logger)
+        .build();
+      throw new NotFoundException(errorResponse);
     }
 
     return this.prisma.$transaction(async (prisma) => {
