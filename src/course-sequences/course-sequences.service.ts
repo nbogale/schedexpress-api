@@ -2,6 +2,7 @@ import { Injectable, NotFoundException, BadRequestException } from '@nestjs/comm
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateCourseSequenceDto } from './dto/create-course-sequence.dto';
 import { UpdateCourseSequenceDto } from './dto/update-course-sequence.dto';
+import { ApiErrorResponse } from 'src/common/api-error';
 
 @Injectable()
 export class CourseSequencesService {
@@ -19,7 +20,12 @@ export class CourseSequencesService {
     ]);
 
     if (!department || !course) {
-      throw new BadRequestException('Department or course does not exist');
+      const errorResponse: ApiErrorResponse = {
+        errorCode: 'CSEB',
+        errorMessage: 'Department or course does not exist',
+        timestamp: new Date().toISOString(),
+      };
+      throw new BadRequestException(errorResponse);
     }
 
     // Check if sequence already exists
@@ -33,7 +39,12 @@ export class CourseSequencesService {
     });
 
     if (existingSequence) {
-      throw new BadRequestException('This course sequence already exists');
+      const errorResponse: ApiErrorResponse = {
+        errorCode: 'CSEC',
+        errorMessage: 'This course sequence already exists',
+        timestamp: new Date().toISOString(),
+      };
+      throw new BadRequestException(errorResponse);
     }
 
     return this.prisma.courseSequence.create({

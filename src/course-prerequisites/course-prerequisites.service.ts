@@ -1,11 +1,16 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateCoursePrerequisiteDto } from './dto/create-course-prerequisite.dto';
 import { UpdateCoursePrerequisiteDto } from './dto/update-course-prerequisite.dto';
+import { ApiErrorResponse } from 'src/common/api-error';
+import { ErrorCode } from 'src/common/error-codes';
+import { ApiErrorResponseBuilder } from 'src/common/api-error-builder';
 
 @Injectable()
 export class CoursePrerequisitesService {
-  constructor(private prisma: PrismaService) {}
+  private readonly logger = new Logger(CoursePrerequisitesService.name);
+
+  constructor(private readonly prisma: PrismaService) {}
 
   async create(createCoursePrerequisiteDto: CreateCoursePrerequisiteDto) {
     // Check if both courses exist
@@ -19,7 +24,13 @@ export class CoursePrerequisitesService {
     ]);
 
     if (!course || !prerequisiteCourse) {
-      throw new BadRequestException('One or both courses do not exist');
+      const errorResponse = ApiErrorResponseBuilder.create(
+        ErrorCode.CPAA,
+        'One or both courses do not exist'
+      )
+        .withLogger(this.logger)
+        .build();
+      throw new BadRequestException(errorResponse);
     }
 
     // Check if prerequisite already exists
@@ -33,7 +44,13 @@ export class CoursePrerequisitesService {
     });
 
     if (existingPrerequisite) {
-      throw new BadRequestException('This prerequisite already exists');
+      const errorResponse = ApiErrorResponseBuilder.create(
+        ErrorCode.CPAB,
+        'This prerequisite already exists'
+      )
+        .withLogger(this.logger)
+        .build();
+      throw new BadRequestException(errorResponse);
     }
 
     return this.prisma.coursePrerequisite.create({
@@ -64,7 +81,13 @@ export class CoursePrerequisitesService {
     });
 
     if (!prerequisite) {
-      throw new NotFoundException(`Course prerequisite with ID ${id} not found`);
+      const errorResponse = ApiErrorResponseBuilder.create(
+        ErrorCode.CPAA,
+        `Course prerequisite with ID ${id} not found`
+      )
+        .withLogger(this.logger)
+        .build();
+      throw new NotFoundException(errorResponse);
     }
 
     return prerequisite;
@@ -91,7 +114,13 @@ export class CoursePrerequisitesService {
         },
       });
     } catch (error) {
-      throw new NotFoundException(`Course prerequisite with ID ${id} not found`);
+      const errorResponse = ApiErrorResponseBuilder.create(
+        ErrorCode.CPAA,
+        `Course prerequisite with ID ${id} not found`
+      )
+        .withLogger(this.logger)
+        .build();
+      throw new NotFoundException(errorResponse);
     }
   }
 
@@ -101,7 +130,13 @@ export class CoursePrerequisitesService {
         where: { id },
       });
     } catch (error) {
-      throw new NotFoundException(`Course prerequisite with ID ${id} not found`);
+      const errorResponse = ApiErrorResponseBuilder.create(
+        ErrorCode.CPAA,
+        `Course prerequisite with ID ${id} not found`
+      )
+        .withLogger(this.logger)
+        .build();
+      throw new NotFoundException(errorResponse);
     }
   }
 } 
