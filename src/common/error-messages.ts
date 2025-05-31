@@ -58,4 +58,18 @@ export const errorMessages: Record<ErrorCode, string> = {
   // Department Error Messages
   [ErrorCode.DEPN]: 'The requested department could not be found.',
   [ErrorCode.DEPC]: 'This department cannot be deleted as it has associated courses or teachers.',
-}; 
+
+  // Time Block Error Messages
+  [ErrorCode.TBDA]: 'Cannot delete time block that is used in course sections.',
+  [ErrorCode.TBDB]: 'Time block not found.',
+
+  // Teacher Error Messages
+  [ErrorCode.TCHD]: 'Teacher is used in course sections.',
+  [ErrorCode.TCHB]: 'Teacher not found.',
+
+  // Term Error Messages
+  [ErrorCode.TRMA]: 'Term is used in course sections.',
+
+  // School Year Error Messages
+  [ErrorCode.SCYA]: 'School year is used in course sections.',
+};

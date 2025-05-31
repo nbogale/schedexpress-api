@@ -1,10 +1,13 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateTeacherDto } from './dto/create-teacher.dto';
 import { UpdateTeacherDto } from './dto/update-teacher.dto';
+import { ApiErrorResponseBuilder } from 'src/common/api-error-builder';
+import { ErrorCode } from 'src/common/error-codes';
 
 @Injectable()
 export class TeachersService {
+  private readonly logger = new Logger(TeachersService.name);
   constructor(private prisma: PrismaService) {}
 
   async create(createTeacherDto: CreateTeacherDto) {
@@ -85,10 +88,24 @@ export class TeachersService {
   }
 
   async remove(id: string) {
+
+    // check if the teacher is used in course sections
+    const courseSections = await this.prisma.courseSection.findMany({
+      where: { teacherId: id },
+    });
+    if (courseSections.length > 0) {
+      const errorResponse = ApiErrorResponseBuilder.create(
+        ErrorCode.TCHD,
+        'Teacher is used in course sections'
+      )
+        .withLogger(this.logger)
+        .build();
+      throw new BadRequestException(errorResponse);
+    }
     try {
       return await this.prisma.teacher.delete({
         where: { id },
-        include: {
+        /* include: {
           department: true,
           sections: {
             include: {
@@ -97,13 +114,19 @@ export class TeachersService {
               room: true,
             },
           },
-        },
+        }, */
       });
     } catch (error) {
-      if (error.code === 'P2025') {
-        throw new NotFoundException(`Teacher with ID ${id} not found`);
-      }
-      throw error;
+     // if (error.code === 'P2025') {
+        const errorResponse = ApiErrorResponseBuilder.create(
+          ErrorCode.TCHB,
+          `Teacher with ID ${id} not found`
+        )
+          .withLogger(this.logger)
+          .build();
+        throw new NotFoundException(errorResponse);
+     // }
+   //   throw error;
     }
   }
 } 
