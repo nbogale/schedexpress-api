@@ -18,20 +18,20 @@ export class TeachersController {
   }
 
   @Get(':id')
-  findOne(@Param('id', ParseUUIDPipe) id: string) {
+  findOne(@Param('id') id: string) {
     return this.teachersService.findOne(id);
   }
 
   @Patch(':id')
   update(
-    @Param('id', ParseUUIDPipe) id: string,
+    @Param('id') id: string,
     @Body() updateTeacherDto: UpdateTeacherDto,
   ) {
     return this.teachersService.update(id, updateTeacherDto);
   }
 
   @Delete(':id')
-  remove(@Param('id', ParseUUIDPipe) id: string) {
+  remove(@Param('id') id: string) {
     return this.teachersService.remove(id);
   }
 } 

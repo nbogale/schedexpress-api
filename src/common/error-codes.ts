@@ -62,4 +62,18 @@ export enum ErrorCode {
   // Department Error Codes
   DEPN = 'DEPN', // Department not found
   DEPC = 'DEPC', // Department has courses or teachers
+
+  // Time Block Error Codes
+  TBDA = 'TBDA', // Cannot delete time block that is used in course sections
+  TBDB = 'TBDB', // Time block not found
+
+  // Teacher Error Codes
+  TCHD = 'TCHD', // Teacher is used in course sections
+  TCHB = 'TCHB', // Teacher not found
+
+  // Term Error Codes
+  TRMA = 'TRMA', // Term is used in course sections
+
+  // School Year Error Codes
+  SCYA = 'SCYA', // School year is used in course sections
 } 
