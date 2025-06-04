@@ -4,7 +4,7 @@ import { CoursesService } from '../courses/courses.service';
 import { CreateScheduleChangeRequestDto } from './dto/create-schedule-change-request.dto';
 import { UpdateScheduleChangeRequestDto } from './dto/update-schedule-change-request.dto';
 import { ProcessChangeRequestDto } from './dto/process-change-request.dto';
-import { RequestStatus, RequestPriority, NotificationType } from './enums/request-enums';
+import { RequestStatus, RequestPriority, NotificationType, UserRoleType } from './enums/request-enums';
 import { NotificationsService } from 'src/notifications/notifications.service';
 import { ConflictType, CourseRule, RuleType } from '@prisma/client';
 import { ApiErrorResponse } from 'src/common/api-error';
@@ -92,6 +92,7 @@ export class ScheduleChangesService {
 
     const currentCourseSection = await this.prisma.courseSection.findUnique({
       where: { id: dto.currentCourseSectionId },
+      include: { course: true, timeBlock: true },
     });
 
     if (!currentCourseSection) {
@@ -104,7 +105,7 @@ export class ScheduleChangesService {
 
     const requestedCourseSection = await this.prisma.courseSection.findUnique({
       where: { id: dto.requestedCourseSectionId },
-      include: { course: { select: { name: true } } },
+      include: { course: { select: { name: true } }, timeBlock: true },
     });
 
     if (!requestedCourseSection) {
@@ -185,14 +186,25 @@ export class ScheduleChangesService {
             },
           },
         },
+        include: {
+          courseSections: {
+            include: {
+              course: true,
+              timeBlock: true,
+            },
+          },
+        },
       });
 
-      if (existingSchedule) {
-        throw new BadRequestException(
-          ApiErrorResponseBuilder.create(ErrorCode.SCRC, 'You already have a course scheduled during the preferred time block')
-            .withLogger(this.logger)
-            .build()
-        );
+      if(currentCourseSection.timeBlockId !== requestedCourseSection.timeBlockId && (existingSchedule && existingSchedule.courseSections.length > 0)) {
+        const existingScheduleSection = existingSchedule.courseSections.find(s => s.timeBlockId === tb.id);
+        if (existingScheduleSection && existingScheduleSection.id !== dto.currentCourseSectionId) {
+          throw new BadRequestException(
+            ApiErrorResponseBuilder.create(ErrorCode.SCRC, 'You already have a course scheduled during the preferred time block')
+              .withLogger(this.logger)
+              .build()
+          );
+        }
       }
     }
 
@@ -247,20 +259,12 @@ export class ScheduleChangesService {
       );
     }
 
-    // Create notification for the student
-    await this.prisma.notification.create({
-      data: {
-        studentId: student.id,
-        message: `New schedule change request from ${student.user.firstName || 'a student'} (Grade ${student.gradeLevel.level})`,
-        type: NotificationType.REQUEST_CREATED,
-      },
-    });
-
     try {
+      // Create notification for the student and counselor
       const currentCourseSection = await this.prisma.courseSection.findUnique(
         { where: { id: dto.currentCourseSectionId }, include: { course: { select: { name: true } } } });
   
-        const notification = await this.notificationsService.createNotification({
+        await this.notificationsService.createNotification({
             studentId: student.id,
             userId: userId,
             message: `Your request to change from ${currentCourseSection.course.name} to ${requestedCourseSection.course.name} has been submitted`,
@@ -271,7 +275,7 @@ export class ScheduleChangesService {
   
         const counselor = await this.prisma.user.findFirst({
           where: {
-            role: 'COUNSELOR',
+            role: UserRoleType.COUNSELOR,
           },
         });
   
