@@ -208,20 +208,6 @@ export class ScheduleChangesService {
       }
     }
 
-    const req = await this.prisma.scheduleChangeRequest.create({
-      data: {
-        studentId: student.id,
-        schoolYearId: currentSchoolYear.id,
-        termId: currentTerm.id,
-        currentCourseSectionId: dto.currentCourseSectionId,
-        requestedCourseSectionId: dto.requestedCourseSectionId,
-        preferredTimeBlockId: dto.preferredTimeBlockId,
-        reason: dto.reason,
-        priority: dto.priority ?? RequestPriority.MEDIUM,
-        status: RequestStatus.PENDING,
-      },
-    });
-
     // Check course rules for conflicts
     const courseRules = await this.prisma.courseRule.findMany({
       where: {
@@ -258,6 +244,20 @@ export class ScheduleChangesService {
           .build()
       );
     }
+
+    const req = await this.prisma.scheduleChangeRequest.create({
+      data: {
+        studentId: student.id,
+        schoolYearId: currentSchoolYear.id,
+        termId: currentTerm.id,
+        currentCourseSectionId: dto.currentCourseSectionId,
+        requestedCourseSectionId: dto.requestedCourseSectionId,
+        preferredTimeBlockId: dto.preferredTimeBlockId,
+        reason: dto.reason,
+        priority: dto.priority ?? RequestPriority.MEDIUM,
+        status: RequestStatus.PENDING,
+      },
+    });
 
     try {
       // Create notification for the student and counselor
