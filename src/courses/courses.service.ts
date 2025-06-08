@@ -173,9 +173,11 @@ export class CoursesService {
     // Check if course is in use
     const scheduleCount = await this.prisma.schedule.count({
       where: {
-        courseSections: {
+        scheduleCourseSections: {
           some: {
-            courseId: id
+            courseSection: {
+              courseId: id
+            }
           }
         }
       }

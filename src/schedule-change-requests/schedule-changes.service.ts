@@ -119,9 +119,9 @@ export class ScheduleChangesService {
     const studentSchedule = await this.prisma.schedule.findFirst({
       where: {
         studentId: student.id,
-        courseSections: {
+        scheduleCourseSections: {
           some: {
-            id: currentCourseSection.id,
+            courseSectionId: currentCourseSection.id,
           },
         },
       },
@@ -180,25 +180,31 @@ export class ScheduleChangesService {
       const existingSchedule = await this.prisma.schedule.findFirst({
         where: {
           studentId: student.id,
-          courseSections: {
+          scheduleCourseSections: {
             some: {
-              timeBlockId: tb.id,
+              courseSection: {
+                timeBlockId: tb.id,
+              },
             },
           },
         },
         include: {
-          courseSections: {
+          scheduleCourseSections: {
             include: {
-              course: true,
-              timeBlock: true,
-            },
+              courseSection: {
+                include: {
+                  course: true,
+                  timeBlock: true,
+                }
+              }
+            }
           },
         },
       });
 
-      if(currentCourseSection.timeBlockId !== requestedCourseSection.timeBlockId && (existingSchedule && existingSchedule.courseSections.length > 0)) {
-        const existingScheduleSection = existingSchedule.courseSections.find(s => s.timeBlockId === tb.id);
-        if (existingScheduleSection && existingScheduleSection.id !== dto.currentCourseSectionId) {
+      if(currentCourseSection.timeBlockId !== requestedCourseSection.timeBlockId && (existingSchedule && existingSchedule.scheduleCourseSections.length > 0)) {
+        const existingScheduleSection = existingSchedule.scheduleCourseSections.find(s => s.courseSection.timeBlockId === tb.id);
+        if (existingScheduleSection && existingScheduleSection.courseSection.id !== dto.currentCourseSectionId) {
           throw new BadRequestException(
             ApiErrorResponseBuilder.create(ErrorCode.SCRC, 'You already have a course scheduled during the preferred time block')
               .withLogger(this.logger)
@@ -381,6 +387,15 @@ export class ScheduleChangesService {
 
     if (([RequestStatus.APPROVED, RequestStatus.COMPLETED] as RequestStatus[]).includes(dto.status) && dto.newCourseSectionId) {
       await this.prisma.$transaction(async tx => {
+        // Get the student's schedule first
+        const studentSchedule = await tx.schedule.findUnique({
+          where: { studentId: req.studentId }
+        });
+
+        if (!studentSchedule) {
+          throw new NotFoundException('Student schedule not found');
+        }
+
         await tx.courseSection.update({ 
           where: { id: req.currentCourseSectionId }, 
           data: { currentEnrollment: { decrement: 1 } } 
@@ -391,14 +406,22 @@ export class ScheduleChangesService {
           data: { currentEnrollment: { increment: 1 } } 
         });
 
-        await tx.schedule.update({
-          where: { studentId: req.studentId },
+        // First delete the existing schedule course section
+        await tx.scheduleCourseSection.delete({
+          where: {
+            scheduleId_courseSectionId: {
+              scheduleId: studentSchedule.id,
+              courseSectionId: req.currentCourseSectionId,
+            },
+          },
+        });
+
+        // Then create the new schedule course section
+        await tx.scheduleCourseSection.create({
           data: {
-            courseSections: {
-              disconnect: { id: req.currentCourseSectionId },
-              connect: { id: dto.newCourseSectionId }
-            }
-          }
+            schedule: { connect: { id: studentSchedule.id } },
+            courseSection: { connect: { id: dto.newCourseSectionId } },
+          },
         });
 
         await tx.scheduleChangeAction.create({
@@ -533,14 +556,21 @@ export class ScheduleChangesService {
     const schedule = await this.prisma.schedule.findUnique({
       where: { studentId },
       include: { 
-        courseSections: {
-          include: { timeBlock: true }
+        scheduleCourseSections: {
+          include: {
+            courseSection: {
+              include: {
+                course: true,
+                timeBlock: true,
+              }
+            }
+          }
         } 
       },
     });
     
     // Check if any current sections have the same time block as the new section
-    return schedule.courseSections.some(s => s.timeBlockId === newSection.timeBlockId);
+    return schedule.scheduleCourseSections.some(s => s.courseSection.timeBlockId === newSection.timeBlockId);
   }
 
   private async findAvailableSections(courseId: string, studentId: string, preferredTimeBlockId?: string) {
