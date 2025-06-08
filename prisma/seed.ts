@@ -277,35 +277,39 @@ async function main() {
     // Student 1 Schedule (Freshman)
     prisma.schedule.create({
       data: {
-        studentId: students[0].id,
-        semester: 'Spring',
-        year: 2025,
-        courseSections: {
-          connect: sections.slice(0, 6).map(section => ({ id: section.id }))
+        student: { connect: { id: students[0].id } },
+        semester: 'Fall',
+        year: 2024,
+        scheduleCourseSections: {
+          create: sections.slice(0, 6).map(section => ({
+            courseSection: { connect: { id: section.id } }
+          }))
         }
       }
     }),
-
     // Student 2 Schedule (Sophomore)
     prisma.schedule.create({
       data: {
-        studentId: students[1].id,
-        semester: 'Spring',
-        year: 2025,
-        courseSections: {
-          connect: sections.slice(0, 7).map(section => ({ id: section.id }))
+        student: { connect: { id: students[1].id } },
+        semester: 'Fall',
+        year: 2024,
+        scheduleCourseSections: {
+          create: sections.slice(0, 7).map(section => ({
+            courseSection: { connect: { id: section.id } }
+          }))
         }
       }
     }),
-
-    // Student 3 Schedule (Junior with IEP)
+    // Student 3 Schedule (Junior)
     prisma.schedule.create({
       data: {
-        studentId: students[2].id,
-        semester: 'Spring',
-        year: 2025,
-        courseSections: {
-          connect: sections.slice(0, 7).map(section => ({ id: section.id }))
+        student: { connect: { id: students[2].id } },
+        semester: 'Fall',
+        year: 2024,
+        scheduleCourseSections: {
+          create: sections.slice(0, 7).map(section => ({
+            courseSection: { connect: { id: section.id } }
+          }))
         }
       }
     })

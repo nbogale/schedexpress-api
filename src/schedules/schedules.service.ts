@@ -116,19 +116,25 @@ export class SchedulesService {
       data: {
         ...scheduleData,
         student: { connect: { id: studentId } },
-        courseSections: {
-          connect: courseSectionIds.map(id => ({ id })),
+        scheduleCourseSections: {
+          create: courseSectionIds.map(id => ({
+            courseSection: { connect: { id } }
+          }))
         },
       },
       include: {
         student: true,
-        courseSections: {
+        scheduleCourseSections: {
           include: {
-            course: true,
-            timeBlock: true,
-            room: true,
-            teacher: true,
-          },
+            courseSection: {
+              include: {
+                course: true,
+                timeBlock: true,
+                room: true,
+                teacher: true,
+              }
+            }
+          }
         },
       },
     });
@@ -148,13 +154,17 @@ export class SchedulesService {
             },
           },
         },
-        courseSections: {
+        scheduleCourseSections: {
           include: {
-            course: true,
-            timeBlock: true,
-            room: true,
-            teacher: true,
-          },
+            courseSection: {
+              include: {
+                course: true,
+                timeBlock: true,
+                room: true,
+                teacher: true,
+              }
+            }
+          }
         },
       },
     });
@@ -165,13 +175,17 @@ export class SchedulesService {
       where: { id },
       include: {
         student: true,
-        courseSections: {
+        scheduleCourseSections: {
           include: {
-            course: true,
-            timeBlock: true,
-            room: true,
-            teacher: true,
-          },
+            courseSection: {
+              include: {
+                course: true,
+                timeBlock: true,
+                room: true,
+                teacher: true,
+              }
+            }
+          }
         },
       },
     });
@@ -212,16 +226,22 @@ export class SchedulesService {
             },
           },
         },
-        courseSections: {
+        scheduleCourseSections: {
           include: {
-            course: true,
-            timeBlock: true,
-            room: true,
-            teacher: true,
+            courseSection: {
+              include: {
+                course: true,
+                timeBlock: true,
+                room: true,
+                teacher: true,
+              }
+            }
           },
           orderBy: {
-            timeBlock: {
-              startTime: 'asc',
+            courseSection: {
+              timeBlock: {
+                startTime: 'asc',
+              },
             },
           },
         },
@@ -242,7 +262,11 @@ export class SchedulesService {
     const schedule = await this.prisma.schedule.findUnique({
       where: { id },
       include: {
-        courseSections: true,
+        scheduleCourseSections: {
+          include: {
+            courseSection: true
+          }
+        },
       },
     });
 
@@ -293,7 +317,7 @@ export class SchedulesService {
       }
 
       // Check for period conflicts with existing courses
-      const existingPeriods = schedule.courseSections.map(courseSection => courseSection.timeBlockId);
+      const existingPeriods = schedule.scheduleCourseSections.map(scs => scs.courseSection.timeBlockId);
       const newPeriods = courseSections.map(courseSection => courseSection.timeBlockId);
       
       const allPeriods = [...existingPeriods];
@@ -311,18 +335,18 @@ export class SchedulesService {
         allPeriods.push(period);
       }
 
-      coursesToConnect = addCourseIds.map(id => ({ id }));
+      coursesToConnect = addCourseIds;
     }
 
     if (removeCourseIds && removeCourseIds.length > 0) {
-      coursesToDisconnect = removeCourseIds.map(id => ({ id }));
+      coursesToDisconnect = removeCourseIds;
     }
 
     // Get settings to check max course load
     const settings = await this.prisma.settings.findFirst();
     const maxCourseLoad = settings?.maxCourseLoad || 8;
 
-    const finalCourseCount = schedule.courseSections.length + coursesToConnect.length - coursesToDisconnect.length;
+    const finalCourseCount = schedule.scheduleCourseSections.length + coursesToConnect.length - coursesToDisconnect.length;
     if (finalCourseCount > maxCourseLoad) {
       const errorResponse = ApiErrorResponseBuilder.create(
         ErrorCode.SCHB,
@@ -337,20 +361,30 @@ export class SchedulesService {
       where: { id },
       data: {
         ...scheduleData,
-        courseSections: {
-          connect: coursesToConnect,
-          disconnect: coursesToDisconnect,
+        scheduleCourseSections: {
+          create: coursesToConnect.map(id => ({
+            courseSection: { connect: { id } }
+          })),
+          deleteMany: {
+            courseSectionId: {
+              in: coursesToDisconnect
+            }
+          }
         },
       },
       include: {
         student: true,
-        courseSections: {
+        scheduleCourseSections: {
           include: {
-            course: true,
-            timeBlock: true,
-            room: true,
-            teacher: true,
-          },
+            courseSection: {
+              include: {
+                course: true,
+                timeBlock: true,
+                room: true,
+                teacher: true,
+              }
+            }
+          }
         },
       },
     });

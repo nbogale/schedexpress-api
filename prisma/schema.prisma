@@ -95,7 +95,6 @@ model CourseSection {
   conflicts1      CourseConflict[] @relation("ConflictSection1")
   conflicts2      CourseConflict[] @relation("ConflictSection2")
   waitlist        CourseWaitlist[]
-  schedules       Schedule[] @relation("ScheduleCourseSection")
   scheduleCourseSections ScheduleCourseSection[]
 
   @@unique([courseId, sectionNumber, schoolYearId, termId])
@@ -113,7 +112,6 @@ model Schedule {
   createdAt DateTime @map("created_at") @default(now())
   updatedAt DateTime @map("updated_at") @updatedAt
   student   Student  @relation(fields: [studentId], references: [id])
-  courseSections   CourseSection[] @relation("ScheduleCourseSection")
   scheduleCourseSections ScheduleCourseSection[]
 
   @@map("schedule")

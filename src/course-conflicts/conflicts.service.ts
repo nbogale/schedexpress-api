@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { ConflictType } from '@prisma/client';
 import { CreateCourseConflictDto } from './dto/create-course-conflict.dto';
@@ -23,13 +23,24 @@ export class ConflictsService {
     const schedule = await this.prisma.schedule.findUnique({
       where: { studentId },
       include: {
-        courseSections: {
+        scheduleCourseSections: {
           include: {
-            course: true,
-          },
+            courseSection: {
+              include: {
+                course: true,
+                timeBlock: true,
+                room: true,
+                teacher: true,
+              }
+            }
+          }
         },
       },
     });
+
+    if (!schedule) {
+      throw new NotFoundException(`Schedule for student ${studentId} not found`);
+    }
 
     // Get settings
     const settings = await this.prisma.settings.findFirst();
@@ -42,16 +53,14 @@ export class ConflictsService {
     ]);
 
     // Check for existing period conflict
-    const potentialPeriodConflict = schedule.courseSections.find(
-      //TODO: revisit the below condition
-     // courseSection => courseSection.period === newCourse.period && courseSection.id !== currentCourseId
-     courseSection => courseSection.timeBlockId === newCourse.timeBlockId && courseSection.id !== currentCourseId
+    const potentialPeriodConflict = schedule.scheduleCourseSections.find(
+      scs => scs.courseSection.timeBlockId === newCourse.timeBlockId
     );
 
     if (potentialPeriodConflict) {
       conflicts.push({
-        description: `Period conflict with ${potentialPeriodConflict.course.name} (Period ${potentialPeriodConflict.timeBlockId})`,
-        courseId: potentialPeriodConflict.id,
+        description: `Period conflict with ${potentialPeriodConflict.courseSection.course.name} (Period ${potentialPeriodConflict.courseSection.timeBlockId})`,
+        courseId: potentialPeriodConflict.courseSection.id,
         requestId,
         type: ConflictType.SCHEDULE_OVERLAP,
       });

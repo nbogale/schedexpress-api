@@ -109,13 +109,17 @@ export class StudentsService {
         },
         schedule: {
           include: {
-            courseSections: {
+            scheduleCourseSections: {
               include: {
-                course: true,
-                room: true,
-                timeBlock: true,
-                teacher: true,
-              },
+                courseSection: {
+                  include: {
+                    course: true,
+                    room: true,
+                    timeBlock: true,
+                    teacher: true,
+                  }
+                }
+              }
             },
           },
         },
