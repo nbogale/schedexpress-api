@@ -15,6 +15,7 @@ export const errorMessages: Record<ErrorCode, string> = {
   [ErrorCode.SCRK]: 'This request has already been processed.',
   [ErrorCode.SCRL]: 'Only administrators and counselors can process requests.',
   [ErrorCode.SCRM]: 'This request can no longer be canceled.',
+  [ErrorCode.SCRP]: 'You already have a pending schedule change request for this course change.',
 
   // Schedule Error Messages
   [ErrorCode.SCHN]: 'The requested schedule could not be found.',
