@@ -7,7 +7,6 @@ import { ProcessChangeRequestDto } from './dto/process-change-request.dto';
 import { RequestStatus, RequestPriority, NotificationType, UserRoleType } from './enums/request-enums';
 import { NotificationsService } from 'src/notifications/notifications.service';
 import { ConflictType, CourseRule, RuleType } from '@prisma/client';
-import { ApiErrorResponse } from 'src/common/api-error';
 import { ErrorCode } from 'src/common/error-codes';
 import { ApiErrorResponseBuilder } from 'src/common/api-error-builder';
 
@@ -125,11 +124,31 @@ export class ScheduleChangesService {
           },
         },
       },
+      include: {
+        scheduleCourseSections: true,
+      },
     });
 
     if (!studentSchedule) {
       throw new BadRequestException(
         ApiErrorResponseBuilder.create(ErrorCode.SCRD, 'You are not enrolled in the current course section')
+          .withLogger(this.logger)
+          .build()
+      );
+    }
+
+    const duplicate = await this.prisma.scheduleChangeRequest.findFirst({
+        where: {
+          studentId: student.id,
+          currentCourseSectionId: dto.currentCourseSectionId,
+          requestedCourseSectionId: dto.requestedCourseSectionId,
+          status: RequestStatus.PENDING,
+        },
+      });
+
+    if (duplicate) {
+      throw new ConflictException(
+        ApiErrorResponseBuilder.create(ErrorCode.SCRP, 'You already have a pending schedule change request for this course change')
           .withLogger(this.logger)
           .build()
       );
@@ -183,7 +202,7 @@ export class ScheduleChangesService {
           scheduleCourseSections: {
             some: {
               courseSection: {
-                timeBlockId: tb.id,
+                timeBlockId: dto.preferredTimeBlockId,
               },
             },
           },
@@ -214,6 +233,20 @@ export class ScheduleChangesService {
       }
     }
 
+    const req = await this.prisma.scheduleChangeRequest.create({
+      data: {
+        studentId: student.id,
+        schoolYearId: currentSchoolYear.id,
+        termId: currentTerm.id,
+        currentCourseSectionId: dto.currentCourseSectionId,
+        requestedCourseSectionId: dto.requestedCourseSectionId,
+        preferredTimeBlockId: dto.preferredTimeBlockId,
+        reason: dto.reason,
+        priority: dto.priority ?? RequestPriority.MEDIUM,
+        status: RequestStatus.PENDING,
+      },
+    });
+
     // Check course rules for conflicts
     const courseRules = await this.prisma.courseRule.findMany({
       where: {
@@ -237,33 +270,35 @@ export class ScheduleChangesService {
       },
     });
 
-    const unsatisfiedRules = courseRules.filter(rule => {
-      // Check if student meets the rule requirements
-      // This is a simplified example - you'll need to implement the actual rule checking logic
-      return false; // Replace with actual rule checking
-    });
+    if (courseRules.length > 0) {
+      const unsatisfiedRules: CourseRule[] = [];
+      const courseHistory = await this.getStudentCourseHistory(student.id);
+      for (const rule of courseRules) {
+        if (!courseHistory.some(h => h.courseId === rule.conflictingCourseId && h.isPassed)) {
+          unsatisfiedRules.push(rule);
+        }
+      }
 
-    if (unsatisfiedRules.length > 0) {
-      throw new BadRequestException(
-        ApiErrorResponseBuilder.create(ErrorCode.SCRH, 'Course conflicts with another course')
-          .withLogger(this.logger)
-          .build()
-      );
+      if (unsatisfiedRules.length > 0) {
+        for(const rule of unsatisfiedRules) {
+        //  if(!rule.isOverridable) {
+            //throw new BadRequestException(`You cannot change to this course because it conflicts with another course: ${rule.description}`);
+          //} else {
+            //Save it to course conflict table
+            await this.prisma.courseConflict.create({
+              data: {
+                courseSectionId1: dto.currentCourseSectionId,
+                courseSectionId2: dto.requestedCourseSectionId,
+                conflictType: this.mapRuleTypeToConflictType(rule.type),
+                isResolvable: rule.isOverridable,
+                resolutionNotes: rule.description,
+                requestId: req.id,
+              },
+            });
+          //}
+        }
+      }
     }
-
-    const req = await this.prisma.scheduleChangeRequest.create({
-      data: {
-        studentId: student.id,
-        schoolYearId: currentSchoolYear.id,
-        termId: currentTerm.id,
-        currentCourseSectionId: dto.currentCourseSectionId,
-        requestedCourseSectionId: dto.requestedCourseSectionId,
-        preferredTimeBlockId: dto.preferredTimeBlockId,
-        reason: dto.reason,
-        priority: dto.priority ?? RequestPriority.MEDIUM,
-        status: RequestStatus.PENDING,
-      },
-    });
 
     try {
       // Create notification for the student and counselor

@@ -19,6 +19,7 @@ export enum ErrorCode {
   SCRK = 'SCRK', // This request has already been processed
   SCRL = 'SCRL', // Only administrators and counselors can process requests
   SCRM = 'SCRM', // This request can no longer be canceled
+  SCRP = 'SCRP', // You already have a pending schedule change request for this course change
 
   // Schedule Error Codes
   SCHN = 'SCHN', // Schedule not found
