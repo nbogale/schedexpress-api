@@ -256,7 +256,7 @@ export class SchedulesService {
   }
 
   async update(id: string, updateScheduleDto: UpdateScheduleDto) {
-    const { addCourseIds, removeCourseIds, ...scheduleData } = updateScheduleDto;
+    const { addCourseSectionIds, removeCourseSectionIds, ...scheduleData } = updateScheduleDto;
 
     // Check if schedule exists
     const schedule = await this.prisma.schedule.findUnique({
@@ -284,14 +284,17 @@ export class SchedulesService {
     let coursesToConnect = [];
     let coursesToDisconnect = [];
 
-    if (addCourseIds && addCourseIds.length > 0) {
+    let addCourseSections = [];
+    let removeCourseSections = [];
+
+    if (addCourseSectionIds && addCourseSectionIds.length > 0) {
       // Check if courses exist
-      const courseSections = await this.prisma.courseSection.findMany({
-        where: { id: { in: addCourseIds } },
+      addCourseSections = await this.prisma.courseSection.findMany({
+        where: { id: { in: addCourseSectionIds } },
         include: { course: true },
       });
 
-      if (courseSections.length !== addCourseIds.length) {
+      if (addCourseSections.length !== addCourseSectionIds.length) {
         const errorResponse = ApiErrorResponseBuilder.create(
           ErrorCode.SCHN,
           'One or more courses to add not found'
@@ -302,7 +305,7 @@ export class SchedulesService {
       }
 
       // Check for capacity
-      const overCapacityCourses = courseSections.filter(
+      const overCapacityCourses = addCourseSections.filter(
         courseSection => courseSection.currentEnrollment >= courseSection.maxEnrollment
       );
 
@@ -316,30 +319,17 @@ export class SchedulesService {
         throw new ConflictException(errorResponse);
       }
 
-      // Check for period conflicts with existing courses
-      const existingPeriods = schedule.scheduleCourseSections.map(scs => scs.courseSection.timeBlockId);
-      const newPeriods = courseSections.map(courseSection => courseSection.timeBlockId);
-      
-      const allPeriods = [...existingPeriods];
-      
-      for (const period of newPeriods) {
-        if (allPeriods.includes(period)) {
-          const errorResponse = ApiErrorResponseBuilder.create(
-            ErrorCode.SCHC,
-            `Period conflict with course in period ${period}`
-          )
-            .withLogger(this.logger)
-            .build();
-          throw new ConflictException(errorResponse);
-        }
-        allPeriods.push(period);
-      }
-
-      coursesToConnect = addCourseIds;
+      coursesToConnect = addCourseSectionIds;
     }
 
-    if (removeCourseIds && removeCourseIds.length > 0) {
-      coursesToDisconnect = removeCourseIds;
+    if (removeCourseSectionIds && removeCourseSectionIds.length > 0) {
+      coursesToDisconnect = removeCourseSectionIds;
+      if(addCourseSections.length > 0) {
+        removeCourseSections = await this.prisma.courseSection.findMany({
+          where: { id: { in: removeCourseSectionIds } },
+            include: { course: true },
+        });
+      }
     }
 
     // Get settings to check max course load
@@ -357,10 +347,33 @@ export class SchedulesService {
       throw new BadRequestException(errorResponse);
     }
 
+    if(addCourseSections.length > 0) {
+      // Check for period conflicts with existing courses
+      const existingPeriods = schedule.scheduleCourseSections.map(scs => scs.courseSection.timeBlockId);
+      const newPeriods = addCourseSections.map(courseSection => courseSection.timeBlockId);
+      const removePeriods = removeCourseSections.map(courseSection => courseSection.timeBlockId);
+      
+      const allPeriods = [...existingPeriods];
+      
+      for (const period of newPeriods) {
+        if (allPeriods.includes(period) && !removePeriods.includes(period)) {
+          const errorResponse = ApiErrorResponseBuilder.create(
+            ErrorCode.SCHC,
+            `Period conflict with course in period ${period}`
+          )
+            .withLogger(this.logger)
+            .build();
+          throw new ConflictException(errorResponse);
+        }
+        allPeriods.push(period);
+      }
+    }
+    
+
     return this.prisma.schedule.update({
       where: { id },
       data: {
-        ...scheduleData,
+        //...scheduleData,
         scheduleCourseSections: {
           create: coursesToConnect.map(id => ({
             courseSection: { connect: { id } }

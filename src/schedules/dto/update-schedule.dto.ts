@@ -13,7 +13,7 @@ export class UpdateScheduleDto extends PartialType(CreateScheduleDto) {
   @IsArray()
   @IsString({ each: true })
   @IsOptional()
-  addCourseIds?: string[];
+  addCourseSectionIds?: string[];
 
   @ApiProperty({
     example: ['course-section-id-3', 'course-section-id-4'],
@@ -24,5 +24,5 @@ export class UpdateScheduleDto extends PartialType(CreateScheduleDto) {
   @IsArray()
   @IsString({ each: true })
   @IsOptional()
-  removeCourseIds?: string[];
+  removeCourseSectionIds?: string[];
 }
