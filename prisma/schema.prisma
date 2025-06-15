@@ -336,6 +336,8 @@ enum NotificationType {
   REQUEST_APPROVED
   REQUEST_DENIED
   REQUEST_CREATED
+  SCHEDULE_OVERLAP
+  SCHEDULE_UPDATE
 
   @@map("notification_type")
 }

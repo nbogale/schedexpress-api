@@ -29,6 +29,7 @@ export class NotificationsService {
       await this.sendEmailNotification({
         userId: data.userId,
         message: data.message,
+        subject: this.populateNotiicationSubject(data.type),
         type: data.type,
       });
     }
@@ -118,6 +119,7 @@ export class NotificationsService {
   async sendEmailNotification(data: {
     userId: string;
     message: string;
+    subject: string;
     type: NotificationType;
   }) {
     const user = await this.prisma.user.findUnique({
@@ -130,15 +132,26 @@ export class NotificationsService {
 
     //Send email to user.email  
     const email = user.email;
-    const subject = 'Schedule Change Request';
+  
     const body = data.message;
     const emailData = {
       to: email,
-      subject: subject,
+      subject: data.subject,
       text: body,
     };    
     
     //Send email
     await this.emailService.sendEmail(emailData);
-  } 
+  }
+
+  populateNotiicationSubject(type: NotificationType) {
+    switch(type) {
+      case NotificationType.SCHEDULE_UPDATE:
+        return 'Schedule Update';
+      case NotificationType.REQUEST_UPDATE:
+        return 'Request Update';
+      default:
+        return 'Notification';
+    }
+  }
 }

@@ -5,12 +5,14 @@ import { UpdateScheduleDto } from './dto/update-schedule.dto';
 import { ApiErrorResponse } from 'src/common/api-error';
 import { ErrorCode } from 'src/common/error-codes';
 import { ApiErrorResponseBuilder } from 'src/common/api-error-builder';
+import { NotificationsService } from 'src/notifications/notifications.service';
+import { NotificationType } from 'src/schedule-change-requests/enums/request-enums';
 
 @Injectable()
 export class SchedulesService {
   private readonly logger = new Logger(SchedulesService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService, private readonly notificationsService: NotificationsService) {}
 
   async create(createScheduleDto: CreateScheduleDto) {
     const { studentId, courseSectionIds, ...scheduleData } = createScheduleDto;
@@ -256,7 +258,7 @@ export class SchedulesService {
   }
 
   async update(id: string, updateScheduleDto: UpdateScheduleDto) {
-    const { addCourseIds, removeCourseIds, ...scheduleData } = updateScheduleDto;
+    const { addCourseSectionIds, removeCourseSectionIds, ...scheduleData } = updateScheduleDto;
 
     // Check if schedule exists
     const schedule = await this.prisma.schedule.findUnique({
@@ -284,14 +286,17 @@ export class SchedulesService {
     let coursesToConnect = [];
     let coursesToDisconnect = [];
 
-    if (addCourseIds && addCourseIds.length > 0) {
+    let addCourseSections = [];
+    let removeCourseSections = [];
+
+    if (addCourseSectionIds && addCourseSectionIds.length > 0) {
       // Check if courses exist
-      const courseSections = await this.prisma.courseSection.findMany({
-        where: { id: { in: addCourseIds } },
+      addCourseSections = await this.prisma.courseSection.findMany({
+        where: { id: { in: addCourseSectionIds } },
         include: { course: true },
       });
 
-      if (courseSections.length !== addCourseIds.length) {
+      if (addCourseSections.length !== addCourseSectionIds.length) {
         const errorResponse = ApiErrorResponseBuilder.create(
           ErrorCode.SCHN,
           'One or more courses to add not found'
@@ -302,7 +307,7 @@ export class SchedulesService {
       }
 
       // Check for capacity
-      const overCapacityCourses = courseSections.filter(
+      const overCapacityCourses = addCourseSections.filter(
         courseSection => courseSection.currentEnrollment >= courseSection.maxEnrollment
       );
 
@@ -316,30 +321,16 @@ export class SchedulesService {
         throw new ConflictException(errorResponse);
       }
 
-      // Check for period conflicts with existing courses
-      const existingPeriods = schedule.scheduleCourseSections.map(scs => scs.courseSection.timeBlockId);
-      const newPeriods = courseSections.map(courseSection => courseSection.timeBlockId);
-      
-      const allPeriods = [...existingPeriods];
-      
-      for (const period of newPeriods) {
-        if (allPeriods.includes(period)) {
-          const errorResponse = ApiErrorResponseBuilder.create(
-            ErrorCode.SCHC,
-            `Period conflict with course in period ${period}`
-          )
-            .withLogger(this.logger)
-            .build();
-          throw new ConflictException(errorResponse);
-        }
-        allPeriods.push(period);
-      }
-
-      coursesToConnect = addCourseIds;
+      coursesToConnect = addCourseSectionIds;
     }
 
-    if (removeCourseIds && removeCourseIds.length > 0) {
-      coursesToDisconnect = removeCourseIds;
+    if (removeCourseSectionIds && removeCourseSectionIds.length > 0) {
+      coursesToDisconnect = removeCourseSectionIds;
+   
+      removeCourseSections = await this.prisma.courseSection.findMany({
+        where: { id: { in: removeCourseSectionIds } },
+          include: { course: true },
+      });
     }
 
     // Get settings to check max course load
@@ -357,10 +348,32 @@ export class SchedulesService {
       throw new BadRequestException(errorResponse);
     }
 
-    return this.prisma.schedule.update({
+    if(addCourseSections.length > 0) {
+      // Check for period conflicts with existing courses
+      const existingPeriods = schedule.scheduleCourseSections.map(scs => scs.courseSection.timeBlockId);
+      const newPeriods = addCourseSections.map(courseSection => courseSection.timeBlockId);
+      const removePeriods = removeCourseSections.map(courseSection => courseSection.timeBlockId);
+      
+      const allPeriods = [...existingPeriods];
+      
+      for (const period of newPeriods) {
+        if (allPeriods.includes(period) && !removePeriods.includes(period)) {
+          const errorResponse = ApiErrorResponseBuilder.create(
+            ErrorCode.SCHC,
+            `Period conflict with course in period ${period}`
+          )
+            .withLogger(this.logger)
+            .build();
+          throw new ConflictException(errorResponse);
+        }
+        allPeriods.push(period);
+      }
+    }    
+
+    const updatedSchedule =  await this.prisma.schedule.update({
       where: { id },
       data: {
-        ...scheduleData,
+        //...scheduleData,
         scheduleCourseSections: {
           create: coursesToConnect.map(id => ({
             courseSection: { connect: { id } }
@@ -388,6 +401,41 @@ export class SchedulesService {
         },
       },
     });
+
+    // Snet email notification to student
+    const student = await this.prisma.student.findUnique({
+      where: { id: updatedSchedule.studentId},
+      include: {
+        user: {
+          select: {
+            id: true,
+          },
+        },
+      },
+    });
+    
+    if(student) {
+      // Send email notification to student
+      let message = 'Your schedule has been updated.\n';
+      let addedCourseMessage = '';
+      let removedCourseMessage = '';
+      if(addCourseSections.length > 0) {
+        addedCourseMessage = `You have been added to ${addCourseSections.map(c => c.course.name).join(', ')}\n`;
+      }
+      if(removeCourseSections.length > 0) {
+        removedCourseMessage = `You have been removed from ${removeCourseSections.map(c => c.course.name).join(', ')}\n`;
+      }
+
+      await this.notificationsService.createNotification({
+        studentId: student.id,
+        userId: student.user.id,
+        message: message + addedCourseMessage + removedCourseMessage,
+        type: NotificationType.SCHEDULE_UPDATE
+      }, true);
+    }
+
+
+    return updatedSchedule;
   }
 
   async remove(id: string) {
