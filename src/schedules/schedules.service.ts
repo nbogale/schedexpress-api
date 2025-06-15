@@ -5,12 +5,14 @@ import { UpdateScheduleDto } from './dto/update-schedule.dto';
 import { ApiErrorResponse } from 'src/common/api-error';
 import { ErrorCode } from 'src/common/error-codes';
 import { ApiErrorResponseBuilder } from 'src/common/api-error-builder';
+import { NotificationsService } from 'src/notifications/notifications.service';
+import { NotificationType } from 'src/schedule-change-requests/enums/request-enums';
 
 @Injectable()
 export class SchedulesService {
   private readonly logger = new Logger(SchedulesService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService, private readonly notificationsService: NotificationsService) {}
 
   async create(createScheduleDto: CreateScheduleDto) {
     const { studentId, courseSectionIds, ...scheduleData } = createScheduleDto;
@@ -324,12 +326,11 @@ export class SchedulesService {
 
     if (removeCourseSectionIds && removeCourseSectionIds.length > 0) {
       coursesToDisconnect = removeCourseSectionIds;
-      if(addCourseSections.length > 0) {
-        removeCourseSections = await this.prisma.courseSection.findMany({
-          where: { id: { in: removeCourseSectionIds } },
-            include: { course: true },
-        });
-      }
+   
+      removeCourseSections = await this.prisma.courseSection.findMany({
+        where: { id: { in: removeCourseSectionIds } },
+          include: { course: true },
+      });
     }
 
     // Get settings to check max course load
@@ -367,10 +368,9 @@ export class SchedulesService {
         }
         allPeriods.push(period);
       }
-    }
-    
+    }    
 
-    return this.prisma.schedule.update({
+    const updatedSchedule =  await this.prisma.schedule.update({
       where: { id },
       data: {
         //...scheduleData,
@@ -401,6 +401,41 @@ export class SchedulesService {
         },
       },
     });
+
+    // Snet email notification to student
+    const student = await this.prisma.student.findUnique({
+      where: { id: updatedSchedule.studentId},
+      include: {
+        user: {
+          select: {
+            id: true,
+          },
+        },
+      },
+    });
+    
+    if(student) {
+      // Send email notification to student
+      let message = 'Your schedule has been updated.\n';
+      let addedCourseMessage = '';
+      let removedCourseMessage = '';
+      if(addCourseSections.length > 0) {
+        addedCourseMessage = `You have been added to ${addCourseSections.map(c => c.course.name).join(', ')}\n`;
+      }
+      if(removeCourseSections.length > 0) {
+        removedCourseMessage = `You have been removed from ${removeCourseSections.map(c => c.course.name).join(', ')}\n`;
+      }
+
+      await this.notificationsService.createNotification({
+        studentId: student.id,
+        userId: student.user.id,
+        message: message + addedCourseMessage + removedCourseMessage,
+        type: NotificationType.SCHEDULE_UPDATE
+      }, true);
+    }
+
+
+    return updatedSchedule;
   }
 
   async remove(id: string) {
