@@ -79,6 +79,7 @@ model CourseSection {
   teacherId       String     @map("teacher_id")
   maxEnrollment   Int        @map("max_enrollment")
   currentEnrollment Int      @map("current_enrollment") @default(0)
+  rotationDay     RotationDay? @map("rotation_day")
   isActive        Boolean    @map("is_active") @default(true)
   createdAt       DateTime   @map("created_at") @default(now())
   updatedAt       DateTime   @map("updated_at") @updatedAt
@@ -97,7 +98,6 @@ model CourseSection {
   waitlist        CourseWaitlist[]
   scheduleCourseSections ScheduleCourseSection[]
 
-  @@unique([courseId, sectionNumber, schoolYearId, termId])
   @@index([courseId])
   @@index([termId])
   @@index([teacherId])
@@ -107,13 +107,17 @@ model CourseSection {
 model Schedule {
   id        String   @id @default(cuid())
   studentId String   @map("student_id") @unique
-  semester  String
-  year      Int
+  schoolYearId String @map("school_year_id")
+  termId    String   @map("term_id")
   createdAt DateTime @map("created_at") @default(now())
   updatedAt DateTime @map("updated_at") @updatedAt
   student   Student  @relation(fields: [studentId], references: [id])
+  schoolYear SchoolYear @relation(fields: [schoolYearId], references: [id])
+  term      Term     @relation(fields: [termId], references: [id])
   scheduleCourseSections ScheduleCourseSection[]
 
+  @@index([schoolYearId])
+  @@index([termId])
   @@map("schedule")
 }
 
@@ -172,6 +176,7 @@ model SchoolYear {
   sections  CourseSection[]
   courseHistory StudentCourseHistory[]
   changeRequests ScheduleChangeRequest[]
+  schedules Schedule[]
 
   @@map("school_year")
 }
@@ -189,6 +194,7 @@ model Term {
   sections     CourseSection[]
   courseHistory StudentCourseHistory[]
   changeRequests ScheduleChangeRequest[]
+  schedules    Schedule[]
 
   @@map("term")
 }
@@ -542,4 +548,11 @@ enum RuleType {
   OTHER
 
   @@map("rule_type")
+}
+
+enum RotationDay {
+  A_DAY
+  B_DAY
+
+  @@map("rotation_day")
 }

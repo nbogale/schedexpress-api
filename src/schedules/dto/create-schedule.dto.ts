@@ -11,20 +11,20 @@ export class CreateScheduleDto {
   studentId: string;
 
   @ApiProperty({
-    example: 'Fall',
-    description: 'Semester name',
+    example: 'clg123xyz',
+    description: 'ID of the school year',
   })
   @IsString()
   @IsNotEmpty()
-  semester: string;
+  schoolYearId: string;
 
   @ApiProperty({
-    example: 2024,
-    description: 'Academic year',
+    example: 'clg123xyz',
+    description: 'ID of the term',
   })
-  @IsInt()
-  @Min(2000)
-  year: number;
+  @IsString()
+  @IsNotEmpty()
+  termId: string;
 
   @ApiProperty({
     example: ['clg456abc', 'clg789def'],
