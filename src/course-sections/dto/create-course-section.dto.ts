@@ -1,5 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsString, IsNumber, IsOptional, Min, Max } from 'class-validator';
+import { IsString, IsNumber, IsOptional, Min, Max, IsEnum } from 'class-validator';
+import { RotationDay } from '@prisma/client';
 
 export class CreateCourseSectionDto {
   @ApiProperty({ description: 'The course ID this section belongs to' })
@@ -41,4 +42,9 @@ export class CreateCourseSectionDto {
   @IsOptional()
   @Min(0)
   currentEnrollment?: number = 0;
+
+  @ApiProperty({ description: 'The rotation day' })
+  @IsEnum(RotationDay)
+  @IsOptional()
+  rotationDay: RotationDay;
 } 

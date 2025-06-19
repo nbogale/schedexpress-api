@@ -101,10 +101,25 @@ export class CourseSectionsService {
     // Check for time block conflicts
     const existingSection = await this.prisma.courseSection.findFirst({
       where: {
+        schoolYearId: createCourseSectionDto.schoolYearId,
+        termId: createCourseSectionDto.termId,
         timeBlockId: createCourseSectionDto.timeBlockId,
-        OR: [
-          { roomId: createCourseSectionDto.roomId },
-          { teacherId: createCourseSectionDto.teacherId },
+        AND: [
+          {
+            OR: [
+              // Same rotation day
+              { rotationDay: createCourseSectionDto.rotationDay },
+              // If either section has no rotation day, they conflict (both run every day)
+              { rotationDay: null },
+              ...(createCourseSectionDto.rotationDay === null ? [{ rotationDay: null }] : []),
+            ],
+          },
+          {
+            OR: [
+              { roomId: createCourseSectionDto.roomId },
+              { teacherId: createCourseSectionDto.teacherId },
+            ],
+          },
         ],
       },
     });
@@ -196,15 +211,35 @@ export class CourseSectionsService {
       throw new NotFoundException(errorResponse);
     }
 
-    // If updating time block, room, or teacher, check for conflicts
-    if (updateCourseSectionDto.timeBlockId || updateCourseSectionDto.roomId || updateCourseSectionDto.teacherId) {
+    // If updating time block, room, teacher, or rotation day, check for conflicts
+    if (updateCourseSectionDto.timeBlockId || updateCourseSectionDto.roomId || updateCourseSectionDto.teacherId || updateCourseSectionDto.rotationDay !== undefined) {
+      const newTimeBlockId = updateCourseSectionDto.timeBlockId || section.timeBlockId;
+      const newRoomId = updateCourseSectionDto.roomId || section.roomId;
+      const newTeacherId = updateCourseSectionDto.teacherId || section.teacherId;
+      const newRotationDay = updateCourseSectionDto.rotationDay !== undefined ? updateCourseSectionDto.rotationDay : section.rotationDay;
+
       const existingSection = await this.prisma.courseSection.findFirst({
         where: {
           id: { not: id },
-          timeBlockId: updateCourseSectionDto.timeBlockId || section.timeBlockId,
-          OR: [
-            { roomId: updateCourseSectionDto.roomId || section.roomId },
-            { teacherId: updateCourseSectionDto.teacherId || section.teacherId },
+          schoolYearId: section.schoolYearId,
+          termId: section.termId,
+          timeBlockId: newTimeBlockId,
+          AND: [
+            {
+              OR: [
+                // Same rotation day
+                { rotationDay: newRotationDay },
+                // If either section has no rotation day, they conflict (both run every day)
+                { rotationDay: null },
+                ...(newRotationDay === null ? [{ rotationDay: null }] : []),
+              ],
+            },
+            {
+              OR: [
+                { roomId: newRoomId },
+                { teacherId: newTeacherId },
+              ],
+            },
           ],
         },
       });
