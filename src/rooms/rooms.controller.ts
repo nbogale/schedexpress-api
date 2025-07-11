@@ -28,7 +28,7 @@ export class RoomsController {
   @ApiOperation({ summary: 'Get a room by id' })
   @ApiResponse({ status: 200, description: 'Return the room.' })
   @ApiResponse({ status: 404, description: 'Room not found.' })
-  findOne(@Param('id') id: string) { //ParseUUIDPipe
+  findOne(@Param('id') id: string) {
     return this.roomsService.findOne(id);
   }
 
