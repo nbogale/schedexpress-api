@@ -16,9 +16,9 @@ export class AuthService {
     private readonly jwtService: JwtService,
   ) {}
 
-  async validateUser(email: string, password: string) {
+  async validateUser(username: string, password: string) {
     const user = await this.prisma.user.findUnique({
-      where: { email },
+      where: { username },
     });
 
     if (!user) {
@@ -42,7 +42,7 @@ export class AuthService {
 
   async login(loginDto: LoginDto) {
     this.logger.log('Login request received');
-    const user = await this.validateUser(loginDto.email, loginDto.password);
+    const user = await this.validateUser(loginDto.username, loginDto.password);
     
     if (!user) {
       const errorResponse = ApiErrorResponseBuilder.create(
@@ -73,7 +73,7 @@ export class AuthService {
 
     const payload = { 
       sub: user.id, 
-      email: user.email,
+      username: user.username,
       role: user.role
     };
 
@@ -81,6 +81,7 @@ export class AuthService {
       user: {
         id: user.id,
         email: user.email,
+        username: user.username,
         firstName: user.firstName,
         lastName: user.lastName,
         role: user.role,
