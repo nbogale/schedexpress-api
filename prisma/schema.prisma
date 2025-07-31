@@ -528,6 +528,19 @@ model CourseRule {
   @@map("course_rule")
 }
 
+model GradeLookup {
+  id          String   @id @default(cuid())
+  grade       String   @unique @db.VarChar(2)
+  gradePoints Decimal  @map("grade_points") @db.Decimal(3, 2)
+  description String?  @db.VarChar(100)
+  isPassing   Boolean  @map("is_passing") @default(true)
+  isActive    Boolean  @map("is_active") @default(true)
+  createdAt   DateTime @map("created_at") @default(now())
+  updatedAt   DateTime @map("updated_at") @updatedAt
+
+  @@map("grade_lookup")
+}
+
 enum ConflictType {
   SCHEDULE_OVERLAP
   TIME_OVERLAP

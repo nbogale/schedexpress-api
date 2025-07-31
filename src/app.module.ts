@@ -24,6 +24,8 @@ import { CourseSectionsModule } from './course-sections/course-sections.module';
 import { CoursePrerequisitesModule } from './course-prerequisites/course-prerequisites.module';
 import { CourseSequencesModule } from './course-sequences/course-sequences.module';
 import { TeachersModule } from './teachers/teachers.module';
+import { StudentCourseHistoryModule } from './student-course-history/student-course-history.module';
+import { GradeLookupModule } from './grade-lookup/grade-lookup.module';
 
 @Module({
   imports: [
@@ -53,6 +55,8 @@ import { TeachersModule } from './teachers/teachers.module';
     CoursePrerequisitesModule,
     CourseSequencesModule,
     TeachersModule,
+    StudentCourseHistoryModule,
+    GradeLookupModule,
   ],
 })
 export class AppModule {}
