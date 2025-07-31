@@ -143,11 +143,11 @@ async function main() {
 
   // Create Teachers
   const teachers = await Promise.all([
-    prisma.teacher.create({ data: {name: 'Teacher Johnson', email: 'teacher1@edu.edu', departmentId: departments[0].id, maxCourses: 6 } }),
-    prisma.teacher.create({ data: {name: 'Teacher Williams', email: 'teacher2@edu.edu',departmentId: departments[1].id, maxCourses: 6 } }),
-    prisma.teacher.create({ data: {name: 'Teacher Brown', email: 'teacher3@edu.edu', departmentId: departments[2].id, maxCourses: 6 } }),
-    prisma.teacher.create({ data: {name: 'Teacher Davis', email: 'teacher4@edu.edu', departmentId: departments[3].id, maxCourses: 6 } }),
-    prisma.teacher.create({ data: {name: 'Teacher Miller', email: 'teacher5@edu.edu', departmentId: departments[4].id, maxCourses: 6 } }),
+    prisma.teacher.create({ data: {userId: users[2].id, name: 'Teacher Johnson', email: 'teacher1@edu.edu', departmentId: departments[0].id, maxCourses: 6 } }),
+    prisma.teacher.create({ data: {userId: users[3].id, name: 'Teacher Williams', email: 'teacher2@edu.edu',departmentId: departments[1].id, maxCourses: 6 } }),
+    prisma.teacher.create({ data: {userId: users[4].id, name: 'Teacher Brown', email: 'teacher3@edu.edu', departmentId: departments[2].id, maxCourses: 6 } }),
+    prisma.teacher.create({ data: {userId: users[5].id, name: 'Teacher Davis', email: 'teacher4@edu.edu', departmentId: departments[3].id, maxCourses: 6 } }),
+    prisma.teacher.create({ data: {userId: users[6].id, name: 'Teacher Miller', email: 'teacher5@edu.edu', departmentId: departments[4].id, maxCourses: 6 } }),
   ]);
 
   // Create Students

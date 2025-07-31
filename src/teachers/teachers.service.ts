@@ -129,4 +129,73 @@ export class TeachersService {
    //   throw error;
     }
   }
+
+  async getCoursesByTeacher(teacherId: string) {
+    return this.prisma.courseSection.findMany({
+      where: { teacherId },
+      include: {
+        course: true,
+        timeBlock: true,
+        room: true,
+      },
+    });
+  }
+
+  async getStudentsPerCourse(teacherId: string) {
+    // Get all course sections for this teacher, including enrolled students via scheduleCourseSections
+    return this.prisma.courseSection.findMany({
+      where: { teacherId },
+      include: {
+        course: true,
+        scheduleCourseSections: {
+          include: {
+            schedule: {
+              include: {
+                student: {
+                  include: {
+                    user: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+  }
+
+  async getStudentsForCourseSection(teacherId: string, courseSectionId: string) {
+    // Ensure the course section belongs to the teacher
+    const section = await this.prisma.courseSection.findFirst({
+      where: { id: courseSectionId, teacherId },
+    });
+    if (!section) {
+      throw new Error('Course section not found for this teacher');
+    }
+    // Get students for this course section
+    return this.prisma.scheduleCourseSection.findMany({
+      where: { courseSectionId },
+      include: {
+        schedule: {
+          include: {
+            student: {
+              include: {
+                user: true,
+                gradeLevel: true,
+              },
+            },
+          },
+        },
+      },
+    });
+  }
+
+  async getByUserId(userId: string) {
+    return this.prisma.teacher.findUnique({
+      where: { userId },
+      include: { 
+        department: true,
+      }
+    });
+  }
 } 
