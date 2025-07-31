@@ -29,6 +29,7 @@ async function main() {
     prisma.term.deleteMany(),
     prisma.schoolYear.deleteMany(),
     prisma.user.deleteMany(),
+    prisma.gradeLookup.deleteMany(),
   ]);
 
   // Create Users
@@ -342,6 +343,26 @@ async function main() {
   // Create for Notifications
   await Promise.all([
     prisma.notification.create({ data: { studentId: students[0].id, userId: users[7].id, message: 'Your schedule change request has been created for Math', type: NotificationType.REQUEST_UPDATE } }),
+  ]);
+
+  // Create Grade Lookup
+  await Promise.all([
+    prisma.gradeLookup.create({ data: { grade: 'A', gradePoints: 4.0, description: 'Excellent', isPassing: true } }),
+    prisma.gradeLookup.create({ data: { grade: 'A-', gradePoints: 3.7, description: 'Excellent', isPassing: true } }),
+    prisma.gradeLookup.create({ data: { grade: 'B+', gradePoints: 3.3, description: 'Good', isPassing: true } }),
+    prisma.gradeLookup.create({ data: { grade: 'B', gradePoints: 3.0, description: 'Good', isPassing: true } }),
+    prisma.gradeLookup.create({ data: { grade: 'B-', gradePoints: 2.7, description: 'Good', isPassing: true } }),
+    prisma.gradeLookup.create({ data: { grade: 'C+', gradePoints: 2.3, description: 'Satisfactory', isPassing: true } }),
+    prisma.gradeLookup.create({ data: { grade: 'C', gradePoints: 2.0, description: 'Satisfactory', isPassing: true } }),
+    prisma.gradeLookup.create({ data: { grade: 'C-', gradePoints: 1.7, description: 'Satisfactory', isPassing: true } }),
+    prisma.gradeLookup.create({ data: { grade: 'D+', gradePoints: 1.3, description: 'Poor', isPassing: true } }),
+    prisma.gradeLookup.create({ data: { grade: 'D', gradePoints: 1.0, description: 'Poor', isPassing: true } }),
+    prisma.gradeLookup.create({ data: { grade: 'D-', gradePoints: 0.7, description: 'Poor', isPassing: true } }),
+    prisma.gradeLookup.create({ data: { grade: 'F', gradePoints: 0.0, description: 'Failing', isPassing: false } }),
+    prisma.gradeLookup.create({ data: { grade: 'P', gradePoints: 0.0, description: 'Pass', isPassing: true } }),
+    prisma.gradeLookup.create({ data: { grade: 'NP', gradePoints: 0.0, description: 'No Pass', isPassing: false } }),
+    prisma.gradeLookup.create({ data: { grade: 'I', gradePoints: 0.0, description: 'Incomplete', isPassing: false } }),
+    prisma.gradeLookup.create({ data: { grade: 'W', gradePoints: 0.0, description: 'Withdrawal', isPassing: false } }),
   ]);
 
   console.log('Seed data created successfully');
