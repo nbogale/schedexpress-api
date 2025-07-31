@@ -4,6 +4,9 @@ export class CreateTeacherDto {
   @IsString()
   name: string;
 
+  @IsString()
+  userId: string;
+
   @IsEmail()
   email: string;
 

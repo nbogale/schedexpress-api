@@ -22,6 +22,29 @@ export class TeachersController {
     return this.teachersService.findOne(id);
   }
 
+  @Get(':id/courses')
+  getCoursesByTeacher(@Param('id') id: string) {
+    return this.teachersService.getCoursesByTeacher(id);
+  }
+
+  @Get(':id/students-per-course')
+  getStudentsPerCourse(@Param('id') id: string) {
+    return this.teachersService.getStudentsPerCourse(id);
+  }
+
+  @Get(':teacherId/courses/:courseSectionId/students')
+  getStudentsForCourseSection(
+    @Param('teacherId') teacherId: string,
+    @Param('courseSectionId') courseSectionId: string
+  ) {
+    return this.teachersService.getStudentsForCourseSection(teacherId, courseSectionId);
+  }
+
+  @Get('user/:userId')
+  getByUserId(@Param('userId') userId: string) {
+    return this.teachersService.getByUserId(userId);
+  }
+
   @Patch(':id')
   update(
     @Param('id') id: string,
