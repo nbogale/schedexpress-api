@@ -4,12 +4,14 @@ import { CreateStudentCourseHistoryDto } from './dto/create-student-course-histo
 import { UpdateStudentCourseHistoryDto } from './dto/update-student-course-history.dto';
 import { CreateBulkStudentCourseHistoryDto, StudentGradeData } from './dto/create-bulk-student-course-history.dto';
 import { GradeLookupService } from '../grade-lookup/grade-lookup.service';
+import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
 export class StudentCourseHistoryService {
   constructor(
     private prisma: PrismaService,
     private gradeLookupService: GradeLookupService,
+    private notificationsService: NotificationsService,
   ) {}
 
   async create(createStudentCourseHistoryDto: CreateStudentCourseHistoryDto) {
@@ -24,7 +26,7 @@ export class StudentCourseHistoryService {
       }
     }
 
-    return this.prisma.studentCourseHistory.create({
+    const createdRecord = await this.prisma.studentCourseHistory.create({
       data: {
         studentId: createStudentCourseHistoryDto.studentId,
         courseId: createStudentCourseHistoryDto.courseId,
@@ -45,6 +47,24 @@ export class StudentCourseHistoryService {
         term: true,
       },
     });
+
+    // Send email notification to student if grade is provided
+    if (createStudentCourseHistoryDto.grade && createdRecord.student?.user?.email) {
+      try {
+        await this.notificationsService.sendGradeNotification({
+          studentEmail: createdRecord.student.user.email,
+          studentName: `${createdRecord.student.user.firstName} ${createdRecord.student.user.lastName}`,
+          courseName: createdRecord.course.name,
+          grade: createdRecord.grade,
+          isPassed: createdRecord.isPassed,
+        });
+      } catch (error) {
+        // Log error but don't fail the grade creation
+        console.error('Failed to send grade notification:', error);
+      }
+    }
+
+    return createdRecord;
   }
 
   async createBulk(createBulkStudentCourseHistoryDto: CreateBulkStudentCourseHistoryDto) {
