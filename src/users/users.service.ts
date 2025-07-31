@@ -1,12 +1,17 @@
-import { Injectable, ConflictException, NotFoundException } from '@nestjs/common';
+import { Injectable, ConflictException, NotFoundException, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import * as bcrypt from 'bcrypt';
 import { UserRole } from '@prisma/client';
+import { ApiErrorResponse } from 'src/common/api-error';
+import { ErrorCode } from 'src/common/error-codes';
+import { ApiErrorResponseBuilder } from 'src/common/api-error-builder';
 
 @Injectable()
 export class UsersService {
+  private readonly logger = new Logger(UsersService.name);
+
   constructor(private readonly prisma: PrismaService) {}
 
   async create(createUserDto: CreateUserDto) {
@@ -18,7 +23,24 @@ export class UsersService {
     });
 
     if (existingUser) {
-      throw new ConflictException('Email already in use');
+      const errorResponse = ApiErrorResponseBuilder.create(
+        ErrorCode.USRC,
+        'Email already in use'
+      )
+        .withLogger(this.logger)
+        .build();
+      throw new ConflictException(errorResponse);
+    }
+
+    // If user is a student, ensure grade level is provided
+    if (role === UserRole.STUDENT && !gradeLevel) {
+      const errorResponse = ApiErrorResponseBuilder.create(
+        ErrorCode.USRD,
+        'Grade level is required for students'
+      )
+        .withLogger(this.logger)
+        .build();
+      throw new ConflictException(errorResponse);
     }
 
     // Hash password
@@ -30,7 +52,8 @@ export class UsersService {
       const user = await prisma.user.create({
         data: {
           ...userData,
-          password: hashedPassword,
+          username: userData.username,
+          passwordHash: hashedPassword,
           role,
         },
       });
@@ -38,33 +61,41 @@ export class UsersService {
       // Create role-specific record
       if (role === UserRole.STUDENT) {
         if (!gradeLevel) {
-          throw new ConflictException('Grade level is required for students');
+          const errorResponse = ApiErrorResponseBuilder.create(
+            ErrorCode.USRD,
+            'Grade level is required for students'
+          )
+            .withLogger(this.logger)
+            .build();
+          throw new ConflictException(errorResponse);
         }
-        
-        await prisma.student.create({
+        // TODO: Add student record(grade level)
+       /*  await prisma.user.create({
           data: {
-            userId: user.id,
+            id: user.id,
             gradeLevel,
           },
-        });
+        }); */
       } else if (role === UserRole.COUNSELOR) {
-        await prisma.counselor.create({
+        // TODO: Add counselor record
+        /* await prisma.user.create({
           data: {
-            userId: user.id,
+            id: user.id,
             department,
           },
-        });
+        }); */
       } else if (role === UserRole.ADMIN) {
-        await prisma.admin.create({
+        // TODO: Add admin record
+       /*  await prisma.admin.create({
           data: {
             userId: user.id,
             department,
           },
-        });
+        }); */
       }
 
       // Return user without password
-      const { password, ...result } = user;
+      const { passwordHash, ...result } = user;
       return result;
     });
   }
@@ -74,7 +105,8 @@ export class UsersService {
       select: {
         id: true,
         email: true,
-        name: true,
+        firstName: true,
+        lastName: true,
         role: true,
         createdAt: true,
         updatedAt: true,
@@ -83,19 +115,7 @@ export class UsersService {
             id: true,
             gradeLevel: true,
           },
-        },
-        counselor: {
-          select: {
-            id: true,
-            department: true,
-          },
-        },
-        admin: {
-          select: {
-            id: true,
-            department: true,
-          },
-        },
+        }
       },
     });
 
@@ -108,7 +128,8 @@ export class UsersService {
       select: {
         id: true,
         email: true,
-        name: true,
+        firstName: true,
+        lastName: true,
         role: true,
         createdAt: true,
         updatedAt: true,
@@ -117,24 +138,18 @@ export class UsersService {
             id: true,
             gradeLevel: true,
           },
-        },
-        counselor: {
-          select: {
-            id: true,
-            department: true,
-          },
-        },
-        admin: {
-          select: {
-            id: true,
-            department: true,
-          },
-        },
+        }
       },
     });
 
     if (!user) {
-      throw new NotFoundException(`User with ID ${id} not found`);
+      const errorResponse = ApiErrorResponseBuilder.create(
+        ErrorCode.USRN,
+        `User with ID ${id} not found`
+      )
+        .withLogger(this.logger)
+        .build();
+      throw new NotFoundException(errorResponse);
     }
 
     return user;
@@ -152,10 +167,44 @@ export class UsersService {
     });
 
     if (!user) {
-      throw new NotFoundException(`User with ID ${id} not found`);
+      const errorResponse = ApiErrorResponseBuilder.create(
+        ErrorCode.USRN,
+        `User with ID ${id} not found`
+      )
+        .withLogger(this.logger)
+        .build();
+      throw new NotFoundException(errorResponse);
     }
 
     const { role, department, gradeLevel, ...userData } = updateUserDto;
+
+    // If email is being updated, check if it's unique
+    if (userData.email && userData.email !== user.email) {
+      const existingUser = await this.prisma.user.findUnique({
+        where: { email: userData.email },
+      });
+
+      if (existingUser) {
+        const errorResponse = ApiErrorResponseBuilder.create(
+          ErrorCode.USRC,
+          'Email already in use'
+        )
+          .withLogger(this.logger)
+          .build();
+        throw new ConflictException(errorResponse);
+      }
+    }
+
+    // If user is a student, ensure grade level is provided
+    if (role === UserRole.STUDENT && !gradeLevel) {
+      const errorResponse = ApiErrorResponseBuilder.create(
+        ErrorCode.USRD,
+        'Grade level is required for students'
+      )
+        .withLogger(this.logger)
+        .build();
+      throw new ConflictException(errorResponse);
+    }
 
     // Hash password if provided
     if (userData.password) {
@@ -170,28 +219,29 @@ export class UsersService {
       });
 
       // Update role-specific data if provided
-      if (user.role === UserRole.STUDENT && gradeLevel !== undefined) {
-        await prisma.student.update({
-          where: { userId: id },
+      // TODO: Add role-specific data if provided
+     /*  if (user.role === UserRole.STUDENT && gradeLevel !== undefined) {
+        await prisma.user.update({
+          where: { id },
           data: { gradeLevel },
         });
       } else if ((user.role === UserRole.COUNSELOR || user.role === UserRole.ADMIN) && 
                  department !== undefined) {
         if (user.role === UserRole.COUNSELOR) {
-          await prisma.counselor.update({
-            where: { userId: id },
+          await prisma.user.update({
+            where: { id },
             data: { department },
           });
         } else {
-          await prisma.admin.update({
-            where: { userId: id },
+          await prisma.user.update({
+            where: { id },
             data: { department },
           });
         }
-      }
+      } */
 
       // Return user without password
-      const { password, ...result } = updatedUser;
+      const { passwordHash, ...result } = updatedUser;
       return result;
     });
   }
@@ -206,22 +256,28 @@ export class UsersService {
     });
 
     if (!user) {
-      throw new NotFoundException(`User with ID ${id} not found`);
+      const errorResponse = ApiErrorResponseBuilder.create(
+        ErrorCode.USRN,
+        `User with ID ${id} not found`
+      )
+        .withLogger(this.logger)
+        .build();
+      throw new NotFoundException(errorResponse);
     }
 
     return this.prisma.$transaction(async (prisma) => {
       // Delete role-specific record
       if (user.role === UserRole.STUDENT) {
-        await prisma.student.delete({
-          where: { userId: id },
+        await prisma.user.delete({
+          where: { id },
         });
       } else if (user.role === UserRole.COUNSELOR) {
-        await prisma.counselor.delete({
-          where: { userId: id },
+        await prisma.user.delete({
+          where: { id },
         });
       } else if (user.role === UserRole.ADMIN) {
-        await prisma.admin.delete({
-          where: { userId: id },
+        await prisma.user.delete({
+          where: { id },
         });
       }
 

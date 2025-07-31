@@ -8,87 +8,493 @@ datasource db {
 }
 
 model User {
-  id        String     @id @default(cuid())
-  name      String?
-  email     String     @unique
-  password  String?
-  role      UserRole
-  createdAt DateTime   @default(now())
-  updatedAt DateTime   @updatedAt
-  admin     Admin?
-  counselor Counselor?
-  student   Student?
+  id            String    @id @default(cuid())
+  email         String    @unique @db.VarChar(255)
+  username      String    @unique @db.VarChar(50)
+  passwordHash  String    @map("password_hash") @db.VarChar(255)
+  role          UserRole
+  firstName     String    @map("first_name") @db.VarChar(100)
+  lastName      String    @map("last_name") @db.VarChar(100)
+  createdAt     DateTime  @map("created_at") @default(now())
+  updatedAt     DateTime  @map("updated_at") @updatedAt
+  student       Student?
+  reviewedRequests ScheduleChangeRequest[] @relation("RequestReviewer")
+  performedActions ScheduleChangeAction[] @relation("ActionPerformer")
+  auditLogs     AuditLog[]
+  notifications Notification[]
+  teacher       Teacher?
+
+  @@map("user")
 }
 
 model Student {
-  id                     String                  @id @default(cuid())
-  userId                 String                  @unique
-  gradeLevel             Int
-  notifications          Notification[]
-  schedule               Schedule?
-  scheduleChangeRequests ScheduleChangeRequest[] @relation("StudentRequests")
-  user                   User                    @relation(fields: [userId], references: [id])
+  id                String              @id @default(cuid())
+  userId            String              @map("user_id") @unique
+  studentId         String              @map("student_id") @unique @db.VarChar(20)
+  gradeLevelId      String              @map("grade_level_id")
+  graduationYear    Int?                @map("graduation_year")
+  hasIep            Boolean             @map("has_iep") @default(false)
+  isDualEnrollment  Boolean             @map("is_dual_enrollment") @default(false)
+  isCollegeBound    Boolean             @map("is_college_bound") @default(false)
+  isCreditRecovery  Boolean             @map("is_credit_recovery") @default(false)
+  maxCreditsPerTerm Decimal             @map("max_credits_per_term") @db.Decimal(3, 1) @default(8.0)
+  createdAt         DateTime            @map("created_at") @default(now())
+  updatedAt         DateTime            @map("updated_at") @updatedAt
+  user              User                @relation(fields: [userId], references: [id])
+  gradeLevel        GradeLevel          @relation(fields: [gradeLevelId], references: [id])
+  courseHistory     StudentCourseHistory[]
+  schedule          Schedule?
+  notifications     Notification[]
+  changeRequests    ScheduleChangeRequest[]
+  waitlist          CourseWaitlist[]
+
+  @@map("student")
 }
 
-model Counselor {
-  id                     String                  @id @default(cuid())
-  userId                 String                  @unique
-  department             String?
-  user                   User                    @relation(fields: [userId], references: [id])
-  notifications          Notification[]
-  scheduleChangeRequests ScheduleChangeRequest[] @relation("CounselorRequests")
+model StudentCourseHistory {
+  id            String     @id @default(cuid())
+  studentId     String     @map("student_id")
+  courseId      String     @map("course_id")
+  schoolYearId  String     @map("school_year_id")
+  termId        String     @map("term_id")
+  grade         String?    @db.VarChar(2)
+  isPassed      Boolean    @map("is_passed") @default(true)
+  creditEarned  Decimal    @map("credit_earned") @db.Decimal(3, 1)
+  createdAt     DateTime   @map("created_at") @default(now())
+  updatedAt     DateTime   @map("updated_at") @updatedAt
+  student       Student    @relation(fields: [studentId], references: [id])
+  course        Course     @relation(fields: [courseId], references: [id])
+  schoolYear    SchoolYear @relation(fields: [schoolYearId], references: [id])
+  term          Term       @relation(fields: [termId], references: [id])
+
+  @@map("student_course_history")
 }
 
-model Admin {
-  id            String         @id @default(cuid())
-  userId        String         @unique
-  department    String?
-  user          User           @relation(fields: [userId], references: [id])
-  notifications Notification[]
-  actions       AdminAction[]
+model CourseSection {
+  id              String     @id @default(cuid())
+  courseId        String     @map("course_id")
+  sectionNumber   String     @map("section_number") @db.VarChar(10)
+  schoolYearId    String     @map("school_year_id")
+  termId          String     @map("term_id")
+  timeBlockId     String     @map("time_block_id")
+  roomId          String     @map("room_id")
+  teacherId       String     @map("teacher_id")
+  maxEnrollment   Int        @map("max_enrollment")
+  currentEnrollment Int      @map("current_enrollment") @default(0)
+  rotationDay     RotationDay? @map("rotation_day")
+  isActive        Boolean    @map("is_active") @default(true)
+  createdAt       DateTime   @map("created_at") @default(now())
+  updatedAt       DateTime   @map("updated_at") @updatedAt
+  course          Course     @relation(fields: [courseId], references: [id])
+  schoolYear      SchoolYear @relation(fields: [schoolYearId], references: [id])
+  term            Term       @relation(fields: [termId], references: [id])
+  timeBlock       TimeBlock  @relation(fields: [timeBlockId], references: [id])
+  room            Room       @relation(fields: [roomId], references: [id])
+  teacher         Teacher    @relation(fields: [teacherId], references: [id])
+  currentChangeRequests ScheduleChangeRequest[] @relation("CurrentSection")
+  requestedInChangeRequests ScheduleChangeRequest[] @relation("RequestedSection")
+  removedInActions ScheduleChangeAction[] @relation("RemovedSection")
+  addedInActions  ScheduleChangeAction[] @relation("AddedSection")
+  conflicts1      CourseConflict[] @relation("ConflictSection1")
+  conflicts2      CourseConflict[] @relation("ConflictSection2")
+  waitlist        CourseWaitlist[]
+  scheduleCourseSections ScheduleCourseSection[]
+
+  @@index([courseId])
+  @@index([termId])
+  @@index([teacherId])
+  @@map("course_section")
 }
 
 model Schedule {
   id        String   @id @default(cuid())
-  studentId String   @unique
-  semester  String
-  year      Int
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  studentId String   @map("student_id") @unique
+  schoolYearId String @map("school_year_id")
+  termId    String   @map("term_id")
+  createdAt DateTime @map("created_at") @default(now())
+  updatedAt DateTime @map("updated_at") @updatedAt
   student   Student  @relation(fields: [studentId], references: [id])
-  courses   Course[] @relation("CourseToSchedule")
+  schoolYear SchoolYear @relation(fields: [schoolYearId], references: [id])
+  term      Term     @relation(fields: [termId], references: [id])
+  scheduleCourseSections ScheduleCourseSection[]
+
+  @@index([schoolYearId])
+  @@index([termId])
+  @@map("schedule")
+}
+
+model ScheduleCourseSection {
+  id              String        @id @default(cuid())
+  scheduleId      String        @map("schedule_id")
+  courseSectionId String        @map("course_section_id")
+  createdAt       DateTime      @map("created_at") @default(now())
+  updatedAt       DateTime      @map("updated_at") @updatedAt
+  schedule        Schedule      @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+  courseSection   CourseSection @relation(fields: [courseSectionId], references: [id], onDelete: Cascade)
+
+  @@unique([scheduleId, courseSectionId])
+  @@index([scheduleId])
+  @@index([courseSectionId])
+  @@map("schedule_course_section")
+}
+
+model Notification {
+  id          String           @id @default(cuid())
+  studentId   String?          @map("student_id")
+  userId      String?          @map("user_id")
+  message     String
+  read        Boolean          @default(false)
+  createdAt   DateTime         @map("created_at") @default(now())
+  updatedAt   DateTime         @map("updated_at") @updatedAt
+  type        NotificationType
+  student     Student?         @relation(fields: [studentId], references: [id])
+  user        User?            @relation(fields: [userId], references: [id])
+
+  @@map("notification")
+}
+
+model Settings {
+  id            String   @id @default(cuid())
+  schoolName    String   @map("school_name")
+  academicYear  String   @map("academic_year")
+  semester      String
+  maxCourseLoad Int      @map("max_course_load") @default(8)
+  allowConflicts Boolean @map("allow_conflicts") @default(false)
+  createdAt     DateTime @map("created_at") @default(now())
+  updatedAt     DateTime @map("updated_at") @updatedAt
+
+  @@map("settings")
+}
+
+model SchoolYear {
+  id        String   @id @default(cuid())
+  name      String   @db.VarChar(50)
+  startDate DateTime @map("start_date")
+  endDate   DateTime @map("end_date")
+  isCurrent Boolean  @map("is_current") @default(false)
+  createdAt DateTime @map("created_at") @default(now())
+  updatedAt DateTime @map("updated_at") @updatedAt
+  terms     Term[]
+  sections  CourseSection[]
+  courseHistory StudentCourseHistory[]
+  changeRequests ScheduleChangeRequest[]
+  schedules Schedule[]
+
+  @@map("school_year")
+}
+
+model Term {
+  id           String     @id @default(cuid())
+  schoolYearId String     @map("school_year_id")
+  name         String     @db.VarChar(50)
+  startDate    DateTime   @map("start_date")
+  endDate      DateTime   @map("end_date")
+  isCurrent    Boolean    @map("is_current") @default(false)
+  createdAt    DateTime   @map("created_at") @default(now())
+  updatedAt    DateTime   @map("updated_at") @updatedAt
+  schoolYear   SchoolYear @relation(fields: [schoolYearId], references: [id])
+  sections     CourseSection[]
+  courseHistory StudentCourseHistory[]
+  changeRequests ScheduleChangeRequest[]
+  schedules    Schedule[]
+
+  @@map("term")
+}
+
+model Department {
+  id        String   @id @default(cuid())
+  name      String   @db.VarChar(100)
+  createdAt DateTime @map("created_at") @default(now())
+  updatedAt DateTime @map("updated_at") @updatedAt
+  courses   Course[]
+  teachers  Teacher[]
+  sequences CourseSequence[]
+
+  @@map("department")
+}
+
+model CourseLevel {
+  id        String   @id @default(cuid())
+  name      String   @db.VarChar(50)
+  rank      Int
+  createdAt DateTime @map("created_at") @default(now())
+  updatedAt DateTime @map("updated_at") @updatedAt
+  courses   Course[]
+
+  @@map("course_level")
+}
+
+model GradeLevel {
+  id        String   @id @default(cuid())
+  name      String   @db.VarChar(50)
+  level     Int
+  createdAt DateTime @map("created_at") @default(now())
+  updatedAt DateTime @map("updated_at") @updatedAt
+  courses   Course[] @relation("MinGradeLevel")
+  students  Student[]
+
+  @@map("grade_level")
 }
 
 model Course {
-  id                String                  @id @default(cuid())
-  name              String
-  courseCode        String                  @unique
-  teacher           String
-  period            Int
-  room              String
-  capacity          Int
-  currentEnrollment Int                     @default(0)
-  createdAt         DateTime                @default(now())
-  updatedAt         DateTime                @updatedAt
-  conflicts         Conflict[]
-  currentRequests   ScheduleChangeRequest[] @relation("CurrentCourse")
-  newRequests       ScheduleChangeRequest[] @relation("NewCourse")
-  schedules         Schedule[]              @relation("CourseToSchedule")
-  courseRules       CourseRule[]            @relation("PrimaryCourse")
-  conflictingRules  CourseRule[]            @relation("ConflictingCourse")
+  id                String            @id @default(cuid())
+  code              String            @unique @db.VarChar(20)
+  name              String            @db.VarChar(255)
+  description       String?           @db.Text
+  departmentId      String            @map("department_id")
+  credits           Decimal           @db.Decimal(3, 1) @default(1.0)
+  courseLevelId     String            @map("course_level_id")
+  minGradeLevelId   String            @map("min_grade_level_id")
+  maxStudents       Int               @map("max_students") @default(30)
+  isElective        Boolean           @map("is_elective") @default(false)
+  isCore            Boolean           @map("is_core") @default(false)
+  isActive          Boolean           @map("is_active") @default(true)
+  createdAt         DateTime          @map("created_at") @default(now())
+  updatedAt         DateTime          @map("updated_at") @updatedAt
+  department        Department        @relation(fields: [departmentId], references: [id])
+  courseLevel       CourseLevel       @relation(fields: [courseLevelId], references: [id])
+  minGradeLevel     GradeLevel        @relation("MinGradeLevel", fields: [minGradeLevelId], references: [id])
+  prerequisites     CoursePrerequisite[] @relation("PrerequisiteCourses")
+  prerequisiteFor   CoursePrerequisite[] @relation("RequiredCourses")
+  sequences         CourseSequence[]
+  sections          CourseSection[]
+  courseHistory     StudentCourseHistory[]
+  courseRules       CourseRule[]      @relation("CourseRules")
+  conflictingRules  CourseRule[]      @relation("ConflictingCourseRules")
+
+  @@map("course")
 }
 
-model CourseRule {
+model CoursePrerequisite {
   id                  String   @id @default(cuid())
-  courseId            String
-  conflictingCourseId String
-  type                RuleType
-  description         String
-  isActive            Boolean  @default(true)
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
-  course              Course   @relation("PrimaryCourse", fields: [courseId], references: [id])
-  conflictingCourse   Course   @relation("ConflictingCourse", fields: [conflictingCourseId], references: [id])
+  courseId            String   @map("course_id")
+  prerequisiteCourseId String  @map("prerequisite_course_id")
+  createdAt           DateTime @map("created_at") @default(now())
+  updatedAt           DateTime @map("updated_at") @updatedAt
+  course              Course   @relation("PrerequisiteCourses", fields: [courseId], references: [id])
+  prerequisiteCourse  Course   @relation("RequiredCourses", fields: [prerequisiteCourseId], references: [id])
+
+  @@unique([courseId, prerequisiteCourseId])
+  @@map("course_prerequisite")
+}
+
+model CourseSequence {
+  id            String     @id @default(cuid())
+  departmentId  String     @map("department_id")
+  courseId      String     @map("course_id")
+  sequenceOrder Int        @map("sequence_order")
+  createdAt     DateTime   @map("created_at") @default(now())
+  updatedAt     DateTime   @map("updated_at") @updatedAt
+  department    Department @relation(fields: [departmentId], references: [id])
+  course        Course     @relation(fields: [courseId], references: [id])
+
+  @@unique([departmentId, courseId])
+  @@map("course_sequence")
+}
+
+model Room {
+  id        String   @id @default(cuid())
+  name      String   @db.VarChar(50)
+  capacity  Int
+  isActive  Boolean  @map("is_active") @default(true)
+  createdAt DateTime @map("created_at") @default(now())
+  updatedAt DateTime @map("updated_at") @updatedAt
+  sections  CourseSection[]
+
+  @@map("room")
+}
+
+model TimeBlock {
+  id        String   @id @default(cuid())
+  name      String   @db.VarChar(50)
+  startTime DateTime @map("start_time")
+  endTime   DateTime @map("end_time")
+  isActive  Boolean  @map("is_active") @default(true)
+  createdAt DateTime @map("created_at") @default(now())
+  updatedAt DateTime @map("updated_at") @updatedAt
+  sections  CourseSection[]
+  preferredInRequests ScheduleChangeRequest[]
+
+  @@map("time_block")
+}
+
+model Teacher {
+  id           String     @id @default(cuid())
+  userId       String     @map("user_id") @unique
+  name         String?
+  email        String     @unique
+  password     String?
+  departmentId String     @map("department_id")
+  maxCourses   Int        @map("max_courses") @default(6)
+  isActive     Boolean    @map("is_active") @default(true)
+  createdAt    DateTime   @map("created_at") @default(now())
+  updatedAt    DateTime   @map("updated_at") @updatedAt
+  department   Department @relation(fields: [departmentId], references: [id])
+  sections     CourseSection[]
+  user         User       @relation(fields: [userId], references: [id])
+
+  @@map("teacher")
+}
+
+enum NotificationType {
+  CAPACITY_ALERT
+  DEADLINE_REMINDER
+  SYSTEM_UPDATE
+  CONFLICT_DETECTED
+  GENERAL
+  REQUEST_UPDATE
+  REQUEST_APPROVED
+  REQUEST_DENIED
+  REQUEST_CREATED
+  SCHEDULE_OVERLAP
+  SCHEDULE_UPDATE
+
+  @@map("notification_type")
+}
+
+enum UserRole {
+  ADMIN
+  TEACHER
+  STUDENT
+  COUNSELOR
+
+  @@map("user_role")
+}
+
+enum RequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  COMPLETED
+  CANCELED
+  DENIED
+
+  @@map("request_status")
+}
+
+enum RequestPriority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+
+  @@map("request_priority")
+}
+
+model ScheduleChangeRequest {
+  id                    String          @id @default(cuid())
+  studentId             String          @map("student_id")
+  schoolYearId          String          @map("school_year_id")
+  termId                String          @map("term_id")
+  currentCourseSectionId String         @map("current_course_section_id")
+  requestedCourseSectionId String       @map("requested_course_section_id")
+  preferredTimeBlockId  String?         @map("preferred_time_block_id")
+  reason                String          @db.Text
+  status                RequestStatus   @default(PENDING)
+  priority              RequestPriority @default(MEDIUM)
+  reviewedById          String?         @map("reviewed_by_id")
+  resolutionNotes       String?         @map("resolution_notes") @db.Text
+  createdAt             DateTime        @map("created_at") @default(now())
+  updatedAt             DateTime        @map("updated_at") @updatedAt
+  student               Student         @relation(fields: [studentId], references: [id])
+  schoolYear            SchoolYear      @relation(fields: [schoolYearId], references: [id])
+  term                  Term            @relation(fields: [termId], references: [id])
+  currentCourseSection  CourseSection   @relation("CurrentSection", fields: [currentCourseSectionId], references: [id])
+  requestedCourseSection CourseSection  @relation("RequestedSection", fields: [requestedCourseSectionId], references: [id])
+  preferredTimeBlock    TimeBlock?      @relation(fields: [preferredTimeBlockId], references: [id])
+  reviewer              User?           @relation("RequestReviewer", fields: [reviewedById], references: [id])
+  actions               ScheduleChangeAction[]
+  waitlist              CourseWaitlist[]
+  courseConflicts       CourseConflict[]
+
+  @@index([studentId])
+  @@index([status])
+  @@map("schedule_change_request")
+}
+
+model ScheduleChangeAction {
+  id                    String            @id @default(cuid())
+  requestId             String            @map("request_id")
+  removedCourseSectionId String?          @map("removed_course_section_id")
+  addedCourseSectionId  String?           @map("added_course_section_id")
+  actionById            String            @map("action_by_id")
+  actionDate            DateTime          @map("action_date") @default(now())
+  notes                 String?           @db.Text
+  createdAt             DateTime          @map("created_at") @default(now())
+  updatedAt             DateTime          @map("updated_at") @updatedAt
+  request               ScheduleChangeRequest @relation(fields: [requestId], references: [id])
+  removedCourseSection  CourseSection?    @relation("RemovedSection", fields: [removedCourseSectionId], references: [id])
+  addedCourseSection    CourseSection?    @relation("AddedSection", fields: [addedCourseSectionId], references: [id])
+  actionBy              User              @relation("ActionPerformer", fields: [actionById], references: [id])
+
+  @@map("schedule_change_action")
+}
+
+model CourseConflict {
+  id                String        @id @default(cuid())
+  courseSectionId1  String        @map("course_section_id1")
+  courseSectionId2  String        @map("course_section_id2")
+  conflictType      ConflictType  @map("conflict_type")
+  isResolvable      Boolean       @map("is_resolvable") @default(false)
+  resolutionNotes   String?       @map("resolution_notes") @db.Text
+  requestId         String?       @map("request_id")
+  createdAt         DateTime      @map("created_at") @default(now())
+  updatedAt         DateTime      @map("updated_at") @updatedAt
+  courseSection1    CourseSection @relation("ConflictSection1", fields: [courseSectionId1], references: [id])
+  courseSection2    CourseSection @relation("ConflictSection2", fields: [courseSectionId2], references: [id])
+  request           ScheduleChangeRequest? @relation(fields: [requestId], references: [id])
+
+  @@unique([courseSectionId1, courseSectionId2])
+  @@index([courseSectionId1])
+  @@index([courseSectionId2])
+  @@map("course_conflict")
+}
+
+model CourseWaitlist {
+  id              String              @id @default(cuid())
+  courseSectionId String              @map("course_section_id")
+  studentId       String              @map("student_id")
+  position        Int
+  requestId       String?             @map("request_id")
+  createdAt       DateTime            @map("created_at") @default(now())
+  updatedAt       DateTime            @map("updated_at") @updatedAt
+  courseSection   CourseSection       @relation(fields: [courseSectionId], references: [id])
+  student         Student             @relation(fields: [studentId], references: [id])
+  request         ScheduleChangeRequest? @relation(fields: [requestId], references: [id])
+
+  @@unique([courseSectionId, studentId])
+  @@index([courseSectionId])
+  @@index([studentId])
+  @@index([requestId])
+  @@map("course_waitlist")
+}
+
+model SystemSetting {
+  id          String   @id @default(cuid())
+  key         String   @unique @db.VarChar(100)
+  value       String   @db.Text
+  description String?  @db.Text
+  createdAt   DateTime @map("created_at") @default(now())
+  updatedAt   DateTime @map("updated_at") @updatedAt
+
+  @@map("system_setting")
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  userId     String   @map("user_id")
+  action     String   @db.VarChar(255)
+  entityType String   @map("entity_type") @db.VarChar(50)
+  entityId   String   @map("entity_id")
+  details    Json?
+  ipAddress  String?  @map("ip_address") @db.VarChar(45)
+  createdAt  DateTime @map("created_at") @default(now())
+  user       User     @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([entityType, entityId])
+  @@index([createdAt])
+  @@map("audit_log")
 }
 
 model Rule {
@@ -96,111 +502,74 @@ model Rule {
   name        String   @unique
   type        RuleType
   description String
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  isActive    Boolean  @map("is_active") @default(true)
+  createdAt   DateTime @map("created_at") @default(now())
+  updatedAt   DateTime @map("updated_at") @updatedAt
+
+  @@map("rule")
 }
 
-model ScheduleChangeRequest {
-  id              String        @id @default(cuid())
-  studentId       String
-  counselorId     String?
-  currentCourseId String
-  newCourseId     String
-  reason          String
-  comments        String?
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
-  status          RequestStatus @default(PENDING)
-  conflicts       Conflict[]
-  counselor       Counselor?    @relation("CounselorRequests", fields: [counselorId], references: [id])
-  currentCourse   Course        @relation("CurrentCourse", fields: [currentCourseId], references: [id])
-  newCourse       Course        @relation("NewCourse", fields: [newCourseId], references: [id])
-  student         Student       @relation("StudentRequests", fields: [studentId], references: [id])
+model CourseRule {
+  id                  String   @id @default(cuid())
+  courseId            String   @map("course_id")
+  conflictingCourseId String   @map("conflicting_course_id")
+  type                RuleType
+  description         String
+  isActive            Boolean  @map("is_active") @default(true)
+  isOverridable       Boolean  @map("is_overridable") @default(false)
+  createdAt           DateTime @map("created_at") @default(now())
+  updatedAt           DateTime @map("updated_at") @updatedAt
+  course              Course   @relation("CourseRules", fields: [courseId], references: [id])
+  conflictingCourse   Course   @relation("ConflictingCourseRules", fields: [conflictingCourseId], references: [id])
+
+  @@unique([courseId, conflictingCourseId])
+  @@index([courseId])
+  @@index([conflictingCourseId])
+  @@map("course_rule")
 }
 
-model Conflict {
-  id          String                @id @default(cuid())
-  description String
-  courseId    String
-  requestId   String
-  resolved    Boolean               @default(false)
-  createdAt   DateTime              @default(now())
-  updatedAt   DateTime              @updatedAt
-  type        ConflictType
-  course      Course                @relation(fields: [courseId], references: [id])
-  request     ScheduleChangeRequest @relation(fields: [requestId], references: [id])
-}
+model GradeLookup {
+  id          String   @id @default(cuid())
+  grade       String   @unique @db.VarChar(2)
+  gradePoints Decimal  @map("grade_points") @db.Decimal(3, 2)
+  description String?  @db.VarChar(100)
+  isPassing   Boolean  @map("is_passing") @default(true)
+  isActive    Boolean  @map("is_active") @default(true)
+  createdAt   DateTime @map("created_at") @default(now())
+  updatedAt   DateTime @map("updated_at") @updatedAt
 
-model Notification {
-  id          String           @id @default(cuid())
-  studentId   String?
-  counselorId String?
-  adminId     String?
-  message     String
-  read        Boolean          @default(false)
-  createdAt   DateTime         @default(now())
-  updatedAt   DateTime         @updatedAt
-  type        NotificationType
-  admin       Admin?           @relation(fields: [adminId], references: [id])
-  counselor   Counselor?       @relation(fields: [counselorId], references: [id])
-  student     Student?         @relation(fields: [studentId], references: [id])
-}
-
-model Settings {
-  id            String   @id @default(cuid())
-  schoolName    String
-  academicYear  String
-  semester      String
-  maxCourseLoad Int     @default(8)
-  allowConflicts Boolean @default(false)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-}
-
-model AdminAction {
-  id        String   @id @default(cuid())
-  adminId   String
-  action    String
-  details   String?
-  createdAt DateTime @default(now())
-  admin     Admin    @relation(fields: [adminId], references: [id])
-}
-
-enum UserRole {
-  STUDENT
-  COUNSELOR
-  ADMIN
-}
-
-enum RequestStatus {
-  PENDING
-  APPROVED
-  DENIED
+  @@map("grade_lookup")
 }
 
 enum ConflictType {
   SCHEDULE_OVERLAP
-  CAPACITY
-  PREREQUISITE
+  TIME_OVERLAP
+  TEACHER_CONFLICT
+  ROOM_CONFLICT
+  PREREQUISITE_NOT_MET
+  MAX_ENROLLMENT_REACHED
+  COURSE_CONFLICT
+  COURSE_SEQUENCE_NOT_MET
   OTHER
-}
 
-enum NotificationType {
-  REQUEST_UPDATE
-  REQUEST_APPROVED
-  REQUEST_DENIED
-  CAPACITY_ALERT
-  DEADLINE_REMINDER
-  SYSTEM_UPDATE
-  CONFLICT_DETECTED
-  GENERAL
+  @@map("conflict_type")
 }
 
 enum RuleType {
-  SCHEDULE_OVERLAP
   PREREQUISITE
+  COURSE_CONFLICT
+  SEQUENCE
+  SCHEDULE_OVERLAP
   GRADE_REQUIREMENT
   CAPACITY
   OTHER
+
+  @@map("rule_type")
+}
+
+enum RotationDay {
+  A_DAY
+  B_DAY
+
+  @@map("rotation_day")
 }

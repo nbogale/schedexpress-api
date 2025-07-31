@@ -1,0 +1,461 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique @db.VarChar(255)
+  passwordHash  String    @db.VarChar(255)
+  role          UserRole
+  firstName     String    @db.VarChar(100)
+  lastName      String    @db.VarChar(100)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  student       Student?
+  reviewedRequests ScheduleChangeRequest[] @relation("RequestReviewer")
+  performedActions ScheduleChangeAction[] @relation("ActionPerformer")
+  auditLogs     AuditLog[]
+  notifications Notification[]
+
+}
+
+model Student {
+  id                String              @id @default(cuid())
+  userId            String              @unique
+  studentId         String              @unique @db.VarChar(20)
+  gradeLevelId      String
+  graduationYear    Int?
+  hasIep            Boolean             @default(false)
+  isDualEnrollment  Boolean             @default(false)
+  isCollegeBound    Boolean             @default(false)
+  isCreditRecovery  Boolean             @default(false)
+  maxCreditsPerTerm Decimal             @db.Decimal(3, 1) @default(8.0)
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+  user              User                @relation(fields: [userId], references: [id])
+  gradeLevel        GradeLevel          @relation(fields: [gradeLevelId], references: [id])
+  courseHistory     StudentCourseHistory[]
+  schedule          Schedule?
+  notifications     Notification[]
+  changeRequests    ScheduleChangeRequest[]
+  waitlist          CourseWaitlist[]
+}
+
+model StudentCourseHistory {
+  id            String     @id @default(cuid())
+  studentId     String
+  courseId      String
+  schoolYearId  String
+  termId        String
+  grade         String?    @db.VarChar(2)
+  isPassed      Boolean    @default(true)
+  creditEarned  Decimal    @db.Decimal(3, 1)
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+  student       Student    @relation(fields: [studentId], references: [id])
+  course        Course     @relation(fields: [courseId], references: [id])
+  schoolYear    SchoolYear @relation(fields: [schoolYearId], references: [id])
+  term          Term       @relation(fields: [termId], references: [id])
+}
+
+model CourseSection {
+  id              String     @id @default(cuid())
+  courseId        String
+  sectionNumber   String     @db.VarChar(10)
+  schoolYearId    String
+  termId          String
+  timeBlockId     String
+  roomId          String
+  teacherId       String
+  maxEnrollment   Int
+  currentEnrollment Int      @default(0)
+  isActive        Boolean    @default(true)
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+  course          Course     @relation(fields: [courseId], references: [id])
+  schoolYear      SchoolYear @relation(fields: [schoolYearId], references: [id])
+  term            Term       @relation(fields: [termId], references: [id])
+  timeBlock       TimeBlock  @relation(fields: [timeBlockId], references: [id])
+  room            Room       @relation(fields: [roomId], references: [id])
+  teacher         Teacher    @relation(fields: [teacherId], references: [id])
+  currentChangeRequests ScheduleChangeRequest[] @relation("CurrentSection")
+  removedInActions ScheduleChangeAction[] @relation("RemovedSection")
+  addedInActions  ScheduleChangeAction[] @relation("AddedSection")
+  conflicts1      CourseConflict[] @relation("ConflictSection1")
+  conflicts2      CourseConflict[] @relation("ConflictSection2")
+  waitlist        CourseWaitlist[]
+  schedules       Schedule[] @relation("CourseSectionSchedule")
+
+  @@unique([courseId, sectionNumber, schoolYearId, termId])
+  @@index([courseId])
+  @@index([termId])
+  @@index([teacherId])
+}
+
+model Schedule {
+  id        String   @id @default(cuid())
+  studentId String   @unique
+  semester  String
+  year      Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  student   Student  @relation(fields: [studentId], references: [id])
+  courseSections   CourseSection[] @relation("CourseSectionSchedule")
+}
+
+model Notification {
+  id          String           @id @default(cuid())
+  studentId   String?
+  userId      String?
+  message     String
+  read        Boolean          @default(false)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  type        NotificationType
+  student     Student?         @relation(fields: [studentId], references: [id])
+  user        User?         @relation(fields: [userId], references: [id])
+}
+
+model Settings {
+  id            String   @id @default(cuid())
+  schoolName    String
+  academicYear  String
+  semester      String
+  maxCourseLoad Int     @default(8)
+  allowConflicts Boolean @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model SchoolYear {
+  id        String   @id @default(cuid())
+  name      String   @db.VarChar(50)
+  startDate DateTime
+  endDate   DateTime
+  isCurrent Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  terms     Term[]
+  sections  CourseSection[]
+  courseHistory StudentCourseHistory[]
+  changeRequests ScheduleChangeRequest[]
+}
+
+model Term {
+  id           String     @id @default(cuid())
+  schoolYearId String
+  name         String     @db.VarChar(50)
+  startDate    DateTime
+  endDate      DateTime
+  isCurrent    Boolean    @default(false)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  schoolYear   SchoolYear @relation(fields: [schoolYearId], references: [id])
+  sections     CourseSection[]
+  courseHistory StudentCourseHistory[]
+  changeRequests ScheduleChangeRequest[]
+}
+
+model Department {
+  id        String   @id @default(cuid())
+  name      String   @db.VarChar(100)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  courses   Course[]
+  teachers  Teacher[]
+  sequences CourseSequence[]
+}
+
+model CourseLevel {
+  id        String   @id @default(cuid())
+  name      String   @db.VarChar(50)
+  rank      Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  courses   Course[]
+}
+
+model GradeLevel {
+  id        String   @id @default(cuid())
+  name      String   @db.VarChar(50)
+  level     Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  courses   Course[] @relation("MinGradeLevel")
+  students  Student[]
+}
+
+model Course {
+  id                String            @id @default(cuid())
+  code              String            @unique @db.VarChar(20)
+  name              String            @db.VarChar(255)
+  description       String?           @db.Text
+  departmentId      String
+  credits           Decimal           @db.Decimal(3, 1) @default(1.0)
+  courseLevelId     String
+  minGradeLevelId   String
+  maxStudents       Int               @default(30)
+  isElective        Boolean           @default(false)
+  isCore            Boolean           @default(false)
+  isActive          Boolean           @default(true)
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  department        Department        @relation(fields: [departmentId], references: [id])
+  courseLevel       CourseLevel       @relation(fields: [courseLevelId], references: [id])
+  minGradeLevel     GradeLevel        @relation("MinGradeLevel", fields: [minGradeLevelId], references: [id])
+  prerequisites     CoursePrerequisite[] @relation("PrerequisiteCourses")
+  prerequisiteFor   CoursePrerequisite[] @relation("RequiredCourses")
+  sequences         CourseSequence[]
+  sections          CourseSection[]
+  courseHistory     StudentCourseHistory[]
+  requestedChanges  ScheduleChangeRequest[]
+}
+
+model CoursePrerequisite {
+  id                  String   @id @default(cuid())
+  courseId            String
+  prerequisiteCourseId String
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+  course              Course   @relation("PrerequisiteCourses", fields: [courseId], references: [id])
+  prerequisiteCourse  Course   @relation("RequiredCourses", fields: [prerequisiteCourseId], references: [id])
+
+  @@unique([courseId, prerequisiteCourseId])
+}
+
+model CourseSequence {
+  id            String     @id @default(cuid())
+  departmentId  String
+  courseId      String
+  sequenceOrder Int
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+  department    Department @relation(fields: [departmentId], references: [id])
+  course        Course     @relation(fields: [courseId], references: [id])
+
+  @@unique([departmentId, courseId])
+}
+
+model Room {
+  id        String   @id @default(cuid())
+  name      String   @db.VarChar(50)
+  capacity  Int
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  sections  CourseSection[]
+}
+
+model TimeBlock {
+  id        String   @id @default(cuid())
+  name      String   @db.VarChar(50)
+  startTime DateTime
+  endTime   DateTime
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  sections  CourseSection[]
+  preferredInRequests ScheduleChangeRequest[]
+}
+
+model Teacher {
+  id           String     @id @default(cuid())
+  name         String?
+  email        String     @unique
+  password     String?
+  departmentId String
+  maxCourses   Int        @default(6)
+  isActive     Boolean    @default(true)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  department   Department @relation(fields: [departmentId], references: [id])
+  sections     CourseSection[]
+}
+
+enum NotificationType {
+  CAPACITY_ALERT
+  DEADLINE_REMINDER
+  SYSTEM_UPDATE
+  CONFLICT_DETECTED
+  GENERAL
+  REQUEST_UPDATE
+  REQUEST_APPROVED
+  REQUEST_DENIED
+}
+
+enum UserRole {
+  ADMIN
+  TEACHER
+  STUDENT
+  COUNSELOR
+}
+
+enum RequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  COMPLETED
+  CANCELED
+  DENIED
+}
+
+enum RequestPriority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+model ScheduleChangeRequest {
+  id                    String          @id @default(cuid())
+  studentId             String
+  schoolYearId          String
+  termId                String
+  currentCourseSectionId String
+  requestedCourseId     String
+  preferredTimeBlockId  String?
+  reason                String          @db.Text
+  status                RequestStatus   @default(PENDING)
+  priority              RequestPriority @default(MEDIUM)
+  reviewedById          String?
+  resolutionNotes       String?         @db.Text
+  createdAt             DateTime        @default(now())
+  updatedAt             DateTime        @updatedAt
+  student               Student         @relation(fields: [studentId], references: [id])
+  schoolYear            SchoolYear      @relation(fields: [schoolYearId], references: [id])
+  term                  Term            @relation(fields: [termId], references: [id])
+  currentCourseSection  CourseSection   @relation("CurrentSection", fields: [currentCourseSectionId], references: [id])
+  requestedCourse       Course          @relation(fields: [requestedCourseId], references: [id])
+  preferredTimeBlock    TimeBlock?      @relation(fields: [preferredTimeBlockId], references: [id])
+  reviewer              User?           @relation("RequestReviewer", fields: [reviewedById], references: [id])
+  actions               ScheduleChangeAction[]
+  waitlist              CourseWaitlist[]
+  courseConflicts       CourseConflict[]
+
+  @@index([studentId])
+  @@index([status])
+}
+
+model ScheduleChangeAction {
+  id                    String            @id @default(cuid())
+  requestId             String
+  removedCourseSectionId String?
+  addedCourseSectionId  String?
+  actionById            String
+  actionDate            DateTime          @default(now())
+  notes                 String?           @db.Text
+  createdAt             DateTime          @default(now())
+  updatedAt             DateTime          @updatedAt
+  request               ScheduleChangeRequest @relation(fields: [requestId], references: [id])
+  removedCourseSection  CourseSection?    @relation("RemovedSection", fields: [removedCourseSectionId], references: [id])
+  addedCourseSection    CourseSection?    @relation("AddedSection", fields: [addedCourseSectionId], references: [id])
+  actionBy              User              @relation("ActionPerformer", fields: [actionById], references: [id])
+}
+
+enum ConflictType {
+  SCHEDULE_OVERLAP
+  TIME_OVERLAP
+  TEACHER_CONFLICT
+  ROOM_CONFLICT
+  PREREQUISITE_NOT_MET
+  MAX_ENROLLMENT_REACHED
+  OTHER
+}
+
+model CourseConflict {
+  id                String        @id @default(cuid())
+  courseSectionId1  String
+  courseSectionId2  String
+  conflictType      ConflictType
+  isResolvable      Boolean       @default(false)
+  resolutionNotes   String?       @db.Text
+  requestId       String?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+  courseSection1    CourseSection @relation("ConflictSection1", fields: [courseSectionId1], references: [id])
+  courseSection2    CourseSection @relation("ConflictSection2", fields: [courseSectionId2], references: [id])
+  request         ScheduleChangeRequest? @relation(fields: [requestId], references: [id])
+
+  @@unique([courseSectionId1, courseSectionId2])
+  @@index([courseSectionId1])
+  @@index([courseSectionId2])
+}
+
+model CourseWaitlist {
+  id              String              @id @default(cuid())
+  courseSectionId String
+  studentId       String
+  position        Int
+  requestId       String?
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+  courseSection   CourseSection       @relation(fields: [courseSectionId], references: [id])
+  student         Student             @relation(fields: [studentId], references: [id])
+  request         ScheduleChangeRequest? @relation(fields: [requestId], references: [id])
+
+  @@unique([courseSectionId, studentId])
+  @@index([courseSectionId])
+  @@index([studentId])
+  @@index([requestId])
+}
+
+model SystemSetting {
+  id          String   @id @default(cuid())
+  key         String   @unique @db.VarChar(100)
+  value       String   @db.Text
+  description String?  @db.Text
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  userId     String
+  action     String   @db.VarChar(255)
+  entityType String   @db.VarChar(50)
+  entityId   String
+  details    Json?
+  ipAddress  String?  @db.VarChar(45)
+  createdAt  DateTime @default(now())
+  user       User     @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([entityType, entityId])
+  @@index([createdAt])
+}
+
+model Rule {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  type        RuleType
+  description String
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+enum RuleType {
+  SCHEDULE_OVERLAP
+  PREREQUISITE
+  GRADE_REQUIREMENT
+  CAPACITY
+  OTHER
+}
+
+model CourseRule {
+  id                  String   @id @default(cuid())
+  courseId            String
+  conflictingCourseId String
+  type                RuleType
+  description         String
+  isActive            Boolean  @default(true)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+ // course              Course   @relation("PrimaryCourse", fields: [courseId], references: [id])
+ // conflictingCourse   Course   @relation("ConflictingCourse", fields: [conflictingCourseId], references: [id])
+}

@@ -3,35 +3,35 @@ import { ApiProperty } from '@nestjs/swagger';
 
 export class CreateScheduleDto {
   @ApiProperty({
-    example: 'student-id-123',
-    description: 'Student ID',
+    example: 'clg123xyz',
+    description: 'ID of the student',
   })
   @IsString()
   @IsNotEmpty()
   studentId: string;
 
   @ApiProperty({
-    example: 'Fall',
-    description: 'Semester',
+    example: 'clg123xyz',
+    description: 'ID of the school year',
   })
   @IsString()
   @IsNotEmpty()
-  semester: string;
+  schoolYearId: string;
 
   @ApiProperty({
-    example: 2025,
-    description: 'Academic year',
+    example: 'clg123xyz',
+    description: 'ID of the term',
   })
-  @IsInt()
-  @Min(2000)
-  year: number;
+  @IsString()
+  @IsNotEmpty()
+  termId: string;
 
   @ApiProperty({
-    example: ['course-id-1', 'course-id-2'],
-    description: 'Array of course IDs',
+    example: ['clg456abc', 'clg789def'],
+    description: 'Array of course section IDs to connect to the schedule',
     type: [String],
   })
   @IsArray()
   @IsString({ each: true })
-  courseIds: string[];
+  courseSectionIds: string[];
 }

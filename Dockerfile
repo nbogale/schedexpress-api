@@ -1,58 +1,52 @@
-FROM node:18-alpine AS builder
-
-# Install OpenSSL for Prisma
-RUN apk add --no-cache openssl
-
+### Builder stage ###
+FROM node:18 AS builder
 WORKDIR /app
 
-# Copy package files and install dependencies
+# 1. Install all deps
 COPY package*.json ./
 RUN npm install
 
-# Copy source code
-COPY . .
-
-# Generate Prisma client with correct OpenSSL version specification
-ENV PRISMA_QUERY_ENGINE_LIBRARY_PROVIDER=binary
+# 2. Generate Prisma client
+COPY prisma ./prisma
 RUN npx prisma generate
 
-# Build the application
+# 3. Copy source & build
+COPY . .
 RUN npm run build
 
-# Production stage
-FROM node:18-alpine
-
-# Install OpenSSL for Prisma
-RUN apk add --no-cache openssl
-
+### Production stage ###
+FROM node:18-slim
 WORKDIR /app
 
-# Copy package files and install production dependencies
+# 4. Install OS requirements for Prisma
+RUN apt-get update && \
+    apt-get install -y \
+      openssl \
+      python3 \
+      make \
+      g++ \
+      netcat-traditional \
+      postgresql-client && \
+    rm -rf /var/lib/apt/lists/*
+
+# 5. Install only production deps
 COPY package*.json ./
 RUN npm install --only=production
 
-# Copy built application and Prisma files
+# 6. Copy Prisma binaries & client into prod image
+COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
+COPY --from=builder /app/node_modules/@prisma/client ./node_modules/@prisma/client
+
+# 7. Copy built app and config
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/prisma ./prisma
-COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
+COPY --from=builder /app/startup.sh ./startup.sh
+COPY --from=builder /app/tsconfig.json ./tsconfig.json
 
-# Set environment variables
-ENV NODE_ENV=production
+# 8. Tell Prisma to use binary engine
 ENV PRISMA_QUERY_ENGINE_LIBRARY_PROVIDER=binary
+ENV NODE_ENV=production
 
-# Expose the API port
+RUN chmod +x startup.sh
 EXPOSE 3001
-
-# Create startup script
-COPY --from=builder /app/prisma/schema.prisma ./prisma/
-RUN echo '#!/bin/sh\n\
-echo "Waiting for database to be ready..."\n\
-sleep 5\n\
-echo "Running database migrations..."\n\
-npx prisma migrate deploy\n\
-echo "Starting application..."\n\
-node dist/src/main.js' > /app/startup.sh \
-&& chmod +x /app/startup.sh
-
-# Command to run the application with migrations
-CMD ["/app/startup.sh"]
+CMD ["sh", "./startup.sh"]

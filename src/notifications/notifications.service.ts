@@ -1,24 +1,39 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationType } from '@prisma/client';
-
+import { EmailService } from './email.service';
 @Injectable()
 export class NotificationsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService, private readonly emailService: EmailService) {}
 
   async createNotification(data: {
     studentId?: string;
-    counselorId?: string;
-    adminId?: string;
+    userId?: string;
     message: string;
     type: NotificationType;
-  }) {
-    return this.prisma.notification.create({
+  }, sendEmail: boolean = false) {
+    //If userId or studentId is not provided throw exception
+    if (!data.studentId && !data.userId) {
+      throw new Error('StudentId or User Id is required');
+    }
+
+
+    const notification = await this.prisma.notification.create({
       data: {
         ...data,
         read: false,
       },
     });
+
+    if(sendEmail) {
+      await this.sendEmailNotification({
+        userId: data.userId,
+        message: data.message,
+        subject: this.populateNotiicationSubject(data.type),
+        type: data.type,
+      });
+    }
+    return notification;
   }
 
   async createRequestNotification(data: {
@@ -43,8 +58,6 @@ export class NotificationsService {
       where: { id: userId },
       include: {
         student: true,
-        counselor: true,
-        admin: true,
       },
     });
 
@@ -55,10 +68,8 @@ export class NotificationsService {
     let query = {};
     if (user.student) {
       query = { studentId: user.student.id };
-    } else if (user.counselor) {
-      query = { counselorId: user.counselor.id };
-    } else if (user.admin) {
-      query = { adminId: user.admin.id };
+    } else {
+      query = { userId: user.id };
     }
 
     return this.prisma.notification.findMany({
@@ -81,8 +92,6 @@ export class NotificationsService {
       where: { id: userId },
       include: {
         student: true,
-        counselor: true,
-        admin: true,
       },
     });
 
@@ -93,10 +102,8 @@ export class NotificationsService {
     let query = {};
     if (user.student) {
       query = { studentId: user.student.id };
-    } else if (user.counselor) {
-      query = { counselorId: user.counselor.id };
-    } else if (user.admin) {
-      query = { adminId: user.admin.id };
+    } else {
+      query = { userId: user.id };
     }
 
     return this.prisma.notification.updateMany({
@@ -106,5 +113,45 @@ export class NotificationsService {
       },
       data: { read: true },
     });
+  }
+
+
+  async sendEmailNotification(data: {
+    userId: string;
+    message: string;
+    subject: string;
+    type: NotificationType;
+  }) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: data.userId },
+    });
+
+    if (!user) {
+      return;
+    }
+
+    //Send email to user.email  
+    const email = user.email;
+  
+    const body = data.message;
+    const emailData = {
+      to: email,
+      subject: data.subject,
+      text: body,
+    };    
+    
+    //Send email
+    await this.emailService.sendEmail(emailData);
+  }
+
+  populateNotiicationSubject(type: NotificationType) {
+    switch(type) {
+      case NotificationType.SCHEDULE_UPDATE:
+        return 'Schedule Update';
+      case NotificationType.REQUEST_UPDATE:
+        return 'Request Update';
+      default:
+        return 'Notification';
+    }
   }
 }

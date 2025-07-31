@@ -1,14 +1,21 @@
-import { Injectable, NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException, BadRequestException, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateScheduleDto } from './dto/create-schedule.dto';
 import { UpdateScheduleDto } from './dto/update-schedule.dto';
+import { ApiErrorResponse } from 'src/common/api-error';
+import { ErrorCode } from 'src/common/error-codes';
+import { ApiErrorResponseBuilder } from 'src/common/api-error-builder';
+import { NotificationsService } from 'src/notifications/notifications.service';
+import { NotificationType } from 'src/schedule-change-requests/enums/request-enums';
 
 @Injectable()
 export class SchedulesService {
-  constructor(private readonly prisma: PrismaService) {}
+  private readonly logger = new Logger(SchedulesService.name);
+
+  constructor(private readonly prisma: PrismaService, private readonly notificationsService: NotificationsService) {}
 
   async create(createScheduleDto: CreateScheduleDto) {
-    const { studentId, courseIds, ...scheduleData } = createScheduleDto;
+    const { studentId, courseSectionIds, schoolYearId, termId, ...scheduleData } = createScheduleDto;
 
     // Check if student exists
     const student = await this.prisma.student.findUnique({
@@ -17,90 +24,123 @@ export class SchedulesService {
     });
 
     if (!student) {
-      throw new NotFoundException(`Student with ID ${studentId} not found`);
+      const errorResponse = ApiErrorResponseBuilder.create(
+        ErrorCode.SCHN,
+        `Student with ID ${studentId} not found`
+      )
+        .withLogger(this.logger)
+        .build();
+      throw new NotFoundException(errorResponse);
     }
 
     // Check if student already has a schedule
     if (student.schedule) {
-      throw new ConflictException(`Student already has a schedule`);
+      const errorResponse = ApiErrorResponseBuilder.create(
+        ErrorCode.SCHC,
+        `Student already has a schedule`
+      )
+        .withLogger(this.logger)
+        .build();
+      throw new ConflictException(errorResponse);
     }
 
     // Validate courses
-    if (courseIds.length === 0) {
-      throw new BadRequestException('Schedule must include at least one course');
+    if (courseSectionIds.length === 0) {
+      const errorResponse = ApiErrorResponseBuilder.create(
+        ErrorCode.SCHB,
+        'Schedule must include at least one course'
+      )
+        .withLogger(this.logger)
+        .build();
+      throw new BadRequestException(errorResponse);
     }
 
     // Check if all courses exist
-    const courses = await this.prisma.course.findMany({
-      where: { id: { in: courseIds } },
+    const courseSections = await this.prisma.courseSection.findMany({
+      where: { id: { in: courseSectionIds } },
+      include: { course: true },
     });
 
-    if (courses.length !== courseIds.length) {
-      throw new NotFoundException('One or more courses not found');
+    if (courseSections.length !== courseSectionIds.length) {
+      const errorResponse = ApiErrorResponseBuilder.create(
+        ErrorCode.SCHN,
+        'One or more courses not found'
+      )
+        .withLogger(this.logger)
+        .build();
+      throw new NotFoundException(errorResponse);
     }
 
     // Check capacity for each course
-    const overCapacityCourses = courses.filter(
-      course => course.currentEnrollment >= course.capacity
+    const overCapacityCourses = courseSections.filter(
+      course => course.currentEnrollment >= course.maxEnrollment
     );
 
     if (overCapacityCourses.length > 0) {
-      throw new ConflictException(
-        `Some courses are at capacity: ${overCapacityCourses.map(c => c.name).join(', ')}`
-      );
+      const errorResponse = ApiErrorResponseBuilder.create(
+        ErrorCode.SCHC,
+        `Some courses are at capacity: ${overCapacityCourses.map(c => c.course.name).join(', ')}`
+      )
+        .withLogger(this.logger)
+        .build();
+      throw new ConflictException(errorResponse);
     }
 
     // Check for period conflicts
-    const periods = courses.map(course => course.period);
+    const periods = courseSections.map(course => course.timeBlockId);
     const uniquePeriods = new Set(periods);
     
     if (periods.length !== uniquePeriods.size) {
-      throw new ConflictException('Schedule has period conflicts');
+      const errorResponse = ApiErrorResponseBuilder.create(
+        ErrorCode.SCHC,
+        'Schedule has period conflicts'
+      )
+        .withLogger(this.logger)
+        .build();
+      throw new ConflictException(errorResponse);
     }
 
     // Get settings to check max course load
     const settings = await this.prisma.settings.findFirst();
     const maxCourseLoad = settings?.maxCourseLoad || 8;
 
-    if (courseIds.length > maxCourseLoad) {
-      throw new ConflictException(`Schedule exceeds maximum course load of ${maxCourseLoad}`);
+    if (courseSectionIds.length > maxCourseLoad) {
+      const errorResponse = ApiErrorResponseBuilder.create(
+        ErrorCode.SCHB,
+        `Maximum course load (${maxCourseLoad}) exceeded`
+      )
+        .withLogger(this.logger)
+        .build();
+      throw new BadRequestException(errorResponse);
     }
 
-    // Create schedule with course connections
-    return this.prisma.$transaction(async (prisma) => {
-      // Create schedule
-      const schedule = await prisma.schedule.create({
-        data: {
-          ...scheduleData,
-          student: { connect: { id: studentId } },
-          courses: {
-            connect: courseIds.map(id => ({ id })),
-          },
+    return this.prisma.schedule.create({
+      data: {
+        ...scheduleData,
+        schoolYear: { connect: { id: schoolYearId } },
+        term: { connect: { id: termId } },
+        student: { connect: { id: studentId } },
+        scheduleCourseSections: {
+          create: courseSectionIds.map(id => ({
+            courseSection: { connect: { id } }
+          }))
         },
-        include: {
-          student: {
-            include: {
-              user: {
-                select: {
-                  name: true,
-                  email: true,
-                },
-              },
-            },
-          },
-          courses: true,
+      },
+      include: {
+        student: true,
+        scheduleCourseSections: {
+          include: {
+            courseSection: {
+              include: {
+                course: true,
+                timeBlock: true,
+                room: true,
+                teacher: true,
+              }
+            }
+          }
         },
-      });
-
-      // Update course enrollments
-      for (const course of courses) {
-        await prisma.course.update({
-          where: { id: course.id },
-          data: { currentEnrollment: { increment: 1 } },
-        });
-      }
-
-      return schedule;
+      },
     });
   }
 
@@ -111,13 +151,27 @@ export class SchedulesService {
           include: {
             user: {
               select: {
-                name: true,
+                firstName: true,
+                lastName: true,
                 email: true,
               },
             },
           },
         },
-        courses: true,
+        schoolYear: true,
+        term: true,
+        scheduleCourseSections: {
+          include: {
+            courseSection: {
+              include: {
+                course: true,
+                timeBlock: true,
+                room: true,
+                teacher: true,
+              }
+            }
+          }
+        },
       },
     });
   }
@@ -126,26 +180,32 @@ export class SchedulesService {
     const schedule = await this.prisma.schedule.findUnique({
       where: { id },
       include: {
-        student: {
+        student: true,
+        schoolYear: true,
+        term: true,
+        scheduleCourseSections: {
           include: {
-            user: {
-              select: {
-                name: true,
-                email: true,
-              },
-            },
-          },
-        },
-        courses: {
-          orderBy: {
-            period: 'asc',
-          },
+            courseSection: {
+              include: {
+                course: true,
+                timeBlock: true,
+                room: true,
+                teacher: true,
+              }
+            }
+          }
         },
       },
     });
 
     if (!schedule) {
-      throw new NotFoundException(`Schedule with ID ${id} not found`);
+      const errorResponse = ApiErrorResponseBuilder.create(
+        ErrorCode.SCHN,
+        `Schedule with ID ${id} not found`
+      )
+        .withLogger(this.logger)
+        .build();
+      throw new NotFoundException(errorResponse);
     }
 
     return schedule;
@@ -153,7 +213,7 @@ export class SchedulesService {
 
   async findByStudent(studentId: string) {
     const student = await this.prisma.student.findUnique({
-      where: { id: studentId },
+      where: { userId: studentId },
     });
 
     if (!student) {
@@ -161,21 +221,38 @@ export class SchedulesService {
     }
 
     const schedule = await this.prisma.schedule.findUnique({
-      where: { studentId },
+      where: { studentId: student.id },
       include: {
         student: {
           include: {
             user: {
               select: {
-                name: true,
+                firstName: true,
+                lastName: true,
                 email: true,
               },
             },
           },
         },
-        courses: {
+        schoolYear: true,
+        term: true,
+        scheduleCourseSections: {
+          include: {
+            courseSection: {
+              include: {
+                course: true,
+                timeBlock: true,
+                room: true,
+                teacher: true,
+              }
+            }
+          },
           orderBy: {
-            period: 'asc',
+            courseSection: {
+              timeBlock: {
+                startTime: 'asc',
+              },
+            },
           },
         },
       },
@@ -189,170 +266,203 @@ export class SchedulesService {
   }
 
   async update(id: string, updateScheduleDto: UpdateScheduleDto) {
-    const { addCourseIds, removeCourseIds, ...scheduleData } = updateScheduleDto;
+    const { addCourseSectionIds, removeCourseSectionIds, ...scheduleData } = updateScheduleDto;
 
     // Check if schedule exists
     const schedule = await this.prisma.schedule.findUnique({
       where: { id },
       include: {
-        courses: true,
+        scheduleCourseSections: {
+          include: {
+            courseSection: true
+          }
+        },
       },
     });
 
     if (!schedule) {
-      throw new NotFoundException(`Schedule with ID ${id} not found`);
+      const errorResponse = ApiErrorResponseBuilder.create(
+        ErrorCode.SCHN,
+        `Schedule with ID ${id} not found`
+      )
+        .withLogger(this.logger)
+        .build();
+      throw new NotFoundException(errorResponse);
     }
 
     // Process course modifications
     let coursesToConnect = [];
     let coursesToDisconnect = [];
 
-    if (addCourseIds && addCourseIds.length > 0) {
+    let addCourseSections = [];
+    let removeCourseSections = [];
+
+    if (addCourseSectionIds && addCourseSectionIds.length > 0) {
       // Check if courses exist
-      const courses = await this.prisma.course.findMany({
-        where: { id: { in: addCourseIds } },
+      addCourseSections = await this.prisma.courseSection.findMany({
+        where: { id: { in: addCourseSectionIds } },
+        include: { course: true },
       });
 
-      if (courses.length !== addCourseIds.length) {
-        throw new NotFoundException('One or more courses to add not found');
+      if (addCourseSections.length !== addCourseSectionIds.length) {
+        const errorResponse = ApiErrorResponseBuilder.create(
+          ErrorCode.SCHN,
+          'One or more courses to add not found'
+        )
+          .withLogger(this.logger)
+          .build();
+        throw new NotFoundException(errorResponse);
       }
 
       // Check for capacity
-      const overCapacityCourses = courses.filter(
-        course => course.currentEnrollment >= course.capacity
+      const overCapacityCourses = addCourseSections.filter(
+        courseSection => courseSection.currentEnrollment >= courseSection.maxEnrollment
       );
 
       if (overCapacityCourses.length > 0) {
-        throw new ConflictException(
-          `Some courses are at capacity: ${overCapacityCourses.map(c => c.name).join(', ')}`
-        );
+        const errorResponse = ApiErrorResponseBuilder.create(
+          ErrorCode.SCHC,
+          `Some courses are at capacity: ${overCapacityCourses.map(c => c.course.name).join(', ')}`
+        )
+          .withLogger(this.logger)
+          .build();
+        throw new ConflictException(errorResponse);
       }
 
-      // Check for period conflicts with existing courses
-      const existingPeriods = schedule.courses.map(course => course.period);
-      const newPeriods = courses.map(course => course.period);
-      
-      const allPeriods = [...existingPeriods];
-      
-      for (const period of newPeriods) {
-        if (allPeriods.includes(period)) {
-          throw new ConflictException(`Period conflict with course in period ${period}`);
-        }
-        allPeriods.push(period);
-      }
-
-      coursesToConnect = addCourseIds.map(id => ({ id }));
+      coursesToConnect = addCourseSectionIds;
     }
 
-    if (removeCourseIds && removeCourseIds.length > 0) {
-      // Verify these courses are in the schedule
-      const coursesToRemove = schedule.courses.filter(
-        course => removeCourseIds.includes(course.id)
-      );
-
-      if (coursesToRemove.length !== removeCourseIds.length) {
-        throw new BadRequestException('One or more courses to remove are not in the schedule');
-      }
-
-      coursesToDisconnect = removeCourseIds.map(id => ({ id }));
+    if (removeCourseSectionIds && removeCourseSectionIds.length > 0) {
+      coursesToDisconnect = removeCourseSectionIds;
+   
+      removeCourseSections = await this.prisma.courseSection.findMany({
+        where: { id: { in: removeCourseSectionIds } },
+          include: { course: true },
+      });
     }
 
     // Get settings to check max course load
     const settings = await this.prisma.settings.findFirst();
     const maxCourseLoad = settings?.maxCourseLoad || 8;
 
-    // Calculate new total courses
-    const newTotalCourses = 
-      schedule.courses.length + 
-      (coursesToConnect.length - coursesToDisconnect.length);
-
-    if (newTotalCourses > maxCourseLoad) {
-      throw new ConflictException(`Schedule exceeds maximum course load of ${maxCourseLoad}`);
+    const finalCourseCount = schedule.scheduleCourseSections.length + coursesToConnect.length - coursesToDisconnect.length;
+    if (finalCourseCount > maxCourseLoad) {
+      const errorResponse = ApiErrorResponseBuilder.create(
+        ErrorCode.SCHB,
+        `Maximum course load (${maxCourseLoad}) would be exceeded`
+      )
+        .withLogger(this.logger)
+        .build();
+      throw new BadRequestException(errorResponse);
     }
 
-    if (newTotalCourses === 0) {
-      throw new BadRequestException('Schedule must include at least one course');
-    }
-
-    // Update schedule
-    return this.prisma.$transaction(async (prisma) => {
-      // Update schedule data
-      const updatedSchedule = await prisma.schedule.update({
-        where: { id },
-        data: {
-          ...scheduleData,
-          courses: {
-            connect: coursesToConnect,
-            disconnect: coursesToDisconnect,
-          },
-        },
-        include: {
-          student: {
-            include: {
-              user: {
-                select: {
-                  name: true,
-                  email: true,
-                },
-              },
-            },
-          },
-          courses: true,
-        },
-      });
-
-      // Update course enrollments
-      if (coursesToConnect.length > 0) {
-        for (const course of coursesToConnect) {
-          await prisma.course.update({
-            where: { id: course.id },
-            data: { currentEnrollment: { increment: 1 } },
-          });
+    if(addCourseSections.length > 0) {
+      // Check for period conflicts with existing courses
+      const existingPeriods = schedule.scheduleCourseSections.map(scs => scs.courseSection.timeBlockId);
+      const newPeriods = addCourseSections.map(courseSection => courseSection.timeBlockId);
+      const removePeriods = removeCourseSections.map(courseSection => courseSection.timeBlockId);
+      
+      const allPeriods = [...existingPeriods];
+      
+      for (const period of newPeriods) {
+        if (allPeriods.includes(period) && !removePeriods.includes(period)) {
+          const errorResponse = ApiErrorResponseBuilder.create(
+            ErrorCode.SCHC,
+            `Period conflict with course in period ${period}`
+          )
+            .withLogger(this.logger)
+            .build();
+          throw new ConflictException(errorResponse);
         }
+        allPeriods.push(period);
       }
+    }    
 
-      if (coursesToDisconnect.length > 0) {
-        for (const course of coursesToDisconnect) {
-          await prisma.course.update({
-            where: { id: course.id },
-            data: { currentEnrollment: { decrement: 1 } },
-          });
-        }
-      }
-
-      return updatedSchedule;
-    });
-  }
-
-  async remove(id: string) {
-    // Check if schedule exists
-    const schedule = await this.prisma.schedule.findUnique({
+    const updatedSchedule =  await this.prisma.schedule.update({
       where: { id },
+      data: {
+        //...scheduleData,
+        scheduleCourseSections: {
+          create: coursesToConnect.map(id => ({
+            courseSection: { connect: { id } }
+          })),
+          deleteMany: {
+            courseSectionId: {
+              in: coursesToDisconnect
+            }
+          }
+        },
+      },
       include: {
-        courses: true,
+        student: true,
+        scheduleCourseSections: {
+          include: {
+            courseSection: {
+              include: {
+                course: true,
+                timeBlock: true,
+                room: true,
+                teacher: true,
+              }
+            }
+          }
+        },
       },
     });
 
-    if (!schedule) {
-      throw new NotFoundException(`Schedule with ID ${id} not found`);
-    }
-
-    // Delete schedule and update course enrollments
-    return this.prisma.$transaction(async (prisma) => {
-      // Delete schedule
-      await prisma.schedule.delete({
-        where: { id },
-      });
-
-      // Update course enrollments
-      for (const course of schedule.courses) {
-        await prisma.course.update({
-          where: { id: course.id },
-          data: { currentEnrollment: { decrement: 1 } },
-        });
+    // Snet email notification to student
+    const student = await this.prisma.student.findUnique({
+      where: { id: updatedSchedule.studentId},
+      include: {
+        user: {
+          select: {
+            id: true,
+          },
+        },
+      },
+    });
+    
+    if(student) {
+      // Send email notification to student
+      let message = 'Your schedule has been updated.\n';
+      let addedCourseMessage = '';
+      let removedCourseMessage = '';
+      if(addCourseSections.length > 0) {
+        addedCourseMessage = `You have been added to ${addCourseSections.map(c => c.course.name).join(', ')}\n`;
+      }
+      if(removeCourseSections.length > 0) {
+        removedCourseMessage = `You have been removed from ${removeCourseSections.map(c => c.course.name).join(', ')}\n`;
       }
 
-      return { id, deleted: true };
+      await this.notificationsService.createNotification({
+        studentId: student.id,
+        userId: student.user.id,
+        message: message + addedCourseMessage + removedCourseMessage,
+        type: NotificationType.SCHEDULE_UPDATE
+      }, true);
+    }
+
+
+    return updatedSchedule;
+  }
+
+  async remove(id: string) {
+    const schedule = await this.prisma.schedule.findUnique({
+      where: { id },
+    });
+
+    if (!schedule) {
+      const errorResponse = ApiErrorResponseBuilder.create(
+        ErrorCode.SCHN,
+        `Schedule with ID ${id} not found`
+      )
+        .withLogger(this.logger)
+        .build();
+      throw new NotFoundException(errorResponse);
+    }
+
+    return this.prisma.schedule.delete({
+      where: { id },
     });
   }
 }
