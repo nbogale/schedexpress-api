@@ -12,13 +12,15 @@ RUN npx prisma generate
 
 # 3. Copy source & build
 COPY . .
+# 4. Ensure templates directory exists and copy templates
+RUN mkdir -p src/notifications/templates
 RUN npm run build
 
 ### Production stage ###
 FROM node:18-slim
 WORKDIR /app
 
-# 4. Install OS requirements for Prisma
+# 5. Install OS requirements for Prisma
 RUN apt-get update && \
     apt-get install -y \
       openssl \
@@ -29,21 +31,23 @@ RUN apt-get update && \
       postgresql-client && \
     rm -rf /var/lib/apt/lists/*
 
-# 5. Install only production deps
+# 6. Install only production deps
 COPY package*.json ./
 RUN npm install --only=production
 
-# 6. Copy Prisma binaries & client into prod image
+# 7. Copy Prisma binaries & client into prod image
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/node_modules/@prisma/client ./node_modules/@prisma/client
 
-# 7. Copy built app and config
+# 8. Copy built app and config
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/startup.sh ./startup.sh
 COPY --from=builder /app/tsconfig.json ./tsconfig.json
+# 9. Copy email templates
+COPY --from=builder /app/src/notifications/templates/* ./dist/src/notifications/templates/
 
-# 8. Tell Prisma to use binary engine
+# 10. Tell Prisma to use binary engine
 ENV PRISMA_QUERY_ENGINE_LIBRARY_PROVIDER=binary
 ENV NODE_ENV=production
 
