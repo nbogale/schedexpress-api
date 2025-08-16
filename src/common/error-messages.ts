@@ -48,6 +48,7 @@ export const errorMessages: Record<ErrorCode, string> = {
   [ErrorCode.USRC]: 'This email address is already in use.',
   [ErrorCode.USRD]: 'Grade level is required for student accounts.',
   [ErrorCode.USRN]: 'The requested user could not be found.',
+  [ErrorCode.USRE]: 'This email or username is already in use.',
 
   // Rule Error Messages
   [ErrorCode.RULC]: 'A rule with this name already exists.',

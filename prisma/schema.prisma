@@ -541,6 +541,21 @@ model GradeLookup {
   @@map("grade_lookup")
 }
 
+model VerificationCode {
+  id        String   @id @default(cuid())
+  email     String   @db.VarChar(255)
+  code      String   @db.VarChar(6)
+  type      VerificationCodeType
+  expiresAt DateTime @map("expires_at")
+  isUsed    Boolean  @map("is_used") @default(false)
+  createdAt DateTime @map("created_at") @default(now())
+
+  @@index([email, type])
+  @@index([code])
+  @@index([expiresAt])
+  @@map("verification_code")
+}
+
 enum ConflictType {
   SCHEDULE_OVERLAP
   TIME_OVERLAP
@@ -572,4 +587,12 @@ enum RotationDay {
   B_DAY
 
   @@map("rotation_day")
+}
+
+enum VerificationCodeType {
+  PASSWORD_RESET
+  EMAIL_VERIFICATION
+  ACCOUNT_ACTIVATION
+
+  @@map("verification_code_type")
 }

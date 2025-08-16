@@ -1,8 +1,14 @@
-import { IsEmail, IsEnum, IsInt, IsNotEmpty, IsOptional, IsString, MinLength } from 'class-validator';
+import { IsNotEmpty, IsString, IsEmail, MinLength, IsEnum, IsOptional } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
-import { UserRole } from '@prisma/client';
 
-export class CreateUserDto {
+export enum UserRole {
+  STUDENT = 'STUDENT',
+  COUNSELOR = 'COUNSELOR',
+  ADMIN = 'ADMIN',
+  TEACHER = 'TEACHER',
+}
+
+export class RegisterDto {
   @ApiProperty({
     example: 'John',
     description: 'User first name',
@@ -20,20 +26,20 @@ export class CreateUserDto {
   lastName: string;
 
   @ApiProperty({
-    example: 'johnsmith',
-    description: 'User username',
-  })
-  @IsString()
-  @IsNotEmpty()
-  username: string;
-
-  @ApiProperty({
-    example: 'john.smith@schedexpress.com',
+    example: 'john.smith@example.com',
     description: 'User email address',
   })
   @IsEmail()
   @IsNotEmpty()
   email: string;
+
+  @ApiProperty({
+    example: 'johnsmith',
+    description: 'User username (will be generated from email if not provided)',
+  })
+  @IsString()
+  @IsOptional()
+  username?: string;
 
   @ApiProperty({
     example: 'Welcome2ES!',
@@ -54,29 +60,20 @@ export class CreateUserDto {
   role: UserRole;
 
   @ApiProperty({
-    example: 'Science',
-    description: 'Department (for counselors and admins)',
-    required: false,
-  })
-  @IsString()
-  @IsOptional()
-  department?: string;
-
-  @ApiProperty({
-    example: 10,
-    description: 'Grade level (for students)',
-    required: false,
-  })
-  @IsString()
-  @IsOptional()
-  gradeLevel?: string;
-
-  @ApiProperty({
-    example: '1234567890',
-    description: 'Student ID (for students)',
+    example: 'STU123456',
+    description: 'Student ID (required for students)',
     required: false,
   })
   @IsString()
   @IsOptional()
   studentId?: string;
-}
+
+  @ApiProperty({
+    example: 'Computer Science',
+    description: 'Department (required for counselors, admins, and teachers)',
+    required: false,
+  })
+  @IsString()
+  @IsOptional()
+  department?: string;
+} 

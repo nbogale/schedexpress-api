@@ -15,7 +15,7 @@ export class UsersService {
   constructor(private readonly prisma: PrismaService) {}
 
   async create(createUserDto: CreateUserDto) {
-    const { role, department, gradeLevel, ...userData } = createUserDto;
+    const { role, department, gradeLevel, studentId, ...userData } = createUserDto;
 
     // Check if email is already in use
     const existingUser = await this.prisma.user.findUnique({
@@ -33,10 +33,10 @@ export class UsersService {
     }
 
     // If user is a student, ensure grade level is provided
-    if (role === UserRole.STUDENT && !gradeLevel) {
+    if (role === UserRole.STUDENT && (!gradeLevel && !studentId)) {
       const errorResponse = ApiErrorResponseBuilder.create(
         ErrorCode.USRD,
-        'Grade level is required for students'
+        'Grade level or student ID is required for students'
       )
         .withLogger(this.logger)
         .build();
@@ -60,15 +60,7 @@ export class UsersService {
 
       // Create role-specific record
       if (role === UserRole.STUDENT) {
-        if (!gradeLevel) {
-          const errorResponse = ApiErrorResponseBuilder.create(
-            ErrorCode.USRD,
-            'Grade level is required for students'
-          )
-            .withLogger(this.logger)
-            .build();
-          throw new ConflictException(errorResponse);
-        }
+        
         // TODO: Add student record(grade level)
        /*  await prisma.user.create({
           data: {
