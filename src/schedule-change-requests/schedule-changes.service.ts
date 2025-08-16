@@ -30,7 +30,7 @@ export class ScheduleChangesService {
     return this.prisma.scheduleChangeRequest.findMany({
       where,
       include: {
-        student: { include: { user: true } },
+        student: { include: { user: true, gradeLevel: true } },
         schoolYear: true,
         term: true,
         currentCourseSection: { include: { course: true, timeBlock: true } },

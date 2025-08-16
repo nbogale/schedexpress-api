@@ -13,8 +13,15 @@ export class EmailService {
   private readonly templatesDir: string;
 
   constructor(private readonly configService: ConfigService) {
-    // Set up templates directory
-    this.templatesDir = path.join(__dirname, 'templates');
+    // Set up templates directory - handle both development and production paths
+    const isProduction = process.env.NODE_ENV === 'production';
+    if (isProduction) {
+      // In production, templates are copied to dist/templates
+      this.templatesDir = path.join(process.cwd(), 'dist', 'templates');
+    } else {
+      // In development, templates are in the root templates directory
+      this.templatesDir = path.join(process.cwd(), 'templates');
+    }
     
     // Create templates directory if it doesn't exist
     if (!fs.existsSync(this.templatesDir)) {
@@ -22,8 +29,10 @@ export class EmailService {
       this.logger.log(`Created templates directory: ${this.templatesDir}`);
     }
 
+    this.logger.log(`Using templates directory: ${this.templatesDir}`);
+
     const smtpUser = this.configService.get<string>('SMTP_USER');
-    const smtpPass = this.configService.get<string>('SMTP_PASS');
+    const smtpPass = 'gbysiglotppemgak';//TODOthis.configService.get<string>('SMTP_PASS');
 
     if (!smtpUser || !smtpPass) {
       this.logger.error('Missing required SMTP credentials:', {
@@ -143,8 +152,17 @@ export class EmailService {
     try {
       const templatePath = path.join(this.templatesDir, `${templateName}.ejs`);
       
+      this.logger.log(`Looking for template at: ${templatePath}`);
+      this.logger.log(`Templates directory: ${this.templatesDir}`);
+      this.logger.log(`Directory exists: ${fs.existsSync(this.templatesDir)}`);
+      
       if (!fs.existsSync(templatePath)) {
         this.logger.warn(`Template not found: ${templatePath}`);
+        // List files in templates directory for debugging
+        if (fs.existsSync(this.templatesDir)) {
+          const files = fs.readdirSync(this.templatesDir);
+          this.logger.log(`Files in templates directory: ${files.join(', ')}`);
+        }
         throw new Error(`Template not found: ${templateName}`);
       }
 
@@ -175,6 +193,27 @@ export class EmailService {
       this.logger.error(`Failed to send templated email: ${error.message}`);
       throw error;
     }
+  }
+
+  // Send verification code email
+  async sendVerificationCodeEmail(emailData: {
+    to: string;
+    firstName?: string;
+    verificationCode: string;
+    actionUrl?: string;
+    actionText?: string;
+  }) {
+    return this.sendTemplatedEmail({
+      to: emailData.to,
+      subject: 'Your SchedExpress Verification Code',
+      template: 'verification-code',
+      data: {
+        firstName: emailData.firstName,
+        verificationCode: emailData.verificationCode,
+        actionUrl: emailData.actionUrl,
+        actionText: emailData.actionText,
+      },
+    });
   }
 
   // Create default email templates (now just ensures templates directory exists)

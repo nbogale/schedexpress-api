@@ -30,7 +30,7 @@ export class CourseSectionsController {
   @ApiResponse({ status: 200, description: 'Return all course sections.' })
   findAll(
     @Query('skip', new DefaultValuePipe(0), ParseIntPipe) skip?: number,
-    @Query('take', new DefaultValuePipe(10), ParseIntPipe) take?: number,
+    @Query('take', new DefaultValuePipe(0), ParseIntPipe) take?: number,
     @Query('courseId') courseId?: string,
     @Query('schoolYearId') schoolYearId?: string,
     @Query('termId') termId?: string,

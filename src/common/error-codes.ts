@@ -52,6 +52,7 @@ export enum ErrorCode {
   USRC = 'USRC', // Email already in use
   USRD = 'USRD', // Grade level required for students
   USRN = 'USRN', // User not found
+  USRE = 'USRE', // Email or username already in use
 
   // Rule Error Codes
   RULC = 'RULC', // Rule name already exists

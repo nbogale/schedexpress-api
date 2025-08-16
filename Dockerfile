@@ -12,8 +12,14 @@ RUN npx prisma generate
 
 # 3. Copy source & build
 COPY . .
-# 4. Ensure templates directory exists and copy templates
-RUN mkdir -p src/notifications/templates
+# 4. Ensure templates directory exists and copy templates explicitly
+RUN mkdir -p templates
+RUN echo "=== Templates in root ==="
+RUN ls -la templates/
+# Explicitly copy templates to ensure they're available
+COPY templates/* templates/
+RUN echo "=== After explicit copy ==="
+RUN ls -la templates/
 RUN npm run build
 
 ### Production stage ###
@@ -44,8 +50,17 @@ COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/startup.sh ./startup.sh
 COPY --from=builder /app/tsconfig.json ./tsconfig.json
-# 9. Copy email templates
-COPY --from=builder /app/src/notifications/templates/* ./dist/src/notifications/templates/
+
+# 9. Copy email templates to the new location
+RUN mkdir -p ./dist/templates
+# Copy templates from builder stage
+COPY --from=builder /app/templates/notification.ejs ./dist/templates/
+COPY --from=builder /app/templates/grade-notification.ejs ./dist/templates/
+COPY --from=builder /app/templates/schedule-change.ejs ./dist/templates/
+COPY --from=builder /app/templates/verification-code.ejs ./dist/templates/
+COPY --from=builder /app/templates/README.md ./dist/templates/
+COPY --from=builder /app/templates/test-templates.html ./dist/templates/
+COPY --from=builder /app/templates/run-test.html ./dist/templates/
 
 # 10. Tell Prisma to use binary engine
 ENV PRISMA_QUERY_ENGINE_LIBRARY_PROVIDER=binary
