@@ -32,7 +32,7 @@ export class EmailService {
     this.logger.log(`Using templates directory: ${this.templatesDir}`);
 
     const smtpUser = this.configService.get<string>('SMTP_USER');
-    const smtpPass = 'gbysiglotppemgak';//TODOthis.configService.get<string>('SMTP_PASS');
+    const smtpPass = this.configService.get<string>('SMTP_PASS');
 
     if (!smtpUser || !smtpPass) {
       this.logger.error('Missing required SMTP credentials:', {

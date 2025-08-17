@@ -1,6 +1,7 @@
-import { Controller, Get, Param, Put, Body, UseGuards } from '@nestjs/common';
+import { Controller, Get, Param, Put, Body, UseGuards, Post } from '@nestjs/common';
 import { StudentsService } from './students.service';
 import { UpdateStudentDto } from './dto/update-student.dto';
+import { CreateStudentDto } from './dto/create-student.dto';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -63,5 +64,15 @@ export class StudentsController {
     // This is a proxy endpoint that will redirect to the schedules controller
     // We'll implement this redirection in a way that's compatible with the frontend expectations
     return this.studentsService.getStudentSchedule(id);
+  }
+
+  @Post()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.COUNSELOR)  
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Create a new student' })
+  @ApiResponse({ status: 201, description: 'The student has been successfully created' })
+  create(@Body() createStudentDto: CreateStudentDto) {
+    return this.studentsService.create(createStudentDto);
   }
 }
