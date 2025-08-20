@@ -8,6 +8,7 @@ import { ApiErrorResponse } from 'src/common/api-error';
 import { ErrorCode } from 'src/common/error-codes';
 import { ApiErrorResponseBuilder } from 'src/common/api-error-builder';
 import { EmailService } from 'src/notifications/email.service';
+import { UserRole } from '@prisma/client';
 
 @Injectable()
 export class AuthService {
@@ -28,19 +29,92 @@ export class AuthService {
       return null;
     }
 
-    const isPasswordValid = await bcrypt.compare(password, user.passwordHash);
-    if (!isPasswordValid) {
+    // Check if user status is active
+    if (user.status !== 'ACTIVE') {
       const errorResponse = ApiErrorResponseBuilder.create(
         ErrorCode.AUTH,
-        'Invalid credentials'
+        `Account is ${user.status.toLowerCase()}: User account is not active`
       )
         .withLogger(this.logger)
         .build();
       throw new UnauthorizedException(errorResponse);
     }
 
+    // Check if user account exists and is locked
+    const userAccount = await this.prisma.userAccount.findUnique({
+      where: { userId: user.id },
+    });
+
+    if (userAccount?.isLocked) {
+      const errorResponse = ApiErrorResponseBuilder.create(
+        ErrorCode.AUTH,
+        `Account is locked: ${userAccount.lockReason || 'No reason provided'}`
+      )
+        .withLogger(this.logger)
+        .build();
+      throw new UnauthorizedException(errorResponse);
+    }
+
+    const isPasswordValid = await bcrypt.compare(password, user.passwordHash);
+    if (!isPasswordValid) {
+      // Handle failed login attempt
+      await this.handleFailedLoginAttempt(user.id);
+      return null;
+    }
+
     const { passwordHash: _, ...result } = user;
     return result;
+  }
+
+  async handleFailedLoginAttempt(userId: string) {
+    return this.prisma.$transaction(async (prisma) => {
+      // Get or create user account
+      let userAccount = await prisma.userAccount.findUnique({
+        where: { userId },
+      });
+
+      if (!userAccount) {
+        userAccount = await prisma.userAccount.create({
+          data: {
+            userId,
+            isActive: true,
+            isLocked: false,
+            failedLoginAttempts: 0,
+            passwordChangedAt: new Date(),
+          },
+        });
+      }
+
+      // Increment failed attempts
+      const newFailedAttempts = userAccount.failedLoginAttempts + 1;
+      
+      // Check if account should be locked
+      const shouldLock = newFailedAttempts >= 5;
+      
+      // Update account
+      const updatedAccount = await prisma.userAccount.update({
+        where: { userId },
+        data: {
+          failedLoginAttempts: newFailedAttempts,
+          isLocked: shouldLock,
+          lockReason: shouldLock ? 'Too many failed login attempts' : null,
+        },
+      });
+
+      // Record in account history if locked
+      if (shouldLock) {
+        await prisma.userAccountHistory.create({
+          data: {
+            userAccountId: userAccount.id,
+            action: 'LOCK',
+            reason: 'Too many failed login attempts',
+            performedBy: 'SYSTEM', // Special system user ID
+          },
+        });
+      }
+
+      return updatedAccount;
+    });
   }
 
   async login(loginDto: LoginDto) {
@@ -55,6 +129,56 @@ export class AuthService {
         .withLogger(this.logger)
         .build();
       throw new UnauthorizedException(errorResponse);
+    }
+
+    // Check if user account exists, create if it doesn't
+    let userAccount = await this.prisma.userAccount.findUnique({
+      where: { userId: user.id },
+    });
+
+    if (!userAccount) {
+      // Create user account for existing user
+      userAccount = await this.prisma.userAccount.create({
+        data: {
+          userId: user.id,
+          isActive: true,
+          isLocked: false,
+          failedLoginAttempts: 0,
+          passwordChangedAt: new Date(),
+        },
+      });
+      this.logger.log(`Created user account for existing user: ${user.id}`);
+    } else {
+      // Check if user account is active
+      if (!userAccount.isActive) {
+        const errorResponse = ApiErrorResponseBuilder.create(
+          ErrorCode.AUTD,
+          'Account is deactivated: User account is not active'
+        )
+          .withLogger(this.logger)
+          .build();
+        throw new UnauthorizedException(errorResponse);
+      }
+
+      // Check if user account is locked
+      if (userAccount.isLocked) {
+        const errorResponse = ApiErrorResponseBuilder.create(
+          ErrorCode.AUTC,
+          `Account is locked: ${userAccount.lockReason || 'No reason provided'}`
+        )
+          .withLogger(this.logger)
+          .build();
+        throw new UnauthorizedException(errorResponse);
+      }
+
+      // Update last login time
+      await this.prisma.userAccount.update({
+        where: { userId: user.id },
+        data: {
+          lastLoginAt: new Date(),
+          failedLoginAttempts: 0, // Reset failed attempts on successful login
+        },
+      });
     }
 
     // Get additional user data based on role
@@ -137,7 +261,7 @@ export class AuthService {
 
     // Create user with transaction to ensure data consistency
     const result = await this.prisma.$transaction(async (prisma) => {
-      // Create the user
+      // Create the user with user account
       const user = await prisma.user.create({
         data: {
           email: registerDto.email,
@@ -146,6 +270,16 @@ export class AuthService {
           lastName: registerDto.lastName,
           passwordHash,
           role: registerDto.role,
+          status: 'ACTIVE', // Explicitly set status to ACTIVE
+          // Automatically create user account
+          userAccount: {
+            create: {
+              isActive: true,
+              isLocked: false,
+              failedLoginAttempts: 0,
+              passwordChangedAt: new Date(),
+            }
+          }
         },
       });
 
