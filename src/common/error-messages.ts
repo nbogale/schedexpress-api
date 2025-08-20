@@ -56,6 +56,9 @@ export const errorMessages: Record<ErrorCode, string> = {
 
   // Auth Error Messages
   [ErrorCode.AUTH]: 'Authentication failed. Please check your credentials.',
+  [ErrorCode.AUTB]: 'Invalid credentials. Please try again.',
+  [ErrorCode.AUTC]: 'Account is deactivated. Please contact support.',
+  [ErrorCode.AUTD]: 'Account is locked. Please contact support.',
 
   // Department Error Messages
   [ErrorCode.DEPN]: 'The requested department could not be found.',

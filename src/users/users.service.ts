@@ -1,9 +1,10 @@
-import { Injectable, ConflictException, NotFoundException, Logger } from '@nestjs/common';
+import { Injectable, ConflictException, NotFoundException, Logger, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
+import { UpdateUserStatusDto } from './dto/update-user-status.dto';
 import * as bcrypt from 'bcrypt';
-import { UserRole } from '@prisma/client';
+import { UserRole, UserStatus } from '@prisma/client';
 import { ApiErrorResponse } from 'src/common/api-error';
 import { ErrorCode } from 'src/common/error-codes';
 import { ApiErrorResponseBuilder } from 'src/common/api-error-builder';
@@ -46,7 +47,7 @@ export class UsersService {
     // Hash password
     const hashedPassword = await bcrypt.hash(userData.password, 10);
 
-    // Create user with role-specific data
+    // Create user with role-specific data and user account
     return this.prisma.$transaction(async (prisma) => {
       // Create the user
       const user = await prisma.user.create({
@@ -55,7 +56,19 @@ export class UsersService {
           username: userData.username,
           passwordHash: hashedPassword,
           role,
+          // Automatically create user account
+          userAccount: {
+            create: {
+              isActive: true,
+              isLocked: false,
+              failedLoginAttempts: 0,
+              passwordChangedAt: new Date(),
+            }
+          }
         },
+        include: {
+          userAccount: true,
+        }
       });
 
       // Create role-specific record
@@ -92,6 +105,123 @@ export class UsersService {
     });
   }
 
+  async updateUserStatus(
+    userId: string, 
+    updateStatusDto: UpdateUserStatusDto, 
+    changedByUserId: string
+  ) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      const errorResponse = ApiErrorResponseBuilder.create(
+        ErrorCode.USRN,
+        `User with ID ${userId} not found`
+      )
+        .withLogger(this.logger)
+        .build();
+      throw new NotFoundException(errorResponse);
+    }
+
+    // Prevent self-deactivation for admins
+    if (user.role === UserRole.ADMIN && 
+        updateStatusDto.status === UserStatus.INACTIVE && 
+        userId === changedByUserId) {
+      const errorResponse = ApiErrorResponseBuilder.create(
+        ErrorCode.USRD,
+        'Administrators cannot deactivate their own account'
+      )
+        .withLogger(this.logger)
+        .build();
+      throw new BadRequestException(errorResponse);
+    }
+
+    return this.prisma.$transaction(async (prisma) => {
+      // Update user status
+      const updatedUser = await prisma.user.update({
+        where: { id: userId },
+        data: { status: updateStatusDto.status },
+        select: {
+          id: true,
+          email: true,
+          firstName: true,
+          lastName: true,
+          role: true,
+          status: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+      });
+
+      // Update user account isActive flag based on user status
+      const isAccountActive = updateStatusDto.status === UserStatus.ACTIVE;
+      await prisma.userAccount.upsert({
+        where: { userId },
+        update: { 
+          isActive: isAccountActive,
+          // If deactivating, also unlock the account and reset failed attempts
+          ...(updateStatusDto.status === UserStatus.INACTIVE && {
+            isLocked: false,
+            lockReason: null,
+            failedLoginAttempts: 0,
+          })
+        },
+        create: {
+          userId,
+          isActive: isAccountActive,
+          isLocked: false,
+          failedLoginAttempts: 0,
+          passwordChangedAt: new Date(),
+        },
+      });
+
+      // Record status change in history
+      await prisma.userStatusHistory.create({
+        data: {
+          userId,
+          status: updateStatusDto.status,
+          reason: updateStatusDto.reason,
+          changedBy: changedByUserId,
+        },
+      });
+
+      return updatedUser;
+    });
+  }
+
+  async getUserStatusHistory(userId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      const errorResponse = ApiErrorResponseBuilder.create(
+        ErrorCode.USRN,
+        `User with ID ${userId} not found`
+      )
+        .withLogger(this.logger)
+        .build();
+      throw new NotFoundException(errorResponse);
+    }
+
+    return this.prisma.userStatusHistory.findMany({
+      where: { userId },
+      include: {
+        changedByUser: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            role: true,
+          },
+        },
+      },
+      orderBy: { changedAt: 'desc' },
+    });
+  }
+
   async findAll() {
     const users = await this.prisma.user.findMany({
       select: {
@@ -100,6 +230,7 @@ export class UsersService {
         firstName: true,
         lastName: true,
         role: true,
+        status: true,
         createdAt: true,
         updatedAt: true,
         student: {
@@ -107,7 +238,17 @@ export class UsersService {
             id: true,
             gradeLevel: true,
           },
-        }
+        },
+        userAccount: {
+          select: {
+            id: true,
+            isActive: true,
+            isLocked: true,
+            lockReason: true,
+            failedLoginAttempts: true,
+            lastLoginAt: true,
+          },
+        },
       },
     });
 
@@ -123,6 +264,7 @@ export class UsersService {
         firstName: true,
         lastName: true,
         role: true,
+        status: true,
         createdAt: true,
         updatedAt: true,
         student: {
@@ -130,7 +272,17 @@ export class UsersService {
             id: true,
             gradeLevel: true,
           },
-        }
+        },
+        userAccount: {
+          select: {
+            id: true,
+            isActive: true,
+            isLocked: true,
+            lockReason: true,
+            failedLoginAttempts: true,
+            lastLoginAt: true,
+          },
+        },
       },
     });
 
@@ -278,5 +430,141 @@ export class UsersService {
         where: { id },
       });
     });
+  }
+
+  async ensureUserAccountExists(userId: string) {
+    const userAccount = await this.prisma.userAccount.findUnique({
+      where: { userId },
+    });
+
+    if (!userAccount) {
+      // Create user account for existing user
+      return this.prisma.userAccount.create({
+        data: {
+          userId,
+          isActive: true,
+          isLocked: false,
+          failedLoginAttempts: 0,
+          passwordChangedAt: new Date(),
+        },
+      });
+    }
+
+    return userAccount;
+  }
+
+  async handleFailedLogin(userId: string, ipAddress: string) {
+    return this.prisma.$transaction(async (prisma) => {
+      // Ensure user account exists
+      let userAccount = await prisma.userAccount.findUnique({
+        where: { userId },
+      });
+
+      if (!userAccount) {
+        userAccount = await prisma.userAccount.create({
+          data: {
+            userId,
+            isActive: true,
+            isLocked: false,
+            failedLoginAttempts: 0,
+            passwordChangedAt: new Date(),
+          },
+        });
+      }
+
+      // Increment failed attempts
+      const newFailedAttempts = userAccount.failedLoginAttempts + 1;
+      
+      // Check if account should be locked
+      const shouldLock = newFailedAttempts >= 5;
+      
+      // Update account
+      const updatedAccount = await prisma.userAccount.update({
+        where: { userId },
+        data: {
+          failedLoginAttempts: newFailedAttempts,
+          isLocked: shouldLock,
+          lockReason: shouldLock ? 'Too many failed login attempts' : null,
+        },
+      });
+
+      // Record in account history if locked
+      if (shouldLock) {
+        await prisma.userAccountHistory.create({
+          data: {
+            userAccountId: userAccount.id,
+            action: 'LOCK',
+            reason: 'Too many failed login attempts',
+            performedBy: 'SYSTEM', // Special system user ID
+          },
+        });
+      }
+
+      return updatedAccount;
+    });
+  }
+
+  async unlockAccount(userId: string, unlockedByUserId: string, reason?: string) {
+    return this.prisma.$transaction(async (prisma) => {
+      const userAccount = await prisma.userAccount.findUnique({
+        where: { userId },
+      });
+
+      if (!userAccount) {
+        throw new NotFoundException('User account not found');
+      }
+
+      if (!userAccount.isLocked) {
+        throw new BadRequestException('Account is not locked');
+      }
+
+      // Unlock account
+      const updatedAccount = await prisma.userAccount.update({
+        where: { userId },
+        data: {
+          isLocked: false,
+          lockReason: null,
+          failedLoginAttempts: 0, // Reset failed attempts
+        },
+      });
+
+      // Record unlock action
+      await prisma.userAccountHistory.create({
+        data: {
+          userAccountId: userAccount.id,
+          action: 'UNLOCK',
+          reason: reason || 'Account unlocked by administrator',
+          performedBy: unlockedByUserId,
+        },
+      });
+
+      return updatedAccount;
+    });
+  }
+
+  async checkAccountStatus(userId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        userAccount: true,
+      },
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    // Check both status and lock
+    const isAccessible = user.status === 'ACTIVE' && 
+                        (!user.userAccount || !user.userAccount.isLocked);
+
+    return {
+      userId,
+      userStatus: user.status,
+      isAccountLocked: user.userAccount?.isLocked || false,
+      lockReason: user.userAccount?.lockReason,
+      isAccessible,
+      failedLoginAttempts: user.userAccount?.failedLoginAttempts || 0,
+    };
   }
 }

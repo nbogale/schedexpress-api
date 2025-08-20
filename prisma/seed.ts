@@ -28,6 +28,9 @@ async function main() {
     prisma.department.deleteMany(),
     prisma.term.deleteMany(),
     prisma.schoolYear.deleteMany(),
+    prisma.userStatusHistory.deleteMany(),
+    prisma.userAccountHistory.deleteMany(),
+    prisma.userAccount.deleteMany(),
     prisma.user.deleteMany(),
     prisma.gradeLookup.deleteMany(),
   ]);
@@ -51,6 +54,8 @@ async function main() {
     prisma.user.create({ data: { email: 'ava.moore@schedexpress.com', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.STUDENT, firstName: 'Ava', lastName: 'Moore', username: 'amoore' } }),  
     prisma.user.create({ data: { email: 'william.martin@schedexpress.com', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.STUDENT, firstName: 'William', lastName: 'Martin', username: 'wmartin' } }),  
     prisma.user.create({ data: { email: 'isabella.harris@schedexpress.com', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.STUDENT, firstName: 'Isabella', lastName: 'Harris', username: 'iharris' } }),  
+    prisma.user.create({ data: { email: 'leadcounselor@schedexpress.com', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.LEAD_COUNSELOR, firstName: 'Cole', lastName: 'Jason', username: 'leadcounselor' } }),  
+
   ]);
 
   // Create School Years

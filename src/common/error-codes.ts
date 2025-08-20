@@ -60,6 +60,9 @@ export enum ErrorCode {
 
   // Auth Error Codes
   AUTH = 'AUTH', // Authentication error
+  AUTB = 'AUTB', // Bad credentials
+  AUTC = 'AUTC', // Account is locked
+  AUTD = 'AUTD', // Account is deactivated
 
   // Department Error Codes
   DEPN = 'DEPN', // Department not found

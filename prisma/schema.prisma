@@ -15,6 +15,7 @@ model User {
   role          UserRole
   firstName     String    @map("first_name") @db.VarChar(100)
   lastName      String    @map("last_name") @db.VarChar(100)
+  status        UserStatus @default(ACTIVE)
   createdAt     DateTime  @map("created_at") @default(now())
   updatedAt     DateTime  @map("updated_at") @updatedAt
   student       Student?
@@ -23,8 +24,27 @@ model User {
   auditLogs     AuditLog[]
   notifications Notification[]
   teacher       Teacher?
+  statusHistory UserStatusHistory[]
+  userAccount   UserAccount?
+  statusChangesPerformed UserStatusHistory[] @relation("StatusChangePerformer")
+  accountActionsPerformed UserAccountHistory[] @relation("AccountActionPerformer")
 
   @@map("user")
+}
+
+model UserStatusHistory {
+  id          String    @id @default(cuid())
+  userId      String    @map("user_id")
+  status      UserStatus
+  reason      String?   @db.VarChar(500)
+  changedBy   String    @map("changed_by")
+  changedAt   DateTime  @map("changed_at") @default(now())
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  changedByUser User    @relation("StatusChangePerformer", fields: [changedBy], references: [id])
+
+  @@index([userId])
+  @@index([changedAt])
+  @@map("user_status_history")
 }
 
 model Student {
@@ -357,6 +377,7 @@ enum UserRole {
   TEACHER
   STUDENT
   COUNSELOR
+  LEAD_COUNSELOR
 
   @@map("user_role")
 }
@@ -595,4 +616,47 @@ enum VerificationCodeType {
   ACCOUNT_ACTIVATION
 
   @@map("verification_code_type")
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+  PENDING_ACTIVATION
+  DEACTIVATED
+  @@map("user_status")
+}
+
+// Alternative approach for complex account management
+model UserAccount {
+  id              String    @id @default(cuid())
+  userId          String    @map("user_id") @unique
+  isActive        Boolean   @map("is_active") @default(true)
+  isLocked        Boolean   @map("is_locked") @default(false)
+  lockReason      String?   @map("lock_reason") @db.VarChar(500)
+  lastLoginAt     DateTime? @map("last_login_at")
+  failedLoginAttempts Int   @map("failed_login_attempts") @default(0)
+  passwordChangedAt DateTime @map("password_changed_at") @default(now())
+  expiresAt       DateTime? @map("expires_at")
+  createdAt       DateTime  @map("created_at") @default(now())
+  updatedAt       DateTime  @map("updated_at") @updatedAt
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accountHistory  UserAccountHistory[]
+
+  @@map("user_account")
+}
+
+model UserAccountHistory {
+  id              String    @id @default(cuid())
+  userAccountId   String    @map("user_account_id")
+  action          String    @db.VarChar(50) // ACTIVATE, DEACTIVATE, LOCK, UNLOCK, etc.
+  reason          String?   @db.VarChar(500)
+  performedBy     String    @map("performed_by")
+  performedAt     DateTime  @map("performed_at") @default(now())
+  userAccount     UserAccount @relation(fields: [userAccountId], references: [id], onDelete: Cascade)
+  performedByUser User      @relation("AccountActionPerformer", fields: [performedBy], references: [id])
+
+  @@index([userAccountId])
+  @@index([performedAt])
+  @@map("user_account_history")
 }
