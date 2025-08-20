@@ -4,6 +4,14 @@ import * as bcrypt from 'bcrypt';
 const prisma = new PrismaClient();
 
 async function main() {
+  if (prisma) {
+    //TODO: Remove this after development
+    const users = await Promise.all([
+      prisma.user.create({ data: { email: 'leadcounselor@schedexpress.com', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.LEAD_COUNSELOR, firstName: 'Cole', lastName: 'Jason', username: 'leadcounselor' } }),  
+    ]);
+    return;
+  }
+
   // Clear existing data
   await prisma.$transaction([
     prisma.auditLog.deleteMany(),
