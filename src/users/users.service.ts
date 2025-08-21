@@ -222,6 +222,45 @@ export class UsersService {
     });
   }
 
+  async getUserAccountHistory(userId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        userAccount: true,
+      },
+    });
+
+    if (!user) {
+      const errorResponse = ApiErrorResponseBuilder.create(
+        ErrorCode.USRN,
+        `User with ID ${userId} not found`
+      )
+        .withLogger(this.logger)
+        .build();
+      throw new NotFoundException(errorResponse);
+    }
+
+    if (!user.userAccount) {
+      return [];
+    }
+
+    return this.prisma.userAccountHistory.findMany({
+      where: { userAccountId: user.userAccount.id },
+      include: {
+        performedByUser: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            role: true,
+          },
+        },
+      },
+      orderBy: { performedAt: 'desc' },
+    });
+  }
+
   async findAll() {
     const users = await this.prisma.user.findMany({
       select: {
@@ -454,7 +493,8 @@ export class UsersService {
   }
 
   async handleFailedLogin(userId: string, ipAddress: string) {
-    return this.prisma.$transaction(async (prisma) => {
+    try {
+      return await this.prisma.$transaction(async (prisma) => {
       // Ensure user account exists
       let userAccount = await prisma.userAccount.findUnique({
         where: { userId },
@@ -475,8 +515,8 @@ export class UsersService {
       // Increment failed attempts
       const newFailedAttempts = userAccount.failedLoginAttempts + 1;
       
-      // Check if account should be locked
-      const shouldLock = newFailedAttempts >= 5;
+      // Check if account should be locked (after 6 failed attempts)
+      const shouldLock = newFailedAttempts >= 6;
       
       // Update account
       const updatedAccount = await prisma.userAccount.update({
@@ -490,18 +530,35 @@ export class UsersService {
 
       // Record in account history if locked
       if (shouldLock) {
-        await prisma.userAccountHistory.create({
-          data: {
-            userAccountId: userAccount.id,
-            action: 'LOCK',
-            reason: 'Too many failed login attempts',
-            performedBy: 'SYSTEM', // Special system user ID
-          },
-        });
+        try {
+          // Try to find an admin user to record the action
+          const adminUser = await prisma.user.findFirst({
+            where: { role: 'ADMIN' },
+            select: { id: true }
+          });
+          
+          if (adminUser) {
+            await prisma.userAccountHistory.create({
+              data: {
+                userAccountId: userAccount.id,
+                action: 'LOCK',
+                reason: 'Too many failed login attempts',
+                performedBy: adminUser.id,
+              },
+            });
+          }
+        } catch (error) {
+          // Log the error but don't fail the account locking
+          this.logger.warn('Failed to record account lock in history', error);
+        }
       }
 
       return updatedAccount;
     });
+    } catch (error) {
+      this.logger.error(`Failed to handle failed login for user ${userId}:`, error);
+      throw error;
+    }
   }
 
   async unlockAccount(userId: string, unlockedByUserId: string, reason?: string) {
