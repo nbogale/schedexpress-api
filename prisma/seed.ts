@@ -6,6 +6,17 @@ const prisma = new PrismaClient();
 async function main() {
   if (process.env.NODE_ENV !== 'development') {
     //Not seed the data in production
+    //primsa update user role to PLATFORM_ADMIN
+    await prisma.user.updateMany({
+      where: {
+        username: "leadcounselor"
+      },
+      data: {
+        role: UserRole.PLATFORM_ADMIN,
+        username: "platformadmin",
+        email: "platformadmin@schedexpress.com"
+      }
+    });
     return;
   }
 
@@ -59,7 +70,7 @@ async function main() {
     prisma.user.create({ data: { email: 'ava.moore@schedexpress.com', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.STUDENT, firstName: 'Ava', lastName: 'Moore', username: 'amoore' } }),  
     prisma.user.create({ data: { email: 'william.martin@schedexpress.com', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.STUDENT, firstName: 'William', lastName: 'Martin', username: 'wmartin' } }),  
     prisma.user.create({ data: { email: 'isabella.harris@schedexpress.com', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.STUDENT, firstName: 'Isabella', lastName: 'Harris', username: 'iharris' } }),  
-    prisma.user.create({ data: { email: 'leadcounselor@schedexpress.com', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.LEAD_COUNSELOR, firstName: 'Cole', lastName: 'Jason', username: 'leadcounselor' } }),  
+    prisma.user.create({ data: { email: 'platformadmin@schedexpress.com', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.PLATFORM_ADMIN, firstName: 'Cole', lastName: 'Jason', username: 'platformadmin' } }),  
 
   ]);
 

@@ -92,8 +92,8 @@ export class AuthService {
       const newFailedAttempts = userAccount.failedLoginAttempts + 1;
       this.logger.log(`User ${userId} failed login attempt ${newFailedAttempts}`);
       
-      // Check if account should be locked (after 6 failed attempts)
-      const shouldLock = newFailedAttempts >= 6;
+      // Check if account should be locked (after 3 failed attempts)
+      const shouldLock = newFailedAttempts >= 3;
       
       if (shouldLock) {
         this.logger.warn(`Locking account for user ${userId} after ${newFailedAttempts} failed attempts`);

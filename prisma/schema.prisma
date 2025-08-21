@@ -377,7 +377,7 @@ enum UserRole {
   TEACHER
   STUDENT
   COUNSELOR
-  LEAD_COUNSELOR
+  PLATFORM_ADMIN
 
   @@map("user_role")
 }

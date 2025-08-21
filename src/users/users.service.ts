@@ -515,8 +515,8 @@ export class UsersService {
       // Increment failed attempts
       const newFailedAttempts = userAccount.failedLoginAttempts + 1;
       
-      // Check if account should be locked (after 6 failed attempts)
-      const shouldLock = newFailedAttempts >= 6;
+      // Check if account should be locked (after 3 failed attempts)
+      const shouldLock = newFailedAttempts >= 3;
       
       // Update account
       const updatedAccount = await prisma.userAccount.update({
