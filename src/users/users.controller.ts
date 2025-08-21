@@ -97,6 +97,17 @@ export class UsersController {
     return this.usersService.getUserStatusHistory(id);
   }
 
+  @Get(':id/account-history')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get user account activity history' })
+  @ApiResponse({ status: 200, description: 'Return user account history' })
+  @ApiResponse({ status: 404, description: 'User not found' })
+  getUserAccountHistory(@Param('id') id: string) {
+    return this.usersService.getUserAccountHistory(id);
+  }
+
   @Put(':id/unlock')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
