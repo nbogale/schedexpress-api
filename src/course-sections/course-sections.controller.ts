@@ -93,4 +93,25 @@ export class CourseSectionsController {
   decrementEnrollment(@Param('id') id: string) {
     return this.courseSectionsService.decrementEnrollment(id);
   }
+
+  @Get('course/:courseId')
+  @ApiOperation({ summary: 'Get all course sections for a course' })
+  @ApiQuery({ name: 'schoolYearId', required: false, type: String })
+  @ApiQuery({ name: 'termId', required: false, type: String })
+  @ApiQuery({ name: 'teacherId', required: false, type: String })
+  @ApiResponse({ status: 200, description: 'Return all course sections for a course.' })
+  @ApiResponse({ status: 404, description: 'Course not found.' })
+  findAllByCourseId(@Param('courseId') courseId: string,
+    @Query('schoolYearId') schoolYearId?: string,
+      @Query('termId') termId?: string,
+      @Query('teacherId') teacherId?: string,) {
+
+    const where: Prisma.CourseSectionWhereInput = {};
+   
+    if (schoolYearId) where.schoolYearId = schoolYearId;
+    if (termId) where.termId = termId;
+    if (teacherId) where.teacherId = teacherId;
+
+    return this.courseSectionsService.findAllByCourseId(courseId, where);
+  }
 } 

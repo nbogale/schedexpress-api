@@ -93,17 +93,17 @@ async function main() {
 
   // Create Departments
   const departments = await Promise.all([
-    prisma.department.create({ data: { name: 'Mathematics' } }),
-    prisma.department.create({ data: { name: 'English/Language Arts' } }),
-    prisma.department.create({ data: { name: 'Science' } }),
-    prisma.department.create({ data: { name: 'Social Studies' } }),
-    prisma.department.create({ data: { name: 'Art and Design' } }),
-    prisma.department.create({ data: { name: 'Physical Education' } }),
-    prisma.department.create({ data: { name: 'Foreign Language' } }),
-    prisma.department.create({ data: { name: 'Music' } }),
-    prisma.department.create({ data: { name: 'Technology' } }),
-    prisma.department.create({ data: { name: 'Health' } }),
-    prisma.department.create({ data: { name: 'Business' } }),
+    prisma.department.create({ data: { name: 'Mathematics', code: 'MATH', description: 'Mathematics Department' } }),
+    prisma.department.create({ data: { name: 'English/Language Arts', code: 'ENG', description: 'English/Language Arts Department' } }),
+    prisma.department.create({ data: { name: 'Science', code: 'SCI', description: 'Science Department' } }),
+    prisma.department.create({ data: { name: 'Social Studies', code: 'SOC', description: 'Social Studies Department' } }),
+    prisma.department.create({ data: { name: 'Art and Design', code: 'ART', description: 'Art and Design Department' } }),
+    prisma.department.create({ data: { name: 'Physical Education', code: 'PE', description: 'Physical Education Department' } }),
+    prisma.department.create({ data: { name: 'Foreign Language', code: 'LANG', description: 'Foreign Language Department' } }),
+    prisma.department.create({ data: { name: 'Music', code: 'MUSIC', description: 'Music Department' } }),
+    prisma.department.create({ data: { name: 'Technology', code: 'TECH', description: 'Technology Department' } }),
+    prisma.department.create({ data: { name: 'Health', code: 'HEALTH', description: 'Health Department' } }),
+    prisma.department.create({ data: { name: 'Business', code: 'BUS', description: 'Business Department' } })
   ]);
 
   // Create Course Levels
@@ -153,7 +153,7 @@ async function main() {
 
   // Create Time Blocks
   const timeBlocks = await Promise.all([
-    prisma.timeBlock.create({ data: { name: 'Period 1', startTime: new Date('2024-01-01T08:00:00'), endTime: new Date('2024-01-01T08:50:00') } }),
+    prisma.timeBlock.create({ data: { name: 'Period 1', startTime: new Date('2024-01-01T08:10:00'), endTime: new Date('2024-01-01T09:40:00') } }),
     prisma.timeBlock.create({ data: { name: 'Period 2', startTime: new Date('2024-01-01T08:55:00'), endTime: new Date('2024-01-01T09:45:00') } }),
     prisma.timeBlock.create({ data: { name: 'Period 3', startTime: new Date('2024-01-01T09:50:00'), endTime: new Date('2024-01-01T10:40:00') } }),
     prisma.timeBlock.create({ data: { name: 'Period 4', startTime: new Date('2024-01-01T10:45:00'), endTime: new Date('2024-01-01T11:35:00') } }),

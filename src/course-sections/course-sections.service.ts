@@ -369,4 +369,18 @@ export class CourseSectionsService {
       },
     });
   }
+
+  async findAllByCourseId(courseId: string, where: Prisma.CourseSectionWhereInput) {
+    return this.prisma.courseSection.findMany({
+      where: { courseId, ...where },
+      include: {
+        course: true,
+        schoolYear: true,
+        term: true,
+        timeBlock: true,
+        room: true,
+        teacher: true,
+      },
+    });
+  }
 } 
