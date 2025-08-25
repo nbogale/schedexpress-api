@@ -323,6 +323,7 @@ export class AuthService {
           department = await prisma.department.create({
             data: {
               name: registerDto.department!,
+              code: registerDto.departmentCode!,
             },
           });
         }
