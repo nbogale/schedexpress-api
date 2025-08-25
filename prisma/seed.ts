@@ -5,18 +5,106 @@ const prisma = new PrismaClient();
 
 async function main() {
   if (process.env.NODE_ENV !== 'development') {
-    //Not seed the data in production
-    //primsa update user role to PLATFORM_ADMIN
-    await prisma.user.updateMany({
+    //ToDo: Not seed the data in production
+
+    //TODO: update department code clear it on next push
+    await prisma.department.updateMany({
       where: {
-        username: "leadcounselor"
+        name: 'Mathematics'
       },
       data: {
-        role: UserRole.PLATFORM_ADMIN,
-        username: "platformadmin",
-        email: "platformadmin@schedexpress.com"
+        code: 'MATH'
       }
     });
+
+    await prisma.department.updateMany({
+      where: {
+        name: 'English/Language Arts'
+      },
+      data: {
+        code: 'ENG'
+      }
+    });
+
+    await prisma.department.updateMany({
+      where: {
+        name: 'Science'
+      },
+      data: {
+        code: 'SCI'
+      }
+    });
+
+    await prisma.department.updateMany({
+      where: {
+        name: 'Social Studies'
+      },
+      data: {
+        code: 'SOC'
+      }
+    });
+
+    await prisma.department.updateMany({
+      where: {
+        name: 'Art and Design'
+      },
+      data: {
+        code: 'ART'
+      }
+    });
+
+    await prisma.department.updateMany({
+      where: {
+        name: 'Physical Education'
+      },
+      data: {
+        code: 'PE'
+      }
+    });
+
+    await prisma.department.updateMany({
+      where: {
+        name: 'Foreign Language'
+      },
+      data: {
+        code: 'LANG'
+      }
+    });
+
+    await prisma.department.updateMany({
+      where: {
+        name: 'Music'
+      },
+      data: {
+        code: 'MUSIC'
+      }
+    });
+
+    await prisma.department.updateMany({
+      where: {
+        name: 'Technology'
+      },
+      data: {
+        code: 'TECH'
+      }
+    });
+
+    await prisma.department.updateMany({
+
+      data: {
+        code: 'HEALTH'
+      }
+    });
+
+    await prisma.department.updateMany({
+      where: {
+        name: 'Business'
+      },
+      data: {
+        code: 'BUS'
+      }
+    });
+
     return;
   }
 
