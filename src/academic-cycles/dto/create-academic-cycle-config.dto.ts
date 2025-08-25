@@ -1,8 +1,9 @@
-import { IsString, IsOptional, IsBoolean, IsNotEmpty, MaxLength } from 'class-validator';
+import { IsString, IsOptional, IsBoolean, IsNotEmpty, IsInt, IsEnum, MaxLength } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { CycleType } from '@prisma/client';
 
 export class CreateAcademicCycleConfigDto {
-  @ApiProperty({ description: 'Configuration name', maxLength: 100 })
+  @ApiProperty({ description: 'Configuration name' })
   @IsString()
   @IsNotEmpty()
   @MaxLength(100)
@@ -13,47 +14,47 @@ export class CreateAcademicCycleConfigDto {
   @IsString()
   description?: string;
 
-  @ApiPropertyOptional({ description: 'Whether this configuration is active', default: false })
+  @ApiPropertyOptional({ description: 'Whether this configuration is active' })
   @IsOptional()
   @IsBoolean()
   isActive?: boolean;
 
-  @ApiPropertyOptional({ description: 'Whether this is the default configuration', default: false })
+  @ApiPropertyOptional({ description: 'Whether this is the default configuration' })
   @IsOptional()
   @IsBoolean()
   isDefault?: boolean;
 
-  @ApiPropertyOptional({ description: 'Whether to include semesters', default: true })
+  @ApiPropertyOptional({ description: 'Whether to include semesters' })
   @IsOptional()
   @IsBoolean()
   hasSemesters?: boolean;
 
-  @ApiPropertyOptional({ description: 'Whether to include quarters', default: true })
+  @ApiPropertyOptional({ description: 'Whether to include quarters' })
   @IsOptional()
   @IsBoolean()
   hasQuarters?: boolean;
 
-  @ApiPropertyOptional({ description: 'Whether to include trimesters', default: false })
+  @ApiPropertyOptional({ description: 'Whether to include trimesters' })
   @IsOptional()
   @IsBoolean()
   hasTrimesters?: boolean;
 
-  @ApiPropertyOptional({ description: 'Whether to include sessions', default: false })
+  @ApiPropertyOptional({ description: 'Whether to include sessions' })
   @IsOptional()
   @IsBoolean()
   hasSessions?: boolean;
 
-  @ApiPropertyOptional({ description: 'Whether to enforce structure rules', default: true })
+  @ApiPropertyOptional({ description: 'Whether to enforce structure rules' })
   @IsOptional()
   @IsBoolean()
   enforceStructure?: boolean;
 
-  @ApiPropertyOptional({ description: 'Whether to allow custom cycles', default: false })
+  @ApiPropertyOptional({ description: 'Whether to allow custom cycles' })
   @IsOptional()
   @IsBoolean()
   allowCustomCycles?: boolean;
 
-  @ApiPropertyOptional({ description: 'Whether validation is required', default: true })
+  @ApiPropertyOptional({ description: 'Whether validation is required' })
   @IsOptional()
   @IsBoolean()
   requireValidation?: boolean;
