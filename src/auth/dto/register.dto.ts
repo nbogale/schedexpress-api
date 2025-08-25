@@ -72,4 +72,13 @@ export class RegisterDto {
   @IsString()
   @IsOptional()
   department?: string;
+
+  @ApiProperty({
+    example: 'MATH',
+    description: 'Department code (required for counselors, admins, and teachers)',
+    required: false,
+  })
+  @IsString()
+  @IsOptional()
+  departmentCode?: string;
 } 
