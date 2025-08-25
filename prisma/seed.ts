@@ -13,8 +13,7 @@ async function main() {
         name: 'Mathematics'
       },
       data: {
-        code: 'MATH',
-        description: 'Mathematics Department'
+        code: 'MATH'
       }
     });
 
@@ -23,8 +22,7 @@ async function main() {
         name: 'English/Language Arts'
       },
       data: {
-        code: 'ENG',
-        description: 'English/Language Arts Department'
+        code: 'ENG'
       }
     });
 
@@ -33,8 +31,7 @@ async function main() {
         name: 'Science'
       },
       data: {
-        code: 'SCI',
-        description: 'Science Department'
+        code: 'SCI'
       }
     });
 
@@ -43,8 +40,7 @@ async function main() {
         name: 'Social Studies'
       },
       data: {
-        code: 'SOC',
-        description: 'Social Studies Department'
+        code: 'SOC'
       }
     });
 
@@ -53,8 +49,7 @@ async function main() {
         name: 'Art and Design'
       },
       data: {
-        code: 'ART',
-        description: 'Art and Design Department'
+        code: 'ART'
       }
     });
 
@@ -63,8 +58,7 @@ async function main() {
         name: 'Physical Education'
       },
       data: {
-        code: 'PE',
-        description: 'Physical Education Department'
+        code: 'PE'
       }
     });
 
@@ -73,8 +67,7 @@ async function main() {
         name: 'Foreign Language'
       },
       data: {
-        code: 'LANG',
-        description: 'Foreign Language Department'
+        code: 'LANG'
       }
     });
 
@@ -83,8 +76,7 @@ async function main() {
         name: 'Music'
       },
       data: {
-        code: 'MUSIC',
-        description: 'Music Department'
+        code: 'MUSIC'
       }
     });
 
@@ -93,16 +85,14 @@ async function main() {
         name: 'Technology'
       },
       data: {
-        code: 'TECH',
-        description: 'Technology Department'
+        code: 'TECH'
       }
     });
 
     await prisma.department.updateMany({
 
       data: {
-        code: 'HEALTH',
-        description: 'Health Department'
+        code: 'HEALTH'
       }
     });
 
@@ -111,8 +101,7 @@ async function main() {
         name: 'Business'
       },
       data: {
-        code: 'BUS',
-        description: 'Business Department'
+        code: 'BUS'
       }
     });
 
