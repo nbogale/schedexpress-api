@@ -62,7 +62,7 @@ export class TermsService {
   async remove(id: string) {
     // check if the term is used in course sections
     const courseSections = await this.prisma.courseSection.findMany({
-      where: { termId: id },
+      where: { academicCycleId: id },
     });
     if (courseSections.length > 0) {
       const errorResponse = ApiErrorResponseBuilder.create(

@@ -194,8 +194,7 @@ export class TeachersService {
       include: {
         course: true,
         timeBlock: true,
-        schoolYear: true,
-        term: true,
+        academicCycle: true,
         room: true,
       },
     });

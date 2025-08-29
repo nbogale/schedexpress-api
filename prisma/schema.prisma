@@ -132,8 +132,7 @@ model CourseSection {
   id                        String                  @id @default(cuid())
   courseId                  String                  @map("course_id")
   sectionNumber             String                  @map("section_number") @db.VarChar(10)
-  schoolYearId              String                  @map("school_year_id")
-  termId                    String                  @map("term_id")
+  academicCycleId           String                  @map("academic_cycle_id")
   timeBlockId               String                  @map("time_block_id")
   roomId                    String                  @map("room_id")
   teacherId                 String                  @map("teacher_id")
@@ -147,9 +146,8 @@ model CourseSection {
   conflicts2                CourseConflict[]        @relation("ConflictSection2")
   course                    Course                  @relation(fields: [courseId], references: [id])
   room                      Room                    @relation(fields: [roomId], references: [id])
-  schoolYear                SchoolYear              @relation(fields: [schoolYearId], references: [id])
+  academicCycle             AcademicCycle           @relation(fields: [academicCycleId], references: [id])
   teacher                   Teacher                 @relation(fields: [teacherId], references: [id])
-  term                      Term                    @relation(fields: [termId], references: [id])
   timeBlock                 TimeBlock               @relation(fields: [timeBlockId], references: [id])
   waitlist                  CourseWaitlist[]
   addedInActions            ScheduleChangeAction[]  @relation("AddedSection")
@@ -159,7 +157,7 @@ model CourseSection {
   scheduleCourseSections    ScheduleCourseSection[]
 
   @@index([courseId])
-  @@index([termId])
+  @@index([academicCycleId])
   @@index([teacherId])
   @@map("course_section")
 }
@@ -314,6 +312,7 @@ model AcademicCycle {
   // Related data
   grades          StudentGrade[]
   schoolYearGrades StudentGrade[] @relation("SchoolYearGrades")
+  courseSections  CourseSection[]
   
   @@index([parentId])
   @@index([cycleType])
@@ -329,7 +328,6 @@ model SchoolYear {
   isCurrent      Boolean                 @default(false) @map("is_current")
   createdAt      DateTime                @default(now()) @map("created_at")
   updatedAt      DateTime                @updatedAt @map("updated_at")
-  sections       CourseSection[]
   schedules      Schedule[]
   changeRequests ScheduleChangeRequest[]
   courseHistory  StudentCourseHistory[]
@@ -347,7 +345,6 @@ model Term {
   isCurrent      Boolean                 @default(false) @map("is_current")
   createdAt      DateTime                @default(now()) @map("created_at")
   updatedAt      DateTime                @updatedAt @map("updated_at")
-  sections       CourseSection[]
   schedules      Schedule[]
   changeRequests ScheduleChangeRequest[]
   courseHistory  StudentCourseHistory[]

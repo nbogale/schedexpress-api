@@ -11,13 +11,9 @@ export class CreateCourseSectionDto {
   @IsString()
   sectionNumber: string;
 
-  @ApiProperty({ description: 'The school year ID' })
+  @ApiProperty({ description: 'The academic cycle ID' })
   @IsString()
-  schoolYearId: string;
-
-  @ApiProperty({ description: 'The term ID' })
-  @IsString()
-  termId: string;
+  academicCycleId: string;
 
   @ApiProperty({ description: 'The time block ID' })
   @IsString()
