@@ -4,112 +4,13 @@ import * as bcrypt from 'bcrypt';
 const prisma = new PrismaClient();
 
 async function main() {
-  if (process.env.NODE_ENV !== 'development') {
-    //ToDo: Not seed the data in production
-
-    //TODO: update department code clear it on next push
-    await prisma.department.updateMany({
-      where: {
-        name: 'Mathematics'
-      },
-      data: {
-        code: 'MATH'
-      }
-    });
-
-    await prisma.department.updateMany({
-      where: {
-        name: 'English/Language Arts'
-      },
-      data: {
-        code: 'ENG'
-      }
-    });
-
-    await prisma.department.updateMany({
-      where: {
-        name: 'Science'
-      },
-      data: {
-        code: 'SCI'
-      }
-    });
-
-    await prisma.department.updateMany({
-      where: {
-        name: 'Social Studies'
-      },
-      data: {
-        code: 'SOC'
-      }
-    });
-
-    await prisma.department.updateMany({
-      where: {
-        name: 'Art and Design'
-      },
-      data: {
-        code: 'ART'
-      }
-    });
-
-    await prisma.department.updateMany({
-      where: {
-        name: 'Physical Education'
-      },
-      data: {
-        code: 'PE'
-      }
-    });
-
-    await prisma.department.updateMany({
-      where: {
-        name: 'Foreign Language'
-      },
-      data: {
-        code: 'LANG'
-      }
-    });
-
-    await prisma.department.updateMany({
-      where: {
-        name: 'Music'
-      },
-      data: {
-        code: 'MUSIC'
-      }
-    });
-
-    await prisma.department.updateMany({
-      where: {
-        name: 'Technology'
-      },
-      data: {
-        code: 'TECH'
-      }
-    });
-
-    await prisma.department.updateMany({
-
-      data: {
-        code: 'HEALTH'
-      }
-    });
-
-    await prisma.department.updateMany({
-      where: {
-        name: 'Business'
-      },
-      data: {
-        code: 'BUS'
-      }
-    });
-
-    return;
-  }
 
   // Clear existing data
   await prisma.$transaction([
+    prisma.studentGrade.deleteMany(),
+    prisma.academicCycle.deleteMany(),
+    prisma.academicCycleRule.deleteMany(),
+    prisma.academicCycleConfig.deleteMany(),
     prisma.auditLog.deleteMany(),
     prisma.systemSetting.deleteMany(),
     prisma.courseWaitlist.deleteMany(),
@@ -492,6 +393,297 @@ async function main() {
     prisma.studentCourseHistory.create({ data: { studentId: students[1].id, courseId: courses[19].id, schoolYearId: schoolYears[0].id, termId: terms[0].id, grade: 'A', isPassed: true, creditEarned: 1.0 } }),
     prisma.studentCourseHistory.create({ data: { studentId: students[1].id, courseId: courses[29].id, schoolYearId: schoolYears[0].id, termId: terms[0].id, grade: 'B', isPassed: true, creditEarned: 1.0 } }),
 
+  ]);
+
+  // Create Academic Cycle Configuration
+  const academicCycleConfig = await prisma.academicCycleConfig.create({
+    data: {
+      name: 'Standard Configuration',
+      description: 'Standard academic cycle configuration with 2 semesters and 4 quarters for a school year',
+      isActive: true,
+      isDefault: true,
+      hasSemesters: true,
+      hasQuarters: true,
+      hasTrimesters: false,
+      hasSessions: false,
+      enforceStructure: true,
+      allowCustomCycles: false,
+      requireValidation: true,
+      createdBy: users[17].id, // Platform Admin
+    }
+  });
+
+  // Create Academic Cycle Rules
+  const academicCycleRules = await Promise.all([
+    // School Year Rule
+    prisma.academicCycleRule.create({
+      data: {
+        configId: academicCycleConfig.id,
+        cycleType: 'SCHOOL_YEAR',
+        cycleName: 'School Year',
+        cycleNumber: null,
+        isRequired: true,
+        minCount: 1,
+        maxCount: 1,
+        defaultDuration: 180,
+        sortOrder: 1,
+        mustBeSequential: true,
+        mustHaveGaps: false,
+        allowOverlap: false,
+      }
+    }),
+    // Semester Rules
+    prisma.academicCycleRule.create({
+      data: {
+        configId: academicCycleConfig.id,
+        parentCycleType: 'SCHOOL_YEAR',
+        cycleType: 'SEMESTER',
+        cycleName: 'Fall Semester',
+        cycleNumber: 1,
+        isRequired: true,
+        minCount: 1,
+        maxCount: 1,
+        defaultDuration: 90,
+        sortOrder: 2,
+        mustBeSequential: true,
+        mustHaveGaps: false,
+        allowOverlap: false,
+      }
+    }),
+    prisma.academicCycleRule.create({
+      data: {
+        configId: academicCycleConfig.id,
+        parentCycleType: 'SCHOOL_YEAR',
+        cycleType: 'SEMESTER',
+        cycleName: 'Spring Semester',
+        cycleNumber: 2,
+        isRequired: true,
+        minCount: 1,
+        maxCount: 1,
+        defaultDuration: 90,
+        sortOrder: 3,
+        mustBeSequential: true,
+        mustHaveGaps: false,
+        allowOverlap: false,
+      }
+    }),
+    // Quarter Rules
+    prisma.academicCycleRule.create({
+      data: {
+        configId: academicCycleConfig.id,
+        parentCycleType: 'SEMESTER',
+        cycleType: 'QUARTER',
+        cycleName: 'First Quarter',
+        cycleNumber: 1,
+        isRequired: true,
+        minCount: 1,
+        maxCount: 1,
+        defaultDuration: 45,
+        sortOrder: 4,
+        mustBeSequential: true,
+        mustHaveGaps: false,
+        allowOverlap: false,
+      }
+    }),
+    prisma.academicCycleRule.create({
+      data: {
+        configId: academicCycleConfig.id,
+        parentCycleType: 'SEMESTER',
+        cycleType: 'QUARTER',
+        cycleName: 'Second Quarter',
+        cycleNumber: 2,
+        isRequired: true,
+        minCount: 1,
+        maxCount: 1,
+        defaultDuration: 45,
+        sortOrder: 5,
+        mustBeSequential: true,
+        mustHaveGaps: false,
+        allowOverlap: false,
+      }
+    }),
+  ]);
+
+  // Create Academic Cycles for 2025-2026
+  const academicCycles = await Promise.all([
+    // School Year
+    prisma.academicCycle.create({
+      data: {
+        name: '2025-2026 School Year',
+        cycleType: 'SCHOOL_YEAR',
+        cycleNumber: null,
+        startDate: new Date('2025-08-13'),
+        endDate: new Date('2026-06-08'),
+        isCurrent: true,
+        isActive: true,
+        isValidated: true,
+        validatedBy: users[17].id, // Platform Admin
+        validatedAt: new Date(),
+        validationNotes: 'Standard school year configuration',
+        description: 'Academic year 2025-2026 with two semesters and four quarters',
+        configId: academicCycleConfig.id,
+      }
+    }),
+  ]);
+
+  const schoolYear = academicCycles[0];
+
+  // Create Semesters
+  const semesters = await Promise.all([
+    prisma.academicCycle.create({
+      data: {
+        name: 'Fall Semester 2025-2026',
+        cycleType: 'SEMESTER',
+        cycleNumber: 1,
+        startDate: new Date('2025-08-13'),
+        endDate: new Date('2025-12-19'),
+        isCurrent: true,
+        isActive: true,
+        isValidated: true,
+        validatedBy: users[17].id,
+        validatedAt: new Date(),
+        validationNotes: 'Fall semester validated',
+        description: 'First semester of the 2025-2026 academic year',
+        parentId: schoolYear.id,
+        configId: academicCycleConfig.id,
+      }
+    }),
+    prisma.academicCycle.create({
+      data: {
+        name: 'Spring Semester 2025-2026',
+        cycleType: 'SEMESTER',
+        cycleNumber: 2,
+        startDate: new Date('2026-01-06'),
+        endDate: new Date('2026-06-08'),
+        isCurrent: false,
+        isActive: true,
+        isValidated: false,
+        description: 'Second semester of the 2025-2026 academic year',
+        parentId: schoolYear.id,
+        configId: academicCycleConfig.id,
+      }
+    }),
+  ]);
+
+  // Create Quarters
+  const quarters = await Promise.all([
+    // Fall Semester Quarters
+    prisma.academicCycle.create({
+      data: {
+        name: 'First Quarter 2025-2026',
+        cycleType: 'QUARTER',
+        cycleNumber: 1,
+        startDate: new Date('2025-08-13'),
+        endDate: new Date('2025-10-17'),
+        isCurrent: true,
+        isActive: true,
+        isValidated: true,
+        validatedBy: users[17].id,
+        validatedAt: new Date(),
+        validationNotes: 'First quarter validated',
+        description: 'First quarter of the fall semester',
+        parentId: semesters[0].id,
+        configId: academicCycleConfig.id,
+      }
+    }),
+    prisma.academicCycle.create({
+      data: {
+        name: 'Second Quarter 2025-2026',
+        cycleType: 'QUARTER',
+        cycleNumber: 2,
+        startDate: new Date('2025-10-20'),
+        endDate: new Date('2025-12-19'),
+        isCurrent: false,
+        isActive: true,
+        isValidated: false,
+        description: 'Second quarter of the fall semester',
+        parentId: semesters[0].id,
+        configId: academicCycleConfig.id,
+      }
+    }),
+    // Spring Semester Quarters
+    prisma.academicCycle.create({
+      data: {
+        name: 'Third Quarter 2025-2026',
+        cycleType: 'QUARTER',
+        cycleNumber: 3,
+        startDate: new Date('2026-01-06'),
+        endDate: new Date('2026-03-14'),
+        isCurrent: false,
+        isActive: true,
+        isValidated: false,
+        description: 'First quarter of the spring semester',
+        parentId: semesters[1].id,
+        configId: academicCycleConfig.id,
+      }
+    }),
+    prisma.academicCycle.create({
+      data: {
+        name: 'Fourth Quarter 2025-2026',
+        cycleType: 'QUARTER',
+        cycleNumber: 4,
+        startDate: new Date('2026-03-17'),
+        endDate: new Date('2026-06-08'),
+        isCurrent: false,
+        isActive: true,
+        isValidated: false,
+        description: 'Second quarter of the spring semester',
+        parentId: semesters[1].id,
+        configId: academicCycleConfig.id,
+      }
+    }),
+  ]);
+
+  // Create Sample Student Grades
+  const studentGrades = await Promise.all([
+    prisma.studentGrade.create({
+      data: {
+        studentId: students[0].id,
+        courseId: courses[0].id, // Algebra 1
+        academicCycleId: quarters[0].id, // First Quarter
+        schoolYearId: schoolYear.id,
+        grade: 'A',
+        gradePoints: 4.0,
+        percentage: 95.0,
+        isPassed: true,
+        creditEarned: 1.0,
+        gradedBy: users[2].id, // Teacher Johnson's user ID
+        gradedAt: new Date(),
+        notes: 'Excellent performance in first quarter',
+      }
+    }),
+    prisma.studentGrade.create({
+      data: {
+        studentId: students[0].id,
+        courseId: courses[9].id, // English 1
+        academicCycleId: quarters[0].id, // First Quarter
+        schoolYearId: schoolYear.id,
+        grade: 'B+',
+        gradePoints: 3.3,
+        percentage: 87.0,
+        isPassed: true,
+        creditEarned: 1.0,
+        gradedBy: users[3].id, // Teacher Williams' user ID
+        gradedAt: new Date(),
+        notes: 'Good performance, room for improvement in writing',
+      }
+    }),
+    prisma.studentGrade.create({
+      data: {
+        studentId: students[1].id,
+        courseId: courses[2].id, // Algebra 2
+        academicCycleId: quarters[0].id, // First Quarter
+        schoolYearId: schoolYear.id,
+        grade: 'A-',
+        gradePoints: 3.7,
+        percentage: 92.0,
+        isPassed: true,
+        creditEarned: 1.0,
+        gradedBy: users[2].id, // Teacher Johnson's user ID
+        gradedAt: new Date(),
+        notes: 'Strong performance in advanced algebra',
+      }
+    }),
   ]);
 
   console.log('Seed data created successfully');

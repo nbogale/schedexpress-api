@@ -26,6 +26,7 @@ import { CourseSequencesModule } from './course-sequences/course-sequences.modul
 import { TeachersModule } from './teachers/teachers.module';
 import { StudentCourseHistoryModule } from './student-course-history/student-course-history.module';
 import { GradeLookupModule } from './grade-lookup/grade-lookup.module';
+import { AcademicCyclesModule } from './academic-cycles/academic-cycles.module';
 
 @Module({
   imports: [
@@ -57,6 +58,7 @@ import { GradeLookupModule } from './grade-lookup/grade-lookup.module';
     TeachersModule,
     StudentCourseHistoryModule,
     GradeLookupModule,
+    AcademicCyclesModule,
   ],
 })
 export class AppModule {}

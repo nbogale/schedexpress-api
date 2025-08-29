@@ -28,6 +28,13 @@ model User {
   accountActionsPerformed UserAccountHistory[]    @relation("AccountActionPerformer")
   statusChangesPerformed  UserStatusHistory[]     @relation("StatusChangePerformer")
   statusHistory           UserStatusHistory[]
+  
+  // Academic Cycle relations
+  academicCycleConfigs    AcademicCycleConfig[]   @relation("AcademicCycleConfigCreator")
+  academicCycleValidators AcademicCycle[]         @relation("AcademicCycleValidator")
+  
+  // Grade relations
+  gradesGiven            StudentGrade[]           @relation("GradeTeacher")
 
   @@map("user")
 }
@@ -67,6 +74,7 @@ model Student {
   gradeLevel        GradeLevel              @relation(fields: [gradeLevelId], references: [id])
   user              User                    @relation(fields: [userId], references: [id])
   courseHistory     StudentCourseHistory[]
+  grades            StudentGrade[]
 
   @@map("student")
 }
@@ -88,6 +96,36 @@ model StudentCourseHistory {
   term         Term       @relation(fields: [termId], references: [id])
 
   @@map("student_course_history")
+}
+
+model StudentGrade {
+  id                String          @id @default(cuid())
+  studentId         String          @map("student_id")
+  courseId          String          @map("course_id")
+  academicCycleId   String          @map("academic_cycle_id")
+  schoolYearId      String          @map("school_year_id")
+  
+  // Grade data
+  grade             String?         @db.VarChar(2)
+  gradePoints       Decimal?        @map("grade_points") @db.Decimal(3, 2)
+  percentage        Decimal?        @db.Decimal(5, 2)
+  isPassed          Boolean         @default(true) @map("is_passed")
+  creditEarned      Decimal         @map("credit_earned") @db.Decimal(3, 1)
+  
+  // Metadata
+  gradedBy          String?         @map("graded_by")
+  gradedAt          DateTime?       @map("graded_at")
+  notes             String?         @db.Text
+  
+  // Relations
+  student           Student         @relation(fields: [studentId], references: [id])
+  course            Course          @relation(fields: [courseId], references: [id])
+  academicCycle     AcademicCycle   @relation(fields: [academicCycleId], references: [id])
+  schoolYear        AcademicCycle   @relation("SchoolYearGrades", fields: [schoolYearId], references: [id])
+  teacher           User?           @relation("GradeTeacher", fields: [gradedBy], references: [id])
+  
+  @@unique([studentId, courseId, academicCycleId])
+  @@map("student_grade")
 }
 
 model CourseSection {
@@ -184,6 +222,103 @@ model Settings {
   updatedAt      DateTime @updatedAt @map("updated_at")
 
   @@map("settings")
+}
+
+model AcademicCycleConfig {
+  id                    String    @id @default(cuid())
+  name                  String    @db.VarChar(100)
+  description           String?   @db.Text
+  isActive              Boolean   @default(false) @map("is_active")
+  isDefault             Boolean   @default(false) @map("is_default")
+  
+  // Structure configuration
+  hasSemesters          Boolean   @default(true) @map("has_semesters")
+  hasQuarters           Boolean   @default(true) @map("has_quarters")
+  hasTrimesters         Boolean   @default(false) @map("has_trimesters")
+  hasSessions           Boolean   @default(false) @map("has_sessions")
+  
+  // Validation rules
+  enforceStructure      Boolean   @default(true) @map("enforce_structure")
+  allowCustomCycles     Boolean   @default(false) @map("allow_custom_cycles")
+  requireValidation     Boolean   @default(true) @map("require_validation")
+  
+  // Metadata
+  createdBy             String    @map("created_by")
+  createdAt             DateTime  @default(now()) @map("created_at")
+  updatedAt             DateTime  @updatedAt @map("updated_at")
+  
+  // Relations
+  creator               User      @relation("AcademicCycleConfigCreator", fields: [createdBy], references: [id])
+  cycleRules            AcademicCycleRule[]
+  academicCycles        AcademicCycle[]
+  
+  @@map("academic_cycle_config")
+}
+
+model AcademicCycleRule {
+  id                    String    @id @default(cuid())
+  configId              String    @map("config_id")
+  parentCycleType       CycleType? @map("parent_cycle_type")
+  cycleType             CycleType @map("cycle_type")
+  cycleName             String    @db.VarChar(100)
+  cycleNumber           Int?      @map("cycle_number")
+  isRequired            Boolean   @default(true) @map("is_required")
+  minCount              Int       @default(1) @map("min_count")
+  maxCount              Int       @default(1) @map("max_count")
+  defaultDuration       Int       @default(90) @map("default_duration")
+  sortOrder             Int       @default(0) @map("sort_order")
+  
+  // Validation rules
+  mustBeSequential      Boolean   @default(true) @map("must_be_sequential")
+  mustHaveGaps          Boolean   @default(false) @map("must_have_gaps")
+  allowOverlap          Boolean   @default(false) @map("allow_overlap")
+  
+  // Relations
+  config                AcademicCycleConfig @relation(fields: [configId], references: [id])
+  
+  @@unique([configId, cycleType, cycleNumber])
+  @@map("academic_cycle_rule")
+}
+
+model AcademicCycle {
+  id              String          @id @default(cuid())
+  parentId        String?         @map("parent_id")
+  configId        String?         @map("config_id")
+  name            String          @db.VarChar(100)
+  cycleType       CycleType       @map("cycle_type")
+  cycleNumber     Int?            @map("cycle_number")
+  startDate       DateTime @db.Date @map("start_date")
+  endDate         DateTime @db.Date @map("end_date")
+  isCurrent       Boolean         @default(false) @map("is_current")
+  isActive        Boolean         @default(true) @map("is_active")
+  
+  // Validation status
+  isValidated     Boolean         @default(false) @map("is_validated")
+  validatedBy     String?         @map("validated_by")
+  validatedAt     DateTime?       @map("validated_at")
+  validationNotes String?         @map("validation_notes") @db.Text
+  
+  // Metadata
+  description     String?         @db.Text
+  createdAt       DateTime        @default(now()) @map("created_at")
+  updatedAt       DateTime        @updatedAt @map("updated_at")
+  
+  // Self-referencing relations
+  parent          AcademicCycle?  @relation("CycleHierarchy", fields: [parentId], references: [id])
+  children        AcademicCycle[] @relation("CycleHierarchy")
+  
+  // Configuration relations
+  config          AcademicCycleConfig? @relation(fields: [configId], references: [id])
+  validator       User?           @relation("AcademicCycleValidator", fields: [validatedBy], references: [id])
+  
+  // Related data
+  grades          StudentGrade[]
+  schoolYearGrades StudentGrade[] @relation("SchoolYearGrades")
+  
+  @@index([parentId])
+  @@index([cycleType])
+  @@index([configId])
+  @@map("academic_cycle")
 }
 
 model SchoolYear {
@@ -283,6 +418,7 @@ model Course {
   sections         CourseSection[]
   sequences        CourseSequence[]
   courseHistory    StudentCourseHistory[]
+  grades           StudentGrade[]
 
   @@map("course")
 }
@@ -329,8 +465,8 @@ model Room {
 model TimeBlock {
   id                  String                  @id @default(cuid())
   name                String                  @db.VarChar(50)
-  startTime           DateTime                @map("start_time")
-  endTime             DateTime                @map("end_time")
+  startTime           DateTime                @db.Time @map("start_time") // Stores time in HH:MM format (e.g., "09:30 AM", "02:45 PM")
+  endTime             DateTime                @db.Time @map("end_time")   // Stores time in HH:MM format (e.g., "10:45 AM", "04:00 PM")
   isActive            Boolean                 @default(true) @map("is_active")
   createdAt           DateTime                @default(now()) @map("created_at")
   updatedAt           DateTime                @updatedAt @map("updated_at")
@@ -661,4 +797,14 @@ enum UserStatus {
   DEACTIVATED
 
   @@map("user_status")
+}
+
+enum CycleType {
+  SCHOOL_YEAR
+  SEMESTER
+  QUARTER
+  TRIMESTER
+  SESSION
+
+  @@map("cycle_type")
 }

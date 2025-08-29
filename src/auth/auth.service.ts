@@ -320,6 +320,12 @@ export class AuthService {
         });
 
         if (!department) {
+          // Generate a code from the department name
+          const code = registerDto.department!
+            .toUpperCase()
+            .replace(/[^A-Z0-9]/g, '')
+            .substring(0, 10);
+          
           department = await prisma.department.create({
             data: {
               name: registerDto.department!,

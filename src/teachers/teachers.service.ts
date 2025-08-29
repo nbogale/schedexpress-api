@@ -4,6 +4,9 @@ import { CreateTeacherDto } from './dto/create-teacher.dto';
 import { UpdateTeacherDto } from './dto/update-teacher.dto';
 import { ApiErrorResponseBuilder } from 'src/common/api-error-builder';
 import { ErrorCode } from 'src/common/error-codes';
+import { ApiErrorResponse } from 'src/common/api-error';
+import { UserRole } from '@prisma/client';
+import * as bcrypt from 'bcrypt';
 
 @Injectable()
 export class TeachersService {
@@ -11,18 +14,73 @@ export class TeachersService {
   constructor(private prisma: PrismaService) {}
 
   async create(createTeacherDto: CreateTeacherDto) {
-    return this.prisma.teacher.create({
-      data: createTeacherDto,
-      include: {
-        department: true,
-        sections: {
-          include: {
-            course: true,
-            timeBlock: true,
-            room: true,
+    return await this.prisma.$transaction(async (prisma) => {
+      // check if the teacher already exists
+      const existingUser = await prisma.user.findUnique({
+        where: { email: createTeacherDto.email },
+      });
+
+      if (existingUser) {
+        const errorResponse: ApiErrorResponse = {
+          errorCode: 'STUA',
+          errorMessage: 'Email address already in use',
+          timestamp: new Date().toISOString(),
+        };
+        throw new BadRequestException(errorResponse);
+      }
+
+      // check if the teacher already exists
+      const existingTeacher = await prisma.teacher.findUnique({
+        where: { email: createTeacherDto.email },
+      });
+
+      if (existingTeacher) {
+        const errorResponse: ApiErrorResponse = {
+          errorCode: 'TCHB',
+          errorMessage: 'Email address already in use by another teacher',
+          timestamp: new Date().toISOString(),
+        };
+        throw new BadRequestException(errorResponse);
+      }
+
+      // generate username from email if username is not provided
+      const username = this.generateUsername(createTeacherDto.email);
+
+      //Generate random temporary password
+      const temporaryPassword = Math.random().toString(36).substring(2, 8);
+
+      // Create the user
+      const user = await prisma.user.create({
+        data: {
+          email: createTeacherDto.email,
+          firstName: createTeacherDto.firstName,
+          lastName: createTeacherDto.lastName,
+          username: username,
+          role: UserRole.TEACHER,
+          passwordHash: await bcrypt.hash(temporaryPassword, 10),
+        },
+      });
+
+      return prisma.teacher.create({
+        data: {
+          name: createTeacherDto.firstName + ' ' + createTeacherDto.lastName,
+          email: createTeacherDto.email,
+          departmentId: createTeacherDto.departmentId,
+          maxCourses: createTeacherDto.maxCourses,
+          userId: user.id,
+        },
+        include: {
+          department: true,
+          user: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+            },
           },
         },
-      },
+      });
     });
   }
 
@@ -199,5 +257,12 @@ export class TeachersService {
         department: true,
       }
     });
+  }
+
+  private generateUsername(email: string): string {
+    // Extract username from email (before @)
+    const username = email.split('@')[0];
+    // Remove special characters and convert to lowercase
+    return username.replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
   }
 } 
