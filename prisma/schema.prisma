@@ -465,8 +465,8 @@ model Room {
 model TimeBlock {
   id                  String                  @id @default(cuid())
   name                String                  @db.VarChar(50)
-  startTime           DateTime                @map("start_time")
-  endTime             DateTime                @map("end_time")
+  startTime           DateTime                @db.Time @map("start_time") // Stores time in HH:MM format (e.g., "09:30 AM", "02:45 PM")
+  endTime             DateTime                @db.Time @map("end_time")   // Stores time in HH:MM format (e.g., "10:45 AM", "04:00 PM")
   isActive            Boolean                 @default(true) @map("is_active")
   createdAt           DateTime                @default(now()) @map("created_at")
   updatedAt           DateTime                @updatedAt @map("updated_at")

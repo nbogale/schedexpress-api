@@ -109,9 +109,6 @@ CREATE INDEX "academic_cycle_cycle_type_idx" ON "academic_cycle"("cycle_type");
 -- CreateIndex
 CREATE INDEX "academic_cycle_config_id_idx" ON "academic_cycle"("config_id");
 
--- CreateIndex
--- CREATE UNIQUE INDEX "department_code_key" ON "department"("code");
-
 -- AddForeignKey
 ALTER TABLE "student_grade" ADD CONSTRAINT "student_grade_student_id_fkey" FOREIGN KEY ("student_id") REFERENCES "student"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
