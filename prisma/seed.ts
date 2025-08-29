@@ -8,9 +8,6 @@ async function main() {
   // Clear existing data
   await prisma.$transaction([
     prisma.studentGrade.deleteMany(),
-    prisma.academicCycle.deleteMany(),
-    prisma.academicCycleRule.deleteMany(),
-    prisma.academicCycleConfig.deleteMany(),
     prisma.auditLog.deleteMany(),
     prisma.systemSetting.deleteMany(),
     prisma.courseWaitlist.deleteMany(),
@@ -19,6 +16,9 @@ async function main() {
     prisma.scheduleChangeRequest.deleteMany(),
     prisma.studentCourseHistory.deleteMany(),
     prisma.courseSection.deleteMany(),
+    prisma.academicCycle.deleteMany(),
+    prisma.academicCycleRule.deleteMany(),
+    prisma.academicCycleConfig.deleteMany(),
     prisma.schedule.deleteMany(),
     prisma.coursePrerequisite.deleteMany(),
     prisma.courseSequence.deleteMany(),
@@ -267,93 +267,7 @@ async function main() {
     prisma.courseSequence.create({ data: { departmentId: departments[2].id, courseId: courses[19].id, sequenceOrder: 2 } }),
     prisma.courseSequence.create({ data: { departmentId: departments[2].id, courseId: courses[20].id, sequenceOrder: 3 } }),
   ]);
-  
 
-  // Create Course Sections
-  const sections = await Promise.all([
-    prisma.courseSection.create({ data: { courseId: courses[0].id, sectionNumber: 'A', schoolYearId: schoolYears[1].id, termId: terms[3].id, timeBlockId: timeBlocks[0].id, roomId: rooms[0].id, teacherId: teachers[0].id, maxEnrollment: 30, currentEnrollment: 28, rotationDay: RotationDay.A_DAY  } }),
-    prisma.courseSection.create({ data: { courseId: courses[0].id, sectionNumber: 'B', schoolYearId: schoolYears[1].id, termId: terms[3].id, timeBlockId: timeBlocks[2].id, roomId: rooms[0].id, teacherId: teachers[0].id, maxEnrollment: 30, currentEnrollment: 25, rotationDay: RotationDay.A_DAY } }),
-    prisma.courseSection.create({ data: { courseId: courses[1].id, sectionNumber: 'A', schoolYearId: schoolYears[1].id, termId: terms[3].id, timeBlockId: timeBlocks[1].id, roomId: rooms[1].id, teacherId: teachers[0].id, maxEnrollment: 30, currentEnrollment: 30, rotationDay: RotationDay.A_DAY } }),
-    prisma.courseSection.create({ data: { courseId: courses[2].id, sectionNumber: 'A', schoolYearId: schoolYears[1].id, termId: terms[3].id, timeBlockId: timeBlocks[3].id, roomId: rooms[2].id, teacherId: teachers[0].id, maxEnrollment: 30, currentEnrollment: 20, rotationDay: RotationDay.A_DAY  } }),
-    prisma.courseSection.create({ data: { courseId: courses[2].id, sectionNumber: '300', schoolYearId: schoolYears[2].id, termId: terms[4].id, timeBlockId: timeBlocks[0].id, roomId: rooms[1].id, teacherId: teachers[3].id, maxEnrollment: 30, currentEnrollment: 20, rotationDay: RotationDay.A_DAY  } }),
-    prisma.courseSection.create({ data: { courseId: courses[3].id, sectionNumber: 'A', schoolYearId: schoolYears[1].id, termId: terms[3].id, timeBlockId: timeBlocks[4].id, roomId: rooms[3].id, teacherId: teachers[1].id, maxEnrollment: 30, currentEnrollment: 15, rotationDay: RotationDay.A_DAY  } }),
-    prisma.courseSection.create({ data: { courseId: courses[4].id, sectionNumber: 'A', schoolYearId: schoolYears[1].id, termId: terms[3].id, timeBlockId: timeBlocks[5].id, roomId: rooms[4].id, teacherId: teachers[1].id, maxEnrollment: 30, currentEnrollment: 10, rotationDay: RotationDay.A_DAY  } }),
-    prisma.courseSection.create({ data: { courseId: courses[4].id, sectionNumber: '300', schoolYearId: schoolYears[2].id, termId: terms[4].id, timeBlockId: timeBlocks[0].id, roomId: rooms[6].id, teacherId: teachers[0].id, maxEnrollment: 30, currentEnrollment: 10, rotationDay: RotationDay.A_DAY  } }),
-
-    prisma.courseSection.create({ data: { courseId: courses[5].id, sectionNumber: 'A', schoolYearId: schoolYears[1].id, termId: terms[3].id, timeBlockId: timeBlocks[6].id, roomId: rooms[5].id, teacherId: teachers[2].id, maxEnrollment: 30, currentEnrollment: 18, rotationDay: RotationDay.A_DAY  } }),
-    prisma.courseSection.create({ data: { courseId: courses[6].id, sectionNumber: 'A', schoolYearId: schoolYears[1].id, termId: terms[3].id, timeBlockId: timeBlocks[7].id, roomId: rooms[6].id, teacherId: teachers[2].id, maxEnrollment: 30, currentEnrollment: 22, rotationDay: RotationDay.A_DAY } }),
-    prisma.courseSection.create({ data: { courseId: courses[7].id, sectionNumber: 'A', schoolYearId: schoolYears[1].id, termId: terms[3].id, timeBlockId: timeBlocks[0].id, roomId: rooms[7].id, teacherId: teachers[3].id, maxEnrollment: 30, currentEnrollment: 12, rotationDay: RotationDay.A_DAY } }),
-    prisma.courseSection.create({ data: { courseId: courses[8].id, sectionNumber: 'A', schoolYearId: schoolYears[1].id, termId: terms[3].id, timeBlockId: timeBlocks[1].id, roomId: rooms[8].id, teacherId: teachers[3].id, maxEnrollment: 30, currentEnrollment: 8, rotationDay: RotationDay.A_DAY  } }),
-    prisma.courseSection.create({ data: { courseId: courses[9].id, sectionNumber: '150', schoolYearId: schoolYears[1].id, termId: terms[3].id, timeBlockId: timeBlocks[2].id, roomId: rooms[1].id, teacherId: teachers[4].id, maxEnrollment: 30, currentEnrollment: 5, rotationDay: RotationDay.A_DAY  } }),
-    prisma.courseSection.create({ data: { courseId: courses[10].id, sectionNumber: 'A', schoolYearId: schoolYears[1].id, termId: terms[3].id, timeBlockId: timeBlocks[3].id, roomId: rooms[10].id, teacherId: teachers[4].id, maxEnrollment: 30, currentEnrollment: 20, rotationDay: RotationDay.A_DAY  } }),
-    prisma.courseSection.create({ data: { courseId: courses[18].id, sectionNumber: '500', schoolYearId: schoolYears[1].id, termId: terms[3].id, timeBlockId: timeBlocks[3].id, roomId: rooms[9].id, teacherId: teachers[0].id, maxEnrollment: 30, currentEnrollment: 20, rotationDay: RotationDay.A_DAY  } }),
-    prisma.courseSection.create({ data: { courseId: courses[19].id, sectionNumber: '450', schoolYearId: schoolYears[1].id, termId: terms[3].id, timeBlockId: timeBlocks[3].id, roomId: rooms[18].id, teacherId: teachers[1].id, maxEnrollment: 30, currentEnrollment: 20, rotationDay: RotationDay.A_DAY  } }),
-    prisma.courseSection.create({ data: { courseId: courses[15].id, sectionNumber: '344', schoolYearId: schoolYears[2].id, termId: terms[4].id, timeBlockId: timeBlocks[6].id, roomId: rooms[16].id, teacherId: teachers[2].id, maxEnrollment: 30, currentEnrollment: 20, rotationDay: RotationDay.A_DAY  } }),
-    prisma.courseSection.create({ data: { courseId: courses[22].id, sectionNumber: 'A', schoolYearId: schoolYears[1].id, termId: terms[3].id, timeBlockId: timeBlocks[3].id, roomId: rooms[10].id, teacherId: teachers[0].id, maxEnrollment: 30, currentEnrollment: 20, rotationDay: RotationDay.A_DAY  } }),
-    prisma.courseSection.create({ data: { courseId: courses[14].id, sectionNumber: 'A', schoolYearId: schoolYears[1].id, termId: terms[3].id, timeBlockId: timeBlocks[3].id, roomId: rooms[10].id, teacherId: teachers[3].id, maxEnrollment: 30, currentEnrollment: 20, rotationDay: RotationDay.A_DAY  } }),
-    prisma.courseSection.create({ data: { courseId: courses[31].id, sectionNumber: 'A', schoolYearId: schoolYears[1].id, termId: terms[3].id, timeBlockId: timeBlocks[3].id, roomId: rooms[10].id, teacherId: teachers[2].id, maxEnrollment: 30, currentEnrollment: 20, rotationDay: RotationDay.A_DAY  } }),
-    prisma.courseSection.create({ data: { courseId: courses[35].id, sectionNumber: 'A', schoolYearId: schoolYears[1].id, termId: terms[3].id, timeBlockId: timeBlocks[3].id, roomId: rooms[10].id, teacherId: teachers[0].id, maxEnrollment: 30, currentEnrollment: 20, rotationDay: RotationDay.A_DAY  } }),
-
-  ]);
-
-  // Create Schedules for Students
-  const schedules = await Promise.all([
-    // Student 1 Schedule (Freshman)
-    prisma.schedule.create({
-      data: {
-        student: { connect: { id: students[0].id } },
-        schoolYear: {connect: {id: schoolYears[2].id}},
-        term: {connect: {id: terms[4].id}},
-        scheduleCourseSections: {
-          create: sections.slice(0, 6).map(section => ({
-            courseSection: { connect: { id: section.id } }
-          }))
-        }
-      }
-    }),
-    // Student 2 Schedule (Sophomore)
-    prisma.schedule.create({
-      data: {
-        student: { connect: { id: students[1].id } },
-        schoolYear: {connect: {id: schoolYears[2].id}},
-        term: {connect: {id: terms[4].id}},
-        scheduleCourseSections: {
-          create: sections.slice(0, 7).map(section => ({
-            courseSection: { connect: { id: section.id } }
-          }))
-        }
-      }
-    }),
-    // Student 3 Schedule (Junior)
-    prisma.schedule.create({
-      data: {
-        student: { connect: { id: students[2].id } },
-        schoolYear: {connect: {id: schoolYears[2].id}},
-        term: {connect: {id: terms[4].id}},
-        scheduleCourseSections: {
-          create: sections.slice(0, 7).map(section => ({
-            courseSection: { connect: { id: section.id } }
-          }))
-        }
-      }
-    })
-  ]);
-
-  // Create Course Conflicts
-  await Promise.all([
-    prisma.courseConflict.create({ data: { courseSectionId1: sections[0].id, courseSectionId2: sections[1].id, conflictType: ConflictType.SCHEDULE_OVERLAP, isResolvable: true, resolutionNotes: 'Students can choose either section' } }),
-    prisma.courseConflict.create({ data: { courseSectionId1: sections[2].id, courseSectionId2: sections[3].id, conflictType: ConflictType.SCHEDULE_OVERLAP, isResolvable: true, resolutionNotes: 'Students can choose either section' } }),
-    prisma.courseConflict.create({ data: { courseSectionId1: sections[4].id, courseSectionId2: sections[5].id, conflictType: ConflictType.SCHEDULE_OVERLAP, isResolvable: true, resolutionNotes: 'Students can choose either section' } }),
-    prisma.courseConflict.create({ data: { courseSectionId1: sections[6].id, courseSectionId2: sections[7].id, conflictType: ConflictType.SCHEDULE_OVERLAP, isResolvable: true, resolutionNotes: 'Students can choose either section' } }),
-    prisma.courseConflict.create({ data: { courseSectionId1: sections[0].id, courseSectionId2: sections[2].id, conflictType: ConflictType.TEACHER_CONFLICT, isResolvable: false, resolutionNotes: 'Teacher is not available for both sections' } }),
-    prisma.courseConflict.create({ data: { courseSectionId1: sections[1].id, courseSectionId2: sections[3].id, conflictType: ConflictType.TEACHER_CONFLICT, isResolvable: false, resolutionNotes: 'Teacher is not available for both sections' } }),
-    prisma.courseConflict.create({ data: { courseSectionId1: sections[4].id, courseSectionId2: sections[6].id, conflictType: ConflictType.TEACHER_CONFLICT, isResolvable: false, resolutionNotes: 'Teacher is not available for both sections' } }),
-  ]);
-
-  // Create Course Waitlists
-  await Promise.all([
-    prisma.courseWaitlist.create({ data: { courseSectionId: sections[2].id, studentId: students[0].id, position: 1 } }),
-  ]);
 
   // Create System Settings
   await Promise.all([
@@ -632,6 +546,93 @@ async function main() {
         configId: academicCycleConfig.id,
       }
     }),
+  ]);
+
+  // Create Course Sections
+  const sections = await Promise.all([
+    prisma.courseSection.create({ data: { courseId: courses[0].id, sectionNumber: 'A', academicCycleId: schoolYear.id, timeBlockId: timeBlocks[0].id, roomId: rooms[0].id, teacherId: teachers[0].id, maxEnrollment: 30, currentEnrollment: 28, rotationDay: RotationDay.A_DAY  } }),
+    prisma.courseSection.create({ data: { courseId: courses[0].id, sectionNumber: 'B', academicCycleId: schoolYear.id, timeBlockId: timeBlocks[2].id, roomId: rooms[0].id, teacherId: teachers[0].id, maxEnrollment: 30, currentEnrollment: 25, rotationDay: RotationDay.A_DAY } }),
+    prisma.courseSection.create({ data: { courseId: courses[1].id, sectionNumber: 'A', academicCycleId: schoolYear.id, timeBlockId: timeBlocks[1].id, roomId: rooms[1].id, teacherId: teachers[0].id, maxEnrollment: 30, currentEnrollment: 30, rotationDay: RotationDay.A_DAY } }),
+    prisma.courseSection.create({ data: { courseId: courses[2].id, sectionNumber: 'A', academicCycleId: schoolYear.id, timeBlockId: timeBlocks[3].id, roomId: rooms[2].id, teacherId: teachers[0].id, maxEnrollment: 30, currentEnrollment: 20, rotationDay: RotationDay.A_DAY  } }),
+    prisma.courseSection.create({ data: { courseId: courses[2].id, sectionNumber: '300', academicCycleId: schoolYear.id, timeBlockId: timeBlocks[0].id, roomId: rooms[1].id, teacherId: teachers[3].id, maxEnrollment: 30, currentEnrollment: 20, rotationDay: RotationDay.A_DAY  } }),
+    prisma.courseSection.create({ data: { courseId: courses[3].id, sectionNumber: 'A', academicCycleId: schoolYear.id, timeBlockId: timeBlocks[4].id, roomId: rooms[3].id, teacherId: teachers[1].id, maxEnrollment: 30, currentEnrollment: 15, rotationDay: RotationDay.A_DAY  } }),
+    prisma.courseSection.create({ data: { courseId: courses[4].id, sectionNumber: 'A', academicCycleId: schoolYear.id, timeBlockId: timeBlocks[5].id, roomId: rooms[4].id, teacherId: teachers[1].id, maxEnrollment: 30, currentEnrollment: 10, rotationDay: RotationDay.A_DAY  } }),
+    prisma.courseSection.create({ data: { courseId: courses[4].id, sectionNumber: '300', academicCycleId: schoolYear.id, timeBlockId: timeBlocks[0].id, roomId: rooms[6].id, teacherId: teachers[0].id, maxEnrollment: 30, currentEnrollment: 10, rotationDay: RotationDay.A_DAY  } }),
+
+    prisma.courseSection.create({ data: { courseId: courses[5].id, sectionNumber: 'A', academicCycleId: schoolYear.id, timeBlockId: timeBlocks[6].id, roomId: rooms[5].id, teacherId: teachers[2].id, maxEnrollment: 30, currentEnrollment: 18, rotationDay: RotationDay.A_DAY  } }),
+    prisma.courseSection.create({ data: { courseId: courses[6].id, sectionNumber: 'A', academicCycleId: schoolYear.id, timeBlockId: timeBlocks[7].id, roomId: rooms[6].id, teacherId: teachers[2].id, maxEnrollment: 30, currentEnrollment: 22, rotationDay: RotationDay.A_DAY } }),
+    prisma.courseSection.create({ data: { courseId: courses[7].id, sectionNumber: 'A', academicCycleId: schoolYear.id, timeBlockId: timeBlocks[0].id, roomId: rooms[7].id, teacherId: teachers[3].id, maxEnrollment: 30, currentEnrollment: 12, rotationDay: RotationDay.A_DAY } }),
+    prisma.courseSection.create({ data: { courseId: courses[8].id, sectionNumber: 'A', academicCycleId: schoolYear.id, timeBlockId: timeBlocks[1].id, roomId: rooms[8].id, teacherId: teachers[3].id, maxEnrollment: 30, currentEnrollment: 8, rotationDay: RotationDay.A_DAY  } }),
+    prisma.courseSection.create({ data: { courseId: courses[9].id, sectionNumber: '150', academicCycleId: schoolYear.id, timeBlockId: timeBlocks[2].id, roomId: rooms[1].id, teacherId: teachers[4].id, maxEnrollment: 30, currentEnrollment: 5, rotationDay: RotationDay.A_DAY  } }),
+    prisma.courseSection.create({ data: { courseId: courses[10].id, sectionNumber: 'A', academicCycleId: schoolYear.id, timeBlockId: timeBlocks[3].id, roomId: rooms[10].id, teacherId: teachers[4].id, maxEnrollment: 30, currentEnrollment: 20, rotationDay: RotationDay.A_DAY  } }),
+    prisma.courseSection.create({ data: { courseId: courses[18].id, sectionNumber: '500', academicCycleId: schoolYear.id, timeBlockId: timeBlocks[3].id, roomId: rooms[9].id, teacherId: teachers[0].id, maxEnrollment: 30, currentEnrollment: 20, rotationDay: RotationDay.A_DAY  } }),
+    prisma.courseSection.create({ data: { courseId: courses[19].id, sectionNumber: '450', academicCycleId: schoolYear.id, timeBlockId: timeBlocks[3].id, roomId: rooms[18].id, teacherId: teachers[1].id, maxEnrollment: 30, currentEnrollment: 20, rotationDay: RotationDay.A_DAY  } }),
+    prisma.courseSection.create({ data: { courseId: courses[15].id, sectionNumber: '344', academicCycleId: schoolYear.id, timeBlockId: timeBlocks[6].id, roomId: rooms[16].id, teacherId: teachers[2].id, maxEnrollment: 30, currentEnrollment: 20, rotationDay: RotationDay.A_DAY  } }),
+    prisma.courseSection.create({ data: { courseId: courses[22].id, sectionNumber: 'A', academicCycleId: schoolYear.id, timeBlockId: timeBlocks[3].id, roomId: rooms[10].id, teacherId: teachers[0].id, maxEnrollment: 30, currentEnrollment: 20, rotationDay: RotationDay.A_DAY  } }),
+    prisma.courseSection.create({ data: { courseId: courses[14].id, sectionNumber: 'A', academicCycleId: schoolYear.id, timeBlockId: timeBlocks[3].id, roomId: rooms[10].id, teacherId: teachers[3].id, maxEnrollment: 30, currentEnrollment: 20, rotationDay: RotationDay.A_DAY  } }),
+    prisma.courseSection.create({ data: { courseId: courses[31].id, sectionNumber: 'A', academicCycleId: schoolYear.id, timeBlockId: timeBlocks[3].id, roomId: rooms[10].id, teacherId: teachers[2].id, maxEnrollment: 30, currentEnrollment: 20, rotationDay: RotationDay.A_DAY  } }),
+    prisma.courseSection.create({ data: { courseId: courses[35].id, sectionNumber: 'A', academicCycleId: schoolYear.id, timeBlockId: timeBlocks[3].id, roomId: rooms[10].id, teacherId: teachers[0].id, maxEnrollment: 30, currentEnrollment: 20, rotationDay: RotationDay.A_DAY  } }),
+
+  ]);
+
+
+  const schedules = await Promise.all([
+    // Student 1 Schedule (Freshman)
+    prisma.schedule.create({
+      data: {
+        student: { connect: { id: students[0].id } },
+        schoolYear: {connect: {id: schoolYears[2].id}},
+        term: {connect: {id: terms[4].id}},
+        scheduleCourseSections: {
+          create: sections.slice(0, 6).map(section => ({
+            courseSection: { connect: { id: section.id } }
+          }))
+        }
+      }
+    }),
+    // Student 2 Schedule (Sophomore)
+    prisma.schedule.create({
+      data: {
+        student: { connect: { id: students[1].id } },
+        schoolYear: {connect: {id: schoolYears[2].id}},
+        term: {connect: {id: terms[4].id}},
+        scheduleCourseSections: {
+          create: sections.slice(0, 7).map(section => ({
+            courseSection: { connect: { id: section.id } }
+          }))
+        }
+      }
+    }),
+    // Student 3 Schedule (Junior)
+    prisma.schedule.create({
+      data: {
+        student: { connect: { id: students[2].id } },
+        schoolYear: {connect: {id: schoolYears[2].id}},
+        term: {connect: {id: terms[4].id}},
+        scheduleCourseSections: {
+          create: sections.slice(0, 7).map(section => ({
+            courseSection: { connect: { id: section.id } }
+          }))
+        }
+      }
+    })
+  ]);
+
+
+  // Create Course Conflicts
+  await Promise.all([
+    prisma.courseConflict.create({ data: { courseSectionId1: sections[0].id, courseSectionId2: sections[1].id, conflictType: ConflictType.SCHEDULE_OVERLAP, isResolvable: true, resolutionNotes: 'Students can choose either section' } }),
+    prisma.courseConflict.create({ data: { courseSectionId1: sections[2].id, courseSectionId2: sections[3].id, conflictType: ConflictType.SCHEDULE_OVERLAP, isResolvable: true, resolutionNotes: 'Students can choose either section' } }),
+    prisma.courseConflict.create({ data: { courseSectionId1: sections[4].id, courseSectionId2: sections[5].id, conflictType: ConflictType.SCHEDULE_OVERLAP, isResolvable: true, resolutionNotes: 'Students can choose either section' } }),
+    prisma.courseConflict.create({ data: { courseSectionId1: sections[6].id, courseSectionId2: sections[7].id, conflictType: ConflictType.SCHEDULE_OVERLAP, isResolvable: true, resolutionNotes: 'Students can choose either section' } }),
+    prisma.courseConflict.create({ data: { courseSectionId1: sections[0].id, courseSectionId2: sections[2].id, conflictType: ConflictType.TEACHER_CONFLICT, isResolvable: false, resolutionNotes: 'Teacher is not available for both sections' } }),
+    prisma.courseConflict.create({ data: { courseSectionId1: sections[1].id, courseSectionId2: sections[3].id, conflictType: ConflictType.TEACHER_CONFLICT, isResolvable: false, resolutionNotes: 'Teacher is not available for both sections' } }),
+    prisma.courseConflict.create({ data: { courseSectionId1: sections[4].id, courseSectionId2: sections[6].id, conflictType: ConflictType.TEACHER_CONFLICT, isResolvable: false, resolutionNotes: 'Teacher is not available for both sections' } }),
+  ]);
+
+  // Create Course Waitlists
+  await Promise.all([
+    prisma.courseWaitlist.create({ data: { courseSectionId: sections[2].id, studentId: students[0].id, position: 1 } }),
   ]);
 
   // Create Sample Student Grades

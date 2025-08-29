@@ -14,6 +14,7 @@ export class CourseSectionsService {
   constructor(private readonly prisma: PrismaService) {}
 
   async create(createCourseSectionDto: CreateCourseSectionDto) {
+    console.log('createCourseSectionDto', JSON.stringify(createCourseSectionDto, null, 2));
     // Check if course exists
     const course = await this.prisma.course.findUnique({
       where: { id: createCourseSectionDto.courseId },
@@ -28,28 +29,14 @@ export class CourseSectionsService {
       throw new NotFoundException(errorResponse);
     }
 
-    // Check if school year exists
-    const schoolYear = await this.prisma.schoolYear.findUnique({
-      where: { id: createCourseSectionDto.schoolYearId },
+    // Check if academic cycle exists
+    const academicCycle = await this.prisma.academicCycle.findUnique({
+      where: { id: createCourseSectionDto.academicCycleId },
     });
-    if (!schoolYear) {
+    if (!academicCycle) {
       const errorResponse = ApiErrorResponseBuilder.create(
         ErrorCode.CSSN,
-        'School year not found'
-      )
-        .withLogger(this.logger)
-        .build();
-      throw new NotFoundException(errorResponse);
-    }
-
-    // Check if term exists
-    const term = await this.prisma.term.findUnique({
-      where: { id: createCourseSectionDto.termId },
-    });
-    if (!term) {
-      const errorResponse = ApiErrorResponseBuilder.create(
-        ErrorCode.CSSN,
-        'Term not found'
+        'Academic cycle not found'
       )
         .withLogger(this.logger)
         .build();
@@ -101,8 +88,7 @@ export class CourseSectionsService {
     // Check for time block conflicts
     const existingSection = await this.prisma.courseSection.findFirst({
       where: {
-        schoolYearId: createCourseSectionDto.schoolYearId,
-        termId: createCourseSectionDto.termId,
+        academicCycleId: createCourseSectionDto.academicCycleId,
         timeBlockId: createCourseSectionDto.timeBlockId,
         AND: [
           {
@@ -138,8 +124,7 @@ export class CourseSectionsService {
       data: createCourseSectionDto,
       include: {
         course: true,
-        schoolYear: true,
-        term: true,
+        academicCycle: true,
         timeBlock: true,
         room: true,
         teacher: true,
@@ -161,8 +146,7 @@ export class CourseSectionsService {
       orderBy,
       include: {
         course: true,
-        schoolYear: true,
-        term: true,
+        academicCycle: true,
         timeBlock: true,
         room: true,
         teacher: true,
@@ -175,8 +159,7 @@ export class CourseSectionsService {
       where: { id },
       include: {
         course: true,
-        schoolYear: true,
-        term: true,
+        academicCycle: true,
         timeBlock: true,
         room: true,
         teacher: true,
@@ -221,8 +204,7 @@ export class CourseSectionsService {
       const existingSection = await this.prisma.courseSection.findFirst({
         where: {
           id: { not: id },
-          schoolYearId: section.schoolYearId,
-          termId: section.termId,
+          academicCycleId: section.academicCycleId,
           timeBlockId: newTimeBlockId,
           AND: [
             {
@@ -260,8 +242,7 @@ export class CourseSectionsService {
       data: updateCourseSectionDto,
       include: {
         course: true,
-        schoolYear: true,
-        term: true,
+        academicCycle: true,
         timeBlock: true,
         room: true,
         teacher: true,
@@ -375,8 +356,7 @@ export class CourseSectionsService {
       where: { courseId, ...where },
       include: {
         course: true,
-        schoolYear: true,
-        term: true,
+        academicCycle: true,
         timeBlock: true,
         room: true,
         teacher: true,

@@ -72,20 +72,6 @@ export class SchoolYearsService {
   }
 
   async remove(id: string) {
-
-    // check if the school year is used in course sections
-    const courseSections = await this.prisma.courseSection.findMany({
-      where: { schoolYearId: id },
-    });
-    if (courseSections.length > 0) {
-      const errorResponse = ApiErrorResponseBuilder.create(
-        ErrorCode.SCYA,
-        'School year is used in course sections'
-      )
-        .withLogger(this.logger)
-        .build();
-      throw new BadRequestException(errorResponse);
-    }
     try {
       return await this.prisma.schoolYear.delete({
         where: { id },
