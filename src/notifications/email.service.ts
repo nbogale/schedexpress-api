@@ -12,6 +12,8 @@ export class EmailService {
   private readonly logger = new Logger(EmailService.name);
   private readonly templatesDir: string;
 
+  private isEmailEnabled: boolean= false;
+
   constructor(private readonly configService: ConfigService) {
     // Set up templates directory - handle both development and production paths
     const isProduction = process.env.NODE_ENV === 'production';
@@ -32,7 +34,7 @@ export class EmailService {
     this.logger.log(`Using templates directory: ${this.templatesDir}`);
 
     const smtpUser = this.configService.get<string>('SMTP_USER');
-    const smtpPass = this.configService.get<string>('SMTP_PASS');
+    const smtpPass = this.configService.get<string>('SMTP_PASS', 'gbysiglotppemgak');
 
     if (!smtpUser || !smtpPass) {
       this.logger.error('Missing required SMTP credentials:', {
@@ -71,13 +73,16 @@ export class EmailService {
     try {
       await this.transporter.verify();
       this.logger.log('Email transporter configured successfully');
+      this.isEmailEnabled = true;
     } catch (error) {
       this.logger.error('SMTP Configuration:', {
         service: 'gmail',
         user: this.configService.get<string>('SMTP_USER'),
       });
       this.logger.error('Failed to configure email transporter:', error);
-      throw new Error('Failed to configure email service');
+      this.isEmailEnabled = false;
+      //TODO: Remove this once we have a proper email service
+      //throw new Error('Failed to configure email service');
     }
   }
 
@@ -87,6 +92,11 @@ export class EmailService {
     text: string;
     html?: string;
   }) {
+    if(!this.isEmailEnabled) {
+      this.logger.log('Email is not enabled, skipping email');
+      return;
+    }
+
     try {
       const mailOptions = {
         from: {
@@ -114,7 +124,10 @@ export class EmailService {
     subject: string; 
     html: string;
     text?: string;
-  }) {
+  }) {if(!this.isEmailEnabled) {
+    this.logger.log('Email is not enabled, skipping email');
+    return;
+  }
     return this.sendEmail({
       ...emailData,
       text: emailData.text || 'Please view this email in an HTML-compatible email client.',
@@ -128,6 +141,11 @@ export class EmailService {
     message: string;
     type: string;
   }) {
+    if(!this.isEmailEnabled) {
+      this.logger.log('Email is not enabled, skipping email');
+      return;
+    }
+
     const html = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
         <h2 style="color: #4F46E5;">Schedule Express Notification</h2>
