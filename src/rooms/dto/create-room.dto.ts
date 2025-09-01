@@ -26,4 +26,27 @@ export class CreateRoomDto {
   @IsBoolean()
   @IsOptional()
   isActive?: boolean;
+
+  @ApiProperty({
+    example: 'classroom',
+    description: 'Type of the room',
+  })
+  @IsString()
+  roomType: string;
+  
+  @ApiProperty({
+    example: 'Room 101',
+    description: 'Description of the room',
+  })
+  @IsString()
+  @IsOptional()
+  description?: string;
+  
+  @ApiProperty({
+    example: 'Room 101',
+    description: 'Location of the room',
+  })
+  @IsString()
+  @IsOptional()
+  location?: string;
 } 
