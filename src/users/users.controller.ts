@@ -3,6 +3,7 @@ import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UpdateUserStatusDto } from './dto/update-user-status.dto';
+import { ChangePasswordActivateDto } from './dto/change-password-activate.dto';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -144,5 +145,23 @@ export class UsersController {
   @ApiResponse({ status: 404, description: 'User not found' })
   ensureUserAccountExists(@Param('id') id: string) {
     return this.usersService.ensureUserAccountExists(id);
+  }
+
+  @Post(':id/change-password-activate')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Change password and activate account for PENDING_ACTIVATION users' })
+  @ApiResponse({ status: 200, description: 'Password changed and account activated successfully' })
+  @ApiResponse({ status: 400, description: 'Invalid password or user not in PENDING_ACTIVATION status' })
+  @ApiResponse({ status: 404, description: 'User not found' })
+  changePasswordAndActivate(
+    @Param('id') id: string,
+    @Body() changePasswordDto: ChangePasswordActivateDto
+  ) {
+    return this.usersService.changePasswordAndActivate(
+      id,
+      changePasswordDto.currentPassword,
+      changePasswordDto.newPassword
+    );
   }
 }

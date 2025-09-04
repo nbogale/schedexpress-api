@@ -29,8 +29,8 @@ export class AuthService {
       return null;
     }
 
-    // Check if user status is active
-    if (user.status !== 'ACTIVE') {
+    // Check if user status allows login
+    if (user.status !== 'ACTIVE' && user.status !== 'PENDING_ACTIVATION') {
       const errorResponse = ApiErrorResponseBuilder.create(
         ErrorCode.AUTH,
         `Account is ${user.status.toLowerCase()}: User account is not active`
@@ -175,7 +175,7 @@ export class AuthService {
       this.logger.log(`Created user account for existing user: ${user.id}`);
     } else {
       // Check if user account is active
-      if (!userAccount.isActive) {
+      if (!userAccount.isActive && user.status !== 'PENDING_ACTIVATION') {
         const errorResponse = ApiErrorResponseBuilder.create(
           ErrorCode.AUTD,
           'Account is deactivated: User account is not active'
@@ -237,6 +237,7 @@ export class AuthService {
         firstName: user.firstName,
         lastName: user.lastName,
         role: user.role,
+        status: user.status,
         roleData,
       },
       accessToken: this.jwtService.sign(payload),

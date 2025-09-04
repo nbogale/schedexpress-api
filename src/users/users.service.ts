@@ -44,8 +44,20 @@ export class UsersService {
       throw new ConflictException(errorResponse);
     }
 
+   //check if password is provided
+   if (!userData.password) {
+      //Generate random temporary password
+      const temporaryPassword = this.generateTemporaryPassword();
+      userData.password = temporaryPassword;
+      
+      // Log the temporary password for admin reference
+      this.logger.log(`Temporary password generated for user ${userData.username}`);
+   }
+
     // Hash password
     const hashedPassword = await bcrypt.hash(userData.password, 10);
+
+    delete userData.password;
 
     // Create user with role-specific data and user account
     return this.prisma.$transaction(async (prisma) => {
@@ -56,10 +68,11 @@ export class UsersService {
           username: userData.username,
           passwordHash: hashedPassword,
           role,
+          status: UserStatus.PENDING_ACTIVATION,
           // Automatically create user account
           userAccount: {
             create: {
-              isActive: true,
+              isActive: false,
               isLocked: false,
               failedLoginAttempts: 0,
               passwordChangedAt: new Date(),
@@ -71,36 +84,17 @@ export class UsersService {
         }
       });
 
-      // Create role-specific record
-      if (role === UserRole.STUDENT) {
-        
-        // TODO: Add student record(grade level)
-       /*  await prisma.user.create({
-          data: {
-            id: user.id,
-            gradeLevel,
-          },
-        }); */
-      } else if (role === UserRole.COUNSELOR) {
-        // TODO: Add counselor record
-        /* await prisma.user.create({
-          data: {
-            id: user.id,
-            department,
-          },
-        }); */
-      } else if (role === UserRole.ADMIN) {
-        // TODO: Add admin record
-       /*  await prisma.admin.create({
-          data: {
-            userId: user.id,
-            department,
-          },
-        }); */
-      }
-
-      // Return user without password
+      // Return user without password, but include temporary password if one was generated
       const { passwordHash, ...result } = user;
+      
+      // If a temporary password was generated, include it in the response
+      if (userData.password && userData.password !== createUserDto.password) {
+        return {
+          ...result,
+          temporaryPassword: userData.password
+        };
+      }
+      
       return result;
     });
   }
@@ -623,5 +617,110 @@ export class UsersService {
       isAccessible,
       failedLoginAttempts: user.userAccount?.failedLoginAttempts || 0,
     };
+  }
+
+  /**
+   * Change password and update user status from PENDING_ACTIVATION to ACTIVE
+   */
+  async changePasswordAndActivate(
+    userId: string, 
+    currentPassword: string, 
+    newPassword: string
+  ) {
+    return this.prisma.$transaction(async (prisma) => {
+      // Find user and verify current password
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+        include: { userAccount: true }
+      });
+
+      if (!user) {
+        throw new NotFoundException('Invalid user');
+      }
+
+      if (user.status !== UserStatus.PENDING_ACTIVATION) {
+        throw new BadRequestException('User is not in PENDING_ACTIVATION status');
+      }
+
+      // Verify current password
+      const isPasswordValid = await bcrypt.compare(currentPassword, user.passwordHash);
+      if (!isPasswordValid) {
+        throw new BadRequestException('Current password is incorrect');
+      }
+
+      // Hash new password
+      const newPasswordHash = await bcrypt.hash(newPassword, 10);
+
+      // Update user password and status
+      const updatedUser = await prisma.user.update({
+        where: { id: userId },
+        data: {
+          passwordHash: newPasswordHash,
+          status: UserStatus.ACTIVE,
+        },
+      });
+
+      // Update user account to active
+      if (user.userAccount) {
+        await prisma.userAccount.update({
+          where: { userId },
+          data: {
+            isActive: true,
+            passwordChangedAt: new Date(),
+          },
+        });
+      }
+
+      // Record password change in account history
+      if (user.userAccount) {
+        await prisma.userAccountHistory.create({
+          data: {
+            userAccountId: user.userAccount.id,
+            action: 'PASSWORD_CHANGE',
+            reason: 'Initial password change during account activation',
+            performedBy: userId, // User is changing their own password
+          },
+        });
+      }
+
+      // Record status change in user status history
+      await prisma.userStatusHistory.create({
+        data: {
+          userId,
+          status: UserStatus.ACTIVE,
+          reason: 'Account activated after password change',
+          changedBy: userId, // User is activating their own account
+        },
+      });
+
+      this.logger.log(`User ${userId} activated account and changed password`);
+
+      return {
+        success: true,
+        message: 'Password changed and account activated successfully',
+        user: updatedUser
+      };
+    });
+  }
+
+  /**
+   * Generate a secure temporary password
+   */
+  private generateTemporaryPassword(): string {
+    const length = 12;
+    const charset = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*';
+    let password = '';
+    
+    // Ensure at least one character from each category
+    password += 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'[Math.floor(Math.random() * 26)]; // Uppercase
+    password += 'abcdefghijklmnopqrstuvwxyz'[Math.floor(Math.random() * 26)]; // Lowercase
+    password += '0123456789'[Math.floor(Math.random() * 10)]; // Number
+    password += '!@#$%^&*'[Math.floor(Math.random() * 8)]; // Special character
+    
+    // Fill the rest randomly
+    password += charset[Math.floor(Math.random() * charset.length)];
+    
+    // Shuffle the password
+    return password.split('').sort(() => Math.random() - 0.5).join('');
   }
 }
