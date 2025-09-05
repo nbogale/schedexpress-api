@@ -63,6 +63,13 @@ model Student {
   maxCreditsPerTerm Decimal                 @default(8.0) @map("max_credits_per_term") @db.Decimal(3, 1)
   createdAt         DateTime                @default(now()) @map("created_at")
   updatedAt         DateTime                @updatedAt @map("updated_at")
+  
+  // Parent/Guardian References (Direct)
+  primaryParentId   String?                 @map("primary_parent_id")
+  secondaryParentId String?                 @map("secondary_parent_id")
+  emergencyContactId String?                @map("emergency_contact_id")
+  
+  // Existing relationships
   waitlist          CourseWaitlist[]
   notifications     Notification[]
   schedule          Schedule?
@@ -71,6 +78,11 @@ model Student {
   user              User                    @relation(fields: [userId], references: [id])
   courseHistory     StudentCourseHistory[]
   grades            StudentGrade[]
+  
+  // Parent relationships
+  primaryParent     ParentGuardian?         @relation("PrimaryParent", fields: [primaryParentId], references: [id])
+  secondaryParent   ParentGuardian?         @relation("SecondaryParent", fields: [secondaryParentId], references: [id])
+  emergencyContact  ParentGuardian?         @relation("EmergencyContact", fields: [emergencyContactId], references: [id])
 
   @@map("student")
 }
@@ -185,18 +197,75 @@ model ScheduleCourseSection {
 }
 
 model Notification {
-  id        String           @id @default(cuid())
-  studentId String?          @map("student_id")
-  userId    String?          @map("user_id")
-  message   String
-  read      Boolean          @default(false)
-  createdAt DateTime         @default(now()) @map("created_at")
-  updatedAt DateTime         @updatedAt @map("updated_at")
-  type      NotificationType
-  student   Student?         @relation(fields: [studentId], references: [id])
-  user      User?            @relation(fields: [userId], references: [id])
+  id                String           @id @default(cuid())
+  studentId         String?          @map("student_id")
+  userId            String?          @map("user_id")
+  parentGuardianId  String?          @map("parent_guardian_id")
+  message           String
+  read              Boolean          @default(false)
+  createdAt         DateTime         @default(now()) @map("created_at")
+  updatedAt         DateTime         @updatedAt @map("updated_at")
+  type              NotificationType
+  student           Student?         @relation(fields: [studentId], references: [id])
+  user              User?            @relation(fields: [userId], references: [id])
+  parentGuardian    ParentGuardian?  @relation(fields: [parentGuardianId], references: [id])
 
   @@map("notification")
+}
+
+model ParentGuardian {
+  id                String   @id @default(cuid())
+  firstName         String   @map("first_name") @db.VarChar(100)
+  lastName          String   @map("last_name") @db.VarChar(100)
+  email             String?  @unique @db.VarChar(255)
+  primaryPhone      String?  @map("primary_phone") @db.VarChar(20)
+  secondaryPhone    String?  @map("secondary_phone") @db.VarChar(20)
+  relationship      RelationshipType
+  isPrimaryContact  Boolean  @default(false) @map("is_primary_contact")
+  isEmergencyContact Boolean @default(false) @map("is_emergency_contact")
+  preferredContactMethod ContactMethod @default(EMAIL) @map("preferred_contact_method")
+  notificationPreferences NotificationPreferences?
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+  
+  // Direct relationships
+  notifications     Notification[]
+  
+  // Reverse relationships to students
+  primaryStudents   Student[]               @relation("PrimaryParent")
+  secondaryStudents Student[]               @relation("SecondaryParent")
+  emergencyStudents Student[]               @relation("EmergencyContact")
+  
+  @@map("parent_guardian")
+}
+
+model NotificationPreferences {
+  id                    String   @id @default(cuid())
+  parentGuardianId      String   @unique @map("parent_guardian_id")
+  
+  // Notification Types
+  scheduleChanges       Boolean  @default(true) @map("schedule_changes")
+  gradeUpdates          Boolean  @default(true) @map("grade_updates")
+  attendanceAlerts      Boolean  @default(true) @map("attendance_alerts")
+  counselorMeetings     Boolean  @default(true) @map("counselor_meetings")
+  emergencyAlerts       Boolean  @default(true) @map("emergency_alerts")
+  generalAnnouncements  Boolean  @default(false) @map("general_announcements")
+  
+  // Delivery Preferences
+  emailEnabled          Boolean  @default(true) @map("email_enabled")
+  smsEnabled            Boolean  @default(false) @map("sms_enabled")
+  phoneCallEnabled      Boolean  @default(false) @map("phone_call_enabled")
+  
+  // Frequency
+  digestFrequency       DigestFrequency @default(DAILY) @map("digest_frequency")
+  
+  createdAt             DateTime @default(now()) @map("created_at")
+  updatedAt             DateTime @updatedAt @map("updated_at")
+  
+  // Relationships
+  parentGuardian        ParentGuardian @relation(fields: [parentGuardianId], references: [id])
+  
+  @@map("notification_preferences")
 }
 
 model Settings {
@@ -693,6 +762,12 @@ enum NotificationType {
   REQUEST_CREATED
   SCHEDULE_OVERLAP
   SCHEDULE_UPDATE
+  PARENT_MEETING_REQUEST
+  PARENT_MEETING_SCHEDULED
+  PARENT_MEETING_CANCELLED
+  PARENT_EMERGENCY_ALERT
+  PARENT_GRADE_UPDATE
+  PARENT_ATTENDANCE_ALERT
 
   @@map("notification_type")
 }
@@ -804,4 +879,32 @@ enum CycleType {
   SESSION
 
   @@map("cycle_type")
+}
+
+enum RelationshipType {
+  PARENT
+  GUARDIAN
+  STEP_PARENT
+  GRANDPARENT
+  OTHER
+
+  @@map("relationship_type")
+}
+
+enum ContactMethod {
+  EMAIL
+  PHONE
+  SMS
+  PREFERRED
+
+  @@map("contact_method")
+}
+
+enum DigestFrequency {
+  IMMEDIATE
+  DAILY
+  WEEKLY
+  NEVER
+
+  @@map("digest_frequency")
 }

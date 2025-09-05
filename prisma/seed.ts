@@ -1,4 +1,4 @@
-import { PrismaClient, UserRole, ConflictType, RequestStatus, NotificationType, RotationDay } from '@prisma/client';
+import { PrismaClient, UserRole, ConflictType, RequestStatus, NotificationType, RotationDay, RelationshipType, ContactMethod, DigestFrequency } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 
 const prisma = new PrismaClient();
@@ -38,6 +38,9 @@ async function main() {
     prisma.userAccount.deleteMany(),
     prisma.user.deleteMany(),
     prisma.gradeLookup.deleteMany(),
+    prisma.notification.deleteMany(),
+    prisma.notificationPreferences.deleteMany(),
+    prisma.parentGuardian.deleteMany(),
   ]);
 
   // Create Users
@@ -685,6 +688,274 @@ async function main() {
         notes: 'Strong performance in advanced algebra',
       }
     }),
+  ]);
+
+  // Create Parent/Guardian data
+  const parentGuardians = await Promise.all([
+    // Parent for student 1 (S100001 - Sarah Johnson)
+    prisma.parentGuardian.create({
+      data: {
+        firstName: 'Michael',
+        lastName: 'Johnson',
+        email: 'michael.johnson@email.com',
+        primaryPhone: '+1-555-0101',
+        secondaryPhone: '+1-555-0102',
+        relationship: RelationshipType.PARENT,
+        isPrimaryContact: true,
+        isEmergencyContact: false,
+        preferredContactMethod: ContactMethod.EMAIL,
+        notificationPreferences: {
+          create: {
+            scheduleChanges: true,
+            gradeUpdates: true,
+            attendanceAlerts: true,
+            counselorMeetings: true,
+            emergencyAlerts: true,
+            generalAnnouncements: false,
+            emailEnabled: true,
+            smsEnabled: false,
+            phoneCallEnabled: false,
+            digestFrequency: DigestFrequency.DAILY
+          }
+        }
+      }
+    }),
+    
+    // Parent for student 1 (S100001 - Sarah Johnson)
+    prisma.parentGuardian.create({
+      data: {
+        firstName: 'Lisa',
+        lastName: 'Johnson',
+        email: 'lisa.johnson@email.com',
+        primaryPhone: '+1-555-0103',
+        relationship: RelationshipType.PARENT,
+        isPrimaryContact: false,
+        isEmergencyContact: true,
+        preferredContactMethod: ContactMethod.PHONE,
+        notificationPreferences: {
+          create: {
+            scheduleChanges: true,
+            gradeUpdates: true,
+            attendanceAlerts: true,
+            counselorMeetings: true,
+            emergencyAlerts: true,
+            generalAnnouncements: true,
+            emailEnabled: true,
+            smsEnabled: true,
+            phoneCallEnabled: true,
+            digestFrequency: DigestFrequency.IMMEDIATE
+          }
+        }
+      }
+    }),
+
+    // Parent for student 2 (S100002 - David Smith)
+    prisma.parentGuardian.create({
+      data: {
+        firstName: 'Robert',
+        lastName: 'Smith',
+        email: 'robert.smith@email.com',
+        primaryPhone: '+1-555-0201',
+        relationship: RelationshipType.PARENT,
+        isPrimaryContact: true,
+        isEmergencyContact: false,
+        preferredContactMethod: ContactMethod.EMAIL,
+        notificationPreferences: {
+          create: {
+            scheduleChanges: true,
+            gradeUpdates: true,
+            attendanceAlerts: true,
+            counselorMeetings: true,
+            emergencyAlerts: true,
+            generalAnnouncements: false,
+            emailEnabled: true,
+            smsEnabled: false,
+            phoneCallEnabled: false,
+            digestFrequency: DigestFrequency.DAILY
+          }
+        }
+      }
+    }),
+
+    // Guardian for student 2 (S100002 - David Smith)
+    prisma.parentGuardian.create({
+      data: {
+        firstName: 'Maria',
+        lastName: 'Garcia',
+        email: 'maria.garcia@email.com',
+        primaryPhone: '+1-555-0202',
+        relationship: RelationshipType.GUARDIAN,
+        isPrimaryContact: false,
+        isEmergencyContact: true,
+        preferredContactMethod: ContactMethod.SMS,
+        notificationPreferences: {
+          create: {
+            scheduleChanges: true,
+            gradeUpdates: false,
+            attendanceAlerts: true,
+            counselorMeetings: true,
+            emergencyAlerts: true,
+            generalAnnouncements: false,
+            emailEnabled: false,
+            smsEnabled: true,
+            phoneCallEnabled: false,
+            digestFrequency: DigestFrequency.IMMEDIATE
+          }
+        }
+      }
+    }),
+
+    // Parent for student 3 (S100003 - Emily Brown)
+    prisma.parentGuardian.create({
+      data: {
+        firstName: 'James',
+        lastName: 'Brown',
+        email: 'james.brown@email.com',
+        primaryPhone: '+1-555-0301',
+        secondaryPhone: '+1-555-0302',
+        relationship: RelationshipType.PARENT,
+        isPrimaryContact: true,
+        isEmergencyContact: true,
+        preferredContactMethod: ContactMethod.PREFERRED,
+        notificationPreferences: {
+          create: {
+            scheduleChanges: true,
+            gradeUpdates: true,
+            attendanceAlerts: true,
+            counselorMeetings: true,
+            emergencyAlerts: true,
+            generalAnnouncements: true,
+            emailEnabled: true,
+            smsEnabled: true,
+            phoneCallEnabled: true,
+            digestFrequency: DigestFrequency.DAILY
+          }
+        }
+      }
+    }),
+
+    // Grandparent for student 3 (S100003 - Emily Brown)
+    prisma.parentGuardian.create({
+      data: {
+        firstName: 'Dorothy',
+        lastName: 'Brown',
+        email: 'dorothy.brown@email.com',
+        primaryPhone: '+1-555-0303',
+        relationship: RelationshipType.GRANDPARENT,
+        isPrimaryContact: false,
+        isEmergencyContact: false,
+        preferredContactMethod: ContactMethod.PHONE,
+        notificationPreferences: {
+          create: {
+            scheduleChanges: false,
+            gradeUpdates: true,
+            attendanceAlerts: false,
+            counselorMeetings: false,
+            emergencyAlerts: true,
+            generalAnnouncements: true,
+            emailEnabled: false,
+            smsEnabled: false,
+            phoneCallEnabled: true,
+            digestFrequency: DigestFrequency.WEEKLY
+          }
+        }
+      }
+    }),
+
+    // Parent for student 4 (S100004 - Michael Davis)
+    prisma.parentGuardian.create({
+      data: {
+        firstName: 'Jennifer',
+        lastName: 'Davis',
+        email: 'jennifer.davis@email.com',
+        primaryPhone: '+1-555-0401',
+        relationship: RelationshipType.PARENT,
+        isPrimaryContact: true,
+        isEmergencyContact: false,
+        preferredContactMethod: ContactMethod.EMAIL,
+        notificationPreferences: {
+          create: {
+            scheduleChanges: true,
+            gradeUpdates: true,
+            attendanceAlerts: true,
+            counselorMeetings: true,
+            emergencyAlerts: true,
+            generalAnnouncements: false,
+            emailEnabled: true,
+            smsEnabled: false,
+            phoneCallEnabled: false,
+            digestFrequency: DigestFrequency.DAILY
+          }
+        }
+      }
+    }),
+
+    // Step-parent for student 4 (S100004 - Michael Davis)
+    prisma.parentGuardian.create({
+      data: {
+        firstName: 'Mark',
+        lastName: 'Wilson',
+        email: 'mark.wilson@email.com',
+        primaryPhone: '+1-555-0402',
+        relationship: RelationshipType.STEP_PARENT,
+        isPrimaryContact: false,
+        isEmergencyContact: true,
+        preferredContactMethod: ContactMethod.SMS,
+        notificationPreferences: {
+          create: {
+            scheduleChanges: true,
+            gradeUpdates: false,
+            attendanceAlerts: true,
+            counselorMeetings: false,
+            emergencyAlerts: true,
+            generalAnnouncements: false,
+            emailEnabled: false,
+            smsEnabled: true,
+            phoneCallEnabled: false,
+            digestFrequency: DigestFrequency.IMMEDIATE
+          }
+        }
+      }
+    })
+  ]);
+
+  // Update students with parent/guardian assignments
+  await Promise.all([
+    // Sarah Johnson (S100001) - Primary: Michael Johnson, Emergency: Lisa Johnson
+    prisma.student.update({
+      where: { id: students[0].id },
+      data: {
+        primaryParentId: parentGuardians[0].id,
+        emergencyContactId: parentGuardians[1].id
+      }
+    }),
+
+    // David Smith (S100002) - Primary: Robert Smith, Emergency: Maria Garcia
+    prisma.student.update({
+      where: { id: students[1].id },
+      data: {
+        primaryParentId: parentGuardians[2].id,
+        emergencyContactId: parentGuardians[3].id
+      }
+    }),
+
+    // Emily Brown (S100003) - Primary: James Brown, Secondary: Dorothy Brown
+    prisma.student.update({
+      where: { id: students[2].id },
+      data: {
+        primaryParentId: parentGuardians[4].id,
+        secondaryParentId: parentGuardians[5].id
+      }
+    }),
+
+    // Michael Davis (S100004) - Primary: Jennifer Davis, Emergency: Mark Wilson
+    prisma.student.update({
+      where: { id: students[3].id },
+      data: {
+        primaryParentId: parentGuardians[6].id,
+        emergencyContactId: parentGuardians[7].id
+      }
+    })
   ]);
 
   console.log('Seed data created successfully');

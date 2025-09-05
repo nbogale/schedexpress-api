@@ -27,6 +27,7 @@ import { TeachersModule } from './teachers/teachers.module';
 import { StudentCourseHistoryModule } from './student-course-history/student-course-history.module';
 import { GradeLookupModule } from './grade-lookup/grade-lookup.module';
 import { AcademicCyclesModule } from './academic-cycles/academic-cycles.module';
+import { ParentGuardiansModule } from './parent-guardians/parent-guardians.module';
 
 @Module({
   imports: [
@@ -59,6 +60,7 @@ import { AcademicCyclesModule } from './academic-cycles/academic-cycles.module';
     StudentCourseHistoryModule,
     GradeLookupModule,
     AcademicCyclesModule,
+    ParentGuardiansModule,
   ],
 })
 export class AppModule {}
