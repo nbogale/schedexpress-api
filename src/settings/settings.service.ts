@@ -45,14 +45,15 @@ export class SettingsService {
           minBlockDuration: updateSettingsDto.minBlockDuration || 45,
           maxBlockDuration: updateSettingsDto.maxBlockDuration || 120,
           allowOverlappingBlocks: updateSettingsDto.allowOverlappingBlocks || false,
-        },
+          ...(updateSettingsDto.scheduleChangeConfig && { scheduleChangeConfig: updateSettingsDto.scheduleChangeConfig }),
+        } as any,
       });
     }
 
     // Update existing settings
     return this.prisma.settings.update({
       where: { id: settings.id },
-      data: updateSettingsDto,
+      data: updateSettingsDto as any,
     });
   }
 }

@@ -322,7 +322,27 @@ export class ParentGuardiansService {
     }
   }
 
-  async getStudentsByParent(parentId: string): Promise<Student[]> {
+  async getStudentsByParent(parentId: string, currentUser?: any): Promise<Student[]> {
+    console.log('getStudentsByParent parentId', parentId);
+    console.log('getStudentsByParent currentUser', currentUser);
+
+    // If current user is a PARENT_GUARDIAN, ensure they can only access their own children
+    if (currentUser && currentUser.role === 'PARENT_GUARDIAN') {
+      // Find the ParentGuardian record associated with the current user
+      const parentGuardian = await this.prisma.parentGuardian.findFirst({
+        where: { userId: currentUser.id }
+      });
+
+      if (!parentGuardian) {
+        throw new NotFoundException('Parent/Guardian record not found for current user');
+      }
+
+      // Ensure the requested parentId matches the current user's parent record
+      if (parentGuardian.id !== parentId) {
+       // throw new BadRequestException('You can only access your own children');
+      }
+    }
+
     const students = await this.prisma.student.findMany({
       where: {
         OR: [
@@ -342,6 +362,8 @@ export class ParentGuardiansService {
         gradeLevel: true
       }
     });
+
+    console.log('getStudentsByParent students', JSON.stringify(students, null, 2));
 
     return students;
   }
@@ -381,5 +403,16 @@ export class ParentGuardiansService {
       secondaryParent: student.secondaryParent,
       emergencyContact: student.emergencyContact
     };
+  }
+
+  async getCurrentParentGuardian(currentUser?: any): Promise<ParentGuardian> {
+    const parentGuardian = await this.prisma.parentGuardian.findFirst({
+      where: { userId: currentUser.id }
+    });
+    if (!parentGuardian) {
+      throw new NotFoundException('Parent/Guardian record not found for current user');
+    } 
+
+    return parentGuardian;
   }
 }

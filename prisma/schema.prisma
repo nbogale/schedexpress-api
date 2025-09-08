@@ -27,6 +27,7 @@ model User {
   student                 Student?
   gradesGiven             StudentGrade[]          @relation("GradeTeacher")
   teacher                 Teacher?
+  parentGuardian          ParentGuardian?
   userAccount             UserAccount?
   accountActionsPerformed UserAccountHistory[]    @relation("AccountActionPerformer")
   statusChangesPerformed  UserStatusHistory[]     @relation("StatusChangePerformer")
@@ -215,6 +216,7 @@ model Notification {
 
 model ParentGuardian {
   id                String   @id @default(cuid())
+  userId            String?  @unique @map("user_id")
   firstName         String   @map("first_name") @db.VarChar(100)
   lastName          String   @map("last_name") @db.VarChar(100)
   email             String?  @unique @db.VarChar(255)
@@ -227,6 +229,9 @@ model ParentGuardian {
   notificationPreferences NotificationPreferences?
   createdAt         DateTime @default(now()) @map("created_at")
   updatedAt         DateTime @updatedAt @map("updated_at")
+  
+  // User relationship
+  user              User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
   
   // Direct relationships
   notifications     Notification[]
@@ -283,6 +288,9 @@ model Settings {
   minBlockDuration       Int              @default(45) @map("min_block_duration") // in minutes
   maxBlockDuration       Int              @default(120) @map("max_block_duration") // in minutes
   allowOverlappingBlocks Boolean          @default(false) @map("allow_overlapping_blocks")
+  
+  // Schedule Change Request Configuration (Global Defaults)
+  scheduleChangeConfig   Json?            @map("schedule_change_config")
   
   createdAt              DateTime         @default(now()) @map("created_at")
   updatedAt              DateTime         @updatedAt @map("updated_at")
@@ -350,6 +358,10 @@ model AcademicCycle {
   validatedAt      DateTime?            @map("validated_at")
   validationNotes  String?              @map("validation_notes")
   description      String?
+  
+  // Schedule Change Request Configuration (Cycle-Specific Overrides)
+  scheduleChangeConfig Json?            @map("schedule_change_config")
+  
   createdAt        DateTime             @default(now()) @map("created_at")
   updatedAt        DateTime             @updatedAt @map("updated_at")
   config           AcademicCycleConfig? @relation(fields: [configId], references: [id])
@@ -778,6 +790,7 @@ enum UserRole {
   STUDENT
   COUNSELOR
   PLATFORM_ADMIN
+  PARENT_GUARDIAN
 
   @@map("user_role")
 }

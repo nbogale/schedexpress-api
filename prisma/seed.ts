@@ -57,12 +57,22 @@ async function main() {
     prisma.user.create({ data: { email: 'michael.williams@schedexpress.com', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.STUDENT, firstName: 'Michael', lastName: 'Williams', username: 'mwilliams' } }),
     prisma.user.create({ data: { email: 'olivia.brown@schedexpress.com', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.STUDENT, firstName: 'Olivia', lastName: 'Brown', username: 'obrown' } }),
     prisma.user.create({ data: { email: 'daniel.davis@schedexpress.com', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.STUDENT, firstName: 'Daniel', lastName: 'Davis', username: 'ddavis' } }),   
-    prisma.user.create({ data: { email: 'sophia.wilson  @schedexpress.com', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.STUDENT, firstName: 'Sophia', lastName: 'Wilson', username: 'swilson' } }),  
+    prisma.user.create({ data: { email: 'sophia.wilson@schedexpress.com', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.STUDENT, firstName: 'Sophia', lastName: 'Wilson', username: 'swilson' } }),  
     prisma.user.create({ data: { email: 'james.taylor@schedexpress.com', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.STUDENT, firstName: 'James', lastName: 'Taylor', username: 'jtaylor' } }),  
     prisma.user.create({ data: { email: 'ava.moore@schedexpress.com', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.STUDENT, firstName: 'Ava', lastName: 'Moore', username: 'amoore' } }),  
     prisma.user.create({ data: { email: 'william.martin@schedexpress.com', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.STUDENT, firstName: 'William', lastName: 'Martin', username: 'wmartin' } }),  
     prisma.user.create({ data: { email: 'isabella.harris@schedexpress.com', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.STUDENT, firstName: 'Isabella', lastName: 'Harris', username: 'iharris' } }),  
     prisma.user.create({ data: { email: 'platformadmin@schedexpress.com', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.PLATFORM_ADMIN, firstName: 'Cole', lastName: 'Jason', username: 'platformadmin' } }),  
+    
+    // Parent/Guardian Users
+    prisma.user.create({ data: { email: 'michael.johnson@email.com', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.PARENT_GUARDIAN, firstName: 'Michael', lastName: 'Johnson', username: 'mjohnson' } }),
+    prisma.user.create({ data: { email: 'lisa.johnson@email.com', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.PARENT_GUARDIAN, firstName: 'Lisa', lastName: 'Johnson', username: 'ljohnson' } }),
+    prisma.user.create({ data: { email: 'robert.smith@email.com', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.PARENT_GUARDIAN, firstName: 'Robert', lastName: 'Smith', username: 'rsmith' } }),
+    prisma.user.create({ data: { email: 'maria.garcia@email.com', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.PARENT_GUARDIAN, firstName: 'Maria', lastName: 'Garcia', username: 'mgarcia' } }),
+    prisma.user.create({ data: { email: 'james.brown@email.com', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.PARENT_GUARDIAN, firstName: 'James', lastName: 'Brown', username: 'jbrown' } }),
+    prisma.user.create({ data: { email: 'dorothy.brown@email.com', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.PARENT_GUARDIAN, firstName: 'Dorothy', lastName: 'Brown', username: 'dbrown' } }),
+    prisma.user.create({ data: { email: 'jennifer.davis@email.com', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.PARENT_GUARDIAN, firstName: 'Jennifer', lastName: 'Davis', username: 'jdavis' } }),
+    prisma.user.create({ data: { email: 'mark.wilson@email.com', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.PARENT_GUARDIAN, firstName: 'Mark', lastName: 'Wilson', username: 'mwilson' } }),
 
   ]);
 
@@ -781,6 +791,7 @@ async function main() {
     // Parent for student 1 (S100001 - Sarah Johnson)
     prisma.parentGuardian.create({
       data: {
+        userId: users[17].id, // Michael Johnson user
         firstName: 'Michael',
         lastName: 'Johnson',
         email: 'michael.johnson@email.com',
@@ -810,6 +821,7 @@ async function main() {
     // Parent for student 1 (S100001 - Sarah Johnson)
     prisma.parentGuardian.create({
       data: {
+        userId: users[18].id, // Lisa Johnson user
         firstName: 'Lisa',
         lastName: 'Johnson',
         email: 'lisa.johnson@email.com',
@@ -838,6 +850,7 @@ async function main() {
     // Parent for student 2 (S100002 - David Smith)
     prisma.parentGuardian.create({
       data: {
+        userId: users[19].id, // Robert Smith user
         firstName: 'Robert',
         lastName: 'Smith',
         email: 'robert.smith@email.com',
@@ -866,6 +879,7 @@ async function main() {
     // Guardian for student 2 (S100002 - David Smith)
     prisma.parentGuardian.create({
       data: {
+        userId: users[20].id, // Maria Garcia user
         firstName: 'Maria',
         lastName: 'Garcia',
         email: 'maria.garcia@email.com',
@@ -894,6 +908,7 @@ async function main() {
     // Parent for student 3 (S100003 - Emily Brown)
     prisma.parentGuardian.create({
       data: {
+        userId: users[21].id, // James Brown user
         firstName: 'James',
         lastName: 'Brown',
         email: 'james.brown@email.com',
@@ -923,6 +938,7 @@ async function main() {
     // Grandparent for student 3 (S100003 - Emily Brown)
     prisma.parentGuardian.create({
       data: {
+        userId: users[22].id, // Dorothy Brown user
         firstName: 'Dorothy',
         lastName: 'Brown',
         email: 'dorothy.brown@email.com',
@@ -951,6 +967,7 @@ async function main() {
     // Parent for student 4 (S100004 - Michael Davis)
     prisma.parentGuardian.create({
       data: {
+        userId: users[23].id, // Jennifer Davis user
         firstName: 'Jennifer',
         lastName: 'Davis',
         email: 'jennifer.davis@email.com',
@@ -979,6 +996,7 @@ async function main() {
     // Step-parent for student 4 (S100004 - Michael Davis)
     prisma.parentGuardian.create({
       data: {
+        userId: users[24].id, // Mark Wilson user
         firstName: 'Mark',
         lastName: 'Wilson',
         email: 'mark.wilson@email.com',

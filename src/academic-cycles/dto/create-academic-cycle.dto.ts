@@ -1,7 +1,8 @@
-import { IsString, IsOptional, IsBoolean, IsNotEmpty, IsInt, IsEnum, IsDateString, MaxLength } from 'class-validator';
+import { IsString, IsOptional, IsBoolean, IsNotEmpty, IsInt, IsEnum, IsDateString, MaxLength, IsObject } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { CycleType } from '@prisma/client';
 import { Transform } from 'class-transformer';
+import { ScheduleChangeConfig } from '../../schedule-change-requests/interfaces/schedule-change-config.interface';
 
 export class CreateAcademicCycleDto {
   @ApiPropertyOptional({ description: 'Parent cycle ID' })
@@ -79,4 +80,36 @@ export class CreateAcademicCycleDto {
   @IsOptional()
   @IsString()
   description?: string;
+
+  @ApiPropertyOptional({
+    description: 'Schedule change request configuration (cycle-specific overrides)',
+    example: {
+      enabled: true,
+      deadlineDays: 10,
+      allowEmergencyChanges: true,
+      studentCanRequest: true,
+      parentCanRequest: true,
+      counselorCanApprove: true,
+      maxRequestsPerStudent: 1,
+      requireReason: true,
+      allowChangesAfterDeadline: false,
+      notifyTeachers: true,
+      notifyParents: true,
+      notifyCounselors: true,
+      autoApproveConditions: {
+        sameTeacher: false,
+        sameTimeSlot: false,
+        withinDeadline: false,
+        sameCourse: true,
+        lowEnrollment: false
+      },
+      allowedRequestTypes: ['ADD_COURSE', 'DROP_COURSE'],
+      requireParentApproval: false,
+      allowConcurrentRequests: false,
+      maxConcurrentRequests: 1
+    }
+  })
+  @IsOptional()
+  @IsObject()
+  scheduleChangeConfig?: ScheduleChangeConfig;
 }

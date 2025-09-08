@@ -9,7 +9,8 @@ import {
   UseGuards,
   HttpCode,
   HttpStatus,
-  Query
+  Query,
+  Request
 } from '@nestjs/common';
 import { ParentGuardiansService } from './parent-guardians.service';
 import { CreateParentGuardianDto } from './dto/create-parent-guardian.dto';
@@ -20,8 +21,10 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { UserRole } from '@prisma/client';
+import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 
 @Controller('parent-guardians')
+@ApiTags('Parent Guardians')  
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class ParentGuardiansController {
   constructor(private readonly parentGuardiansService: ParentGuardiansService) {}
@@ -36,6 +39,18 @@ export class ParentGuardiansController {
   @Roles(UserRole.COUNSELOR, UserRole.ADMIN, UserRole.PLATFORM_ADMIN)
   findAll() {
     return this.parentGuardiansService.findAll();
+  }
+
+  //get current parent/guardian
+  @Get('current')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.PARENT_GUARDIAN)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get current parent/guardian' })
+  @ApiResponse({ status: 200, description: 'Return current parent/guardian' })
+  @ApiResponse({ status: 404, description: 'Parent/Guardian not found' })
+  getCurrentParentGuardian(@Request() req: any) {
+    return this.parentGuardiansService.getCurrentParentGuardian(req.user);
   }
 
   @Get(':id')
@@ -83,9 +98,13 @@ export class ParentGuardiansController {
   }
 
   @Get(':id/students')
-  @Roles(UserRole.COUNSELOR, UserRole.ADMIN, UserRole.PLATFORM_ADMIN)
-  getStudentsByParent(@Param('id') id: string) {
-    return this.parentGuardiansService.getStudentsByParent(id);
+  @Roles(UserRole.ADMIN, UserRole.PLATFORM_ADMIN, UserRole.COUNSELOR, UserRole.PARENT_GUARDIAN)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get students by parent' })
+  @ApiResponse({ status: 200, description: 'Return students by parent' })
+  @ApiResponse({ status: 404, description: 'Parent not found' })
+  getStudentsByParent(@Param('id') id: string, @Request() req: any) {
+    return this.parentGuardiansService.getStudentsByParent(id, req.user);
   }
 
   @Get('students/:studentId/parents')

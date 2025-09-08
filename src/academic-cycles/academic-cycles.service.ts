@@ -274,7 +274,7 @@ export class AcademicCyclesService {
         ...cycleData,
         parentId,
         configId
-      },
+      } as any,
       include: {
         parent: true,
         children: true,
@@ -452,7 +452,7 @@ export class AcademicCyclesService {
       data: {
         ...cycleData,
         ...(isCurrent !== undefined && { isCurrent })
-      },
+      } as any,
       include: {
         parent: true,
         children: true,

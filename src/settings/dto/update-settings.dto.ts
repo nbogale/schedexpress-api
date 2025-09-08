@@ -1,5 +1,6 @@
-import { IsBoolean, IsInt, IsNotEmpty, IsOptional, IsPositive, IsString, Max, IsEnum, Min } from 'class-validator';
+import { IsBoolean, IsInt, IsNotEmpty, IsOptional, IsPositive, IsString, Max, IsEnum, Min, IsObject } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
+import { ScheduleChangeConfig } from '../../schedule-change-requests/interfaces/schedule-change-config.interface';
 
 export enum ScheduleType {
   STANDARD = 'STANDARD',
@@ -107,4 +108,37 @@ export class UpdateSettingsDto {
   @IsBoolean()
   @IsOptional()
   allowOverlappingBlocks?: boolean;
+
+  @ApiProperty({
+    example: {
+      enabled: true,
+      deadlineDays: 14,
+      allowEmergencyChanges: true,
+      studentCanRequest: true,
+      parentCanRequest: true,
+      counselorCanApprove: true,
+      maxRequestsPerStudent: 2,
+      requireReason: true,
+      allowChangesAfterDeadline: false,
+      notifyTeachers: true,
+      notifyParents: true,
+      notifyCounselors: true,
+      autoApproveConditions: {
+        sameTeacher: false,
+        sameTimeSlot: false,
+        withinDeadline: false,
+        sameCourse: true,
+        lowEnrollment: false
+      },
+      allowedRequestTypes: ['ADD_COURSE', 'DROP_COURSE', 'CHANGE_SECTION', 'SWAP_COURSE'],
+      requireParentApproval: false,
+      allowConcurrentRequests: true,
+      maxConcurrentRequests: 3
+    },
+    description: 'Schedule change request configuration (global defaults)',
+    required: false,
+  })
+  @IsObject()
+  @IsOptional()
+  scheduleChangeConfig?: ScheduleChangeConfig;
 }
