@@ -13,6 +13,7 @@ export class EmailService {
   private readonly templatesDir: string;
 
   private isEmailEnabled: boolean= false;
+  private authMethod: 'app_password' | 'oauth2' = 'app_password';
 
   constructor(private readonly configService: ConfigService) {
     // Set up templates directory - handle both development and production paths
@@ -33,30 +34,69 @@ export class EmailService {
 
     this.logger.log(`Using templates directory: ${this.templatesDir}`);
 
-    const smtpUser = this.configService.get<string>('SMTP_USER');
-    const smtpPass = 'eqojdtzcftazcsmz';// this.configService.get<string>('SMTP_PASS', 'gbysiglotppemgak');
+    // Determine authentication method
+    this.authMethod = this.configService.get<string>('EMAIL_AUTH_METHOD', 'app_password') as 'app_password' | 'oauth2';
+    this.logger.log(`Email authentication method: ${this.authMethod}`);
 
-    if (!smtpUser || !smtpPass) {
-      this.logger.error('Missing required SMTP credentials:', {
-        hasUser: !!smtpUser,
-        hasPassword: !!smtpPass
-      });
-      throw new Error('SMTP credentials are not properly configured');
+    const smtpUser = this.configService.get<string>('SMTP_USER');
+    
+    let smtpConfig: SMTPTransport.Options;
+
+    if (this.authMethod === 'oauth2') {
+      // OAuth2 Configuration
+      const clientId = this.configService.get<string>('GOOGLE_CLIENT_ID');
+      const clientSecret = this.configService.get<string>('GOOGLE_CLIENT_SECRET');
+      const refreshToken = this.configService.get<string>('GOOGLE_REFRESH_TOKEN');
+
+      if (!smtpUser || !clientId || !clientSecret || !refreshToken) {
+        this.logger.error('Missing required Google OAuth credentials:', {
+          hasUser: !!smtpUser,
+          hasClientId: !!clientId,
+          hasClientSecret: !!clientSecret,
+          hasRefreshToken: !!refreshToken
+        });
+        throw new Error('Google OAuth credentials are not properly configured');
+      }
+
+      smtpConfig = {
+        service: 'gmail',
+        auth: {
+          type: 'OAuth2',
+          user: smtpUser,
+          clientId: clientId,
+          clientSecret: clientSecret,
+          refreshToken: refreshToken,
+        },
+        debug: true,
+        logger: true
+      };
+    } else {
+      // App Password Configuration
+      const smtpPass = this.configService.get<string>('SMTP_PASS');
+
+      if (!smtpUser || !smtpPass) {
+        this.logger.error('Missing required SMTP credentials:', {
+          hasUser: !!smtpUser,
+          hasPassword: !!smtpPass
+        });
+        throw new Error('SMTP credentials are not properly configured');
+      }
+
+      smtpConfig = {
+        service: 'gmail',
+        auth: {
+          user: smtpUser,
+          pass: smtpPass,
+        },
+        debug: true,
+        logger: true
+      };
     }
 
-    const smtpConfig: SMTPTransport.Options = {
-      service: 'gmail',
-      auth: {
-        user: smtpUser,
-        pass: smtpPass,
-      },
-      debug: true,
-      logger: true
-    };
-
-    this.logger.log('Initializing Gmail SMTP with config:', {
+    this.logger.log(`Initializing Gmail SMTP with ${this.authMethod} config:`, {
       user: smtpUser,
-      service: smtpConfig.service
+      service: smtpConfig.service,
+      authType: this.authMethod
     });
 
     // Create reusable transporter object using SMTP
@@ -78,6 +118,7 @@ export class EmailService {
       this.logger.error('SMTP Configuration:', {
         service: 'gmail',
         user: this.configService.get<string>('SMTP_USER'),
+        authType: this.authMethod
       });
       this.logger.error('Failed to configure email transporter:', error);
       this.isEmailEnabled = false;
