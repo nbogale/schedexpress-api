@@ -88,6 +88,13 @@ export class TeachersService {
     return this.prisma.teacher.findMany({
       include: {
         department: true,
+        user: {
+          select: {
+            firstName: true,
+            lastName: true,
+            email: true,
+          },
+        },
         sections: {
           include: {
             course: true,
@@ -103,6 +110,13 @@ export class TeachersService {
     const teacher = await this.prisma.teacher.findUnique({
       where: { id },
       include: {
+        user: {
+          select: {
+            firstName: true,
+            lastName: true,
+            email: true,
+          },
+        },
         department: true,
           sections: {
           include: {
@@ -123,20 +137,63 @@ export class TeachersService {
 
   async update(id: string, updateTeacherDto: UpdateTeacherDto) {
     try {
-      return await this.prisma.teacher.update({
+      //get teacher by id
+      const teacher = await this.prisma.teacher.findUnique({
         where: { id },
-        data: updateTeacherDto,
-        include: {
-          department: true,
-            sections: {
-            include: {
-              course: true,
-              timeBlock: true,
-              room: true,
-            },
-          },
-        },
       });
+
+      if (!teacher) {
+        throw new NotFoundException(`Teacher with ID ${id} not found`);
+      }
+      // get user by id
+      const user = await this.prisma.user.findUnique({
+        where: { id: teacher.userId },
+      });
+
+      if (!user) {
+        throw new NotFoundException(`User with ID ${teacher.userId} not found`);
+      }
+      //run it with transaction
+      const updatedTeacher = await this.prisma.$transaction(async (prisma) => {
+        // compare first name and last name with user
+        if (updateTeacherDto.firstName !== user.firstName 
+          || updateTeacherDto.lastName !== user.lastName
+          || updateTeacherDto.email !== user.email) {
+          // update user
+          await prisma.user.update({
+            where: { id: user.id },
+            data: {
+              firstName: updateTeacherDto.firstName,
+              lastName: updateTeacherDto.lastName,
+              email: updateTeacherDto.email,
+              },
+            });
+          }
+
+          const updatedTeacher = await prisma.teacher.update({
+            where: { id },
+            data: {
+              name: updateTeacherDto.firstName + ' ' + updateTeacherDto.lastName,
+              email: updateTeacherDto.email,
+              departmentId: updateTeacherDto.departmentId,
+              maxCourses: updateTeacherDto.maxCourses,
+            },
+            include: {
+              department: true,
+                sections: {
+                include: {
+                  course: true,
+                  timeBlock: true,
+                  room: true,
+                },
+              },
+            },
+          });
+
+          return updatedTeacher;
+        });
+  
+      return updatedTeacher;
     } catch (error) {
       if (error.code === 'P2025') {
         throw new NotFoundException(`Teacher with ID ${id} not found`);

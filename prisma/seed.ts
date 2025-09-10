@@ -47,11 +47,11 @@ async function main() {
   const users = await Promise.all([
     prisma.user.create({ data: { email: 'admin@schedexpress.com', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.ADMIN, firstName: 'Admin', lastName: 'User', username: 'admin' } }),
     prisma.user.create({ data: { email: 'ashenafi.nebro@gmail.com', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.COUNSELOR, firstName: 'Audra', lastName: 'Smith', username: 'asmith' } }),
-    prisma.user.create({ data: { email: 'teacher1@schedexpress.com', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.TEACHER, firstName: 'Brown', lastName: 'Johnson', username: 'bjohnson' } }),
-    prisma.user.create({ data: { email: 'teacher2@schedexpress.com', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.TEACHER, firstName: 'Ben', lastName: 'Williams', username: 'bwilliams' } }),
-    prisma.user.create({ data: { email: 'teacher3@schedexpress.com', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.TEACHER, firstName: 'Payal', lastName: 'Brown', username: 'pbrown' } }),
-    prisma.user.create({ data: { email: 'teacher4@schedexpress.com', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.TEACHER, firstName: 'Andrew', lastName: 'Davis', username: 'adavis' } }),
-    prisma.user.create({ data: { email: 'teacher5@schedexpress.com', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.TEACHER, firstName: 'Saba', lastName: 'Miller', username: 'smiller' } }),
+    prisma.user.create({ data: { email: 'bjohnson@schedexpress.com', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.TEACHER, firstName: 'Brown', lastName: 'Johnson', username: 'bjohnson' } }),
+    prisma.user.create({ data: { email: 'bwilliams@schedexpress.com', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.TEACHER, firstName: 'Ben', lastName: 'Williams', username: 'bwilliams' } }),
+    prisma.user.create({ data: { email: 'pbrown@schedexpress.com', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.TEACHER, firstName: 'Payal', lastName: 'Brown', username: 'pbrown' } }),
+    prisma.user.create({ data: { email: 'adavis@schedexpress.com', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.TEACHER, firstName: 'Andrew', lastName: 'Davis', username: 'adavis' } }),
+    prisma.user.create({ data: { email: 'smiller@schedexpress.com', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.TEACHER, firstName: 'Saba', lastName: 'Miller', username: 'smiller' } }),
     prisma.user.create({ data: { email: 'orbenafederalservices@gmail.com', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.STUDENT, firstName: 'John', lastName: 'Smith', username: 'jsmith' } }),
     prisma.user.create({ data: { email: 'yirguit@gmail.com', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.STUDENT, firstName: 'Emily', lastName: 'Johnson', username: 'ejohnson' } }),
     prisma.user.create({ data: { email: 'michael.williams@schedexpress.com', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.STUDENT, firstName: 'Michael', lastName: 'Williams', username: 'mwilliams' } }),
@@ -253,11 +253,11 @@ async function main() {
 
   // Create Teachers
   const teachers = await Promise.all([
-    prisma.teacher.create({ data: {userId: users[2].id, name: 'Teacher Johnson', email: 'teacher1@edu.edu', departmentId: departments[0].id, maxCourses: 6 } }),
-    prisma.teacher.create({ data: {userId: users[3].id, name: 'Teacher Williams', email: 'teacher2@edu.edu',departmentId: departments[1].id, maxCourses: 6 } }),
-    prisma.teacher.create({ data: {userId: users[4].id, name: 'Teacher Brown', email: 'teacher3@edu.edu', departmentId: departments[2].id, maxCourses: 6 } }),
-    prisma.teacher.create({ data: {userId: users[5].id, name: 'Teacher Davis', email: 'teacher4@edu.edu', departmentId: departments[3].id, maxCourses: 6 } }),
-    prisma.teacher.create({ data: {userId: users[6].id, name: 'Teacher Miller', email: 'teacher5@edu.edu', departmentId: departments[4].id, maxCourses: 6 } }),
+    prisma.teacher.create({ data: {userId: users[2].id, name: 'Brown Johnson', email: 'bjohnson@schedexpress.com', departmentId: departments[0].id, maxCourses: 6 } }),
+    prisma.teacher.create({ data: {userId: users[3].id, name: 'Ben Williams', email: 'bwilliams@schedexpress.com',departmentId: departments[1].id, maxCourses: 6 } }),
+    prisma.teacher.create({ data: {userId: users[4].id, name: 'Payal Brown', email: 'pbrown@schedexpress.com', departmentId: departments[2].id, maxCourses: 6 } }),
+    prisma.teacher.create({ data: {userId: users[5].id, name: 'Andrew Davis', email: 'adavis@schedexpress.com', departmentId: departments[3].id, maxCourses: 6 } }),
+    prisma.teacher.create({ data: {userId: users[6].id, name: 'Saba Miller', email: 'smiller@schedexpress.com', departmentId: departments[4].id, maxCourses: 6 } }),
   ]);
 
   // Create Students
