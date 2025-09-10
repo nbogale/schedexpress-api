@@ -522,7 +522,7 @@ async function main() {
     // School Year
     prisma.academicCycle.create({
       data: {
-        name: '2025-2026 School Year',
+        name: '2025-2026',
         cycleType: 'SCHOOL_YEAR',
         cycleNumber: null,
         startDate: new Date('2025-08-13'),
@@ -535,6 +535,36 @@ async function main() {
         validationNotes: 'Standard school year configuration',
         description: 'Academic year 2025-2026 with two semesters and four quarters',
         configId: academicCycleConfig.id,
+        scheduleChangeConfig: {
+          "enabled": true,
+          "deadlineDays": 21,
+          "notifyParents": true,
+          "requireReason": true,
+          "notifyTeachers": true,
+          "notifyCounselors": true,
+          "parentCanRequest": true,
+          "studentCanRequest": true,
+          "allowedRequestTypes": [
+            "ADD_COURSE",
+            "DROP_COURSE",
+            "CHANGE_SECTION",
+            "SWAP_COURSE"
+          ],
+          "counselorCanApprove": true,
+          "allowEmergencyChanges": true,
+          "autoApproveConditions": {
+            "sameCourse": true,
+            "sameTeacher": false,
+            "sameTimeSlot": false,
+            "lowEnrollment": false,
+            "withinDeadline": false
+          },
+          "maxConcurrentRequests": 3,
+          "maxRequestsPerStudent": 4,
+          "requireParentApproval": false,
+          "allowConcurrentRequests": true,
+          "allowChangesAfterDeadline": true
+        },
       }
     }),
   ]);
