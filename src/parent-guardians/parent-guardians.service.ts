@@ -323,8 +323,6 @@ export class ParentGuardiansService {
   }
 
   async getStudentsByParent(parentId: string, currentUser?: any): Promise<Student[]> {
-    console.log('getStudentsByParent parentId', parentId);
-    console.log('getStudentsByParent currentUser', currentUser);
 
     // If current user is a PARENT_GUARDIAN, ensure they can only access their own children
     if (currentUser && currentUser.role === 'PARENT_GUARDIAN') {
@@ -362,8 +360,6 @@ export class ParentGuardiansService {
         gradeLevel: true
       }
     });
-
-    console.log('getStudentsByParent students', JSON.stringify(students, null, 2));
 
     return students;
   }

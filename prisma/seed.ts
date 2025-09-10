@@ -545,7 +545,7 @@ async function main() {
   const semesters = await Promise.all([
     prisma.academicCycle.create({
       data: {
-        name: 'Fall Semester 2025-2026',
+        name: 'Fall Semester',
         cycleType: 'SEMESTER',
         cycleNumber: 1,
         startDate: new Date('2025-08-13'),
@@ -563,7 +563,7 @@ async function main() {
     }),
     prisma.academicCycle.create({
       data: {
-        name: 'Spring Semester 2025-2026',
+        name: 'Spring Semester',
         cycleType: 'SEMESTER',
         cycleNumber: 2,
         startDate: new Date('2026-01-06'),
@@ -583,7 +583,7 @@ async function main() {
     // Fall Semester Quarters
     prisma.academicCycle.create({
       data: {
-        name: 'First Quarter 2025-2026',
+        name: 'First Quarter',
         cycleType: 'QUARTER',
         cycleNumber: 1,
         startDate: new Date('2025-08-13'),
@@ -601,7 +601,7 @@ async function main() {
     }),
     prisma.academicCycle.create({
       data: {
-        name: 'Second Quarter 2025-2026',
+        name: 'Second Quarter',
         cycleType: 'QUARTER',
         cycleNumber: 2,
         startDate: new Date('2025-10-20'),
@@ -617,7 +617,7 @@ async function main() {
     // Spring Semester Quarters
     prisma.academicCycle.create({
       data: {
-        name: 'Third Quarter 2025-2026',
+        name: 'Third Quarter',
         cycleType: 'QUARTER',
         cycleNumber: 3,
         startDate: new Date('2026-01-06'),
@@ -632,7 +632,7 @@ async function main() {
     }),
     prisma.academicCycle.create({
       data: {
-        name: 'Fourth Quarter 2025-2026',
+        name: 'Fourth Quarter',
         cycleType: 'QUARTER',
         cycleNumber: 4,
         startDate: new Date('2026-03-17'),
