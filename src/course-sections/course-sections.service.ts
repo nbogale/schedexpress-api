@@ -2,7 +2,7 @@ import { Injectable, NotFoundException, BadRequestException, Logger } from '@nes
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateCourseSectionDto } from './dto/create-course-section.dto';
 import { UpdateCourseSectionDto } from './dto/update-course-section.dto';
-import { Prisma } from '@prisma/client';
+import { CourseSection, Prisma } from '@prisma/client';
 import { ApiErrorResponse } from 'src/common/api-error';
 import { ErrorCode } from 'src/common/error-codes';
 import { ApiErrorResponseBuilder } from 'src/common/api-error-builder';
@@ -85,35 +85,36 @@ export class CourseSectionsService {
       throw new NotFoundException(errorResponse);
     }
 
-    // Check for time block conflicts
-    const existingSection = await this.prisma.courseSection.findFirst({
+    // Check room conflict for academicCycleId, timeblock and roomId
+    const existingRoomSection = await this.prisma.courseSection.findFirst({
       where: {
         academicCycleId: createCourseSectionDto.academicCycleId,
         timeBlockId: createCourseSectionDto.timeBlockId,
-        AND: [
-          {
-            OR: [
-              // Same rotation day
-              { rotationDay: createCourseSectionDto.rotationDay },
-              // If either section has no rotation day, they conflict (both run every day)
-              { rotationDay: null },
-              ...(createCourseSectionDto.rotationDay === null ? [{ rotationDay: null }] : []),
-            ],
-          },
-          {
-            OR: [
-              { roomId: createCourseSectionDto.roomId },
-              { teacherId: createCourseSectionDto.teacherId },
-            ],
-          },
-        ],
+        roomId: createCourseSectionDto.roomId,
       },
     });
-
-    if (existingSection) {
+    if (existingRoomSection) {
       const errorResponse = ApiErrorResponseBuilder.create(
-        ErrorCode.CSSB,
-        'Time block conflict: Room or teacher is already assigned during this time'
+        ErrorCode.CSSG,
+        'Room conflict: Room is already assigned during this time'
+      )
+        .withLogger(this.logger)
+        .build();
+      throw new BadRequestException(errorResponse);
+    }
+
+    // Check for teacher conflict for academicCycleId, timeblock and teacherId
+    const existingTeacherSection = await this.prisma.courseSection.findFirst({
+      where: {
+        academicCycleId: createCourseSectionDto.academicCycleId,
+        timeBlockId: createCourseSectionDto.timeBlockId,
+        teacherId: createCourseSectionDto.teacherId,
+      },
+    });
+    if (existingTeacherSection) {
+      const errorResponse = ApiErrorResponseBuilder.create(
+        ErrorCode.CSSH,
+        'Teacher conflict: Teacher is already assigned during this time'
       )
         .withLogger(this.logger)
         .build();
@@ -146,7 +147,12 @@ export class CourseSectionsService {
       orderBy,
       include: {
         course: true,
-        academicCycle: true,
+        academicCycle: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
         timeBlock: true,
         room: true,
         teacher: true,
@@ -356,11 +362,77 @@ export class CourseSectionsService {
       where: { courseId, ...where },
       include: {
         course: true,
-        academicCycle: true,
         timeBlock: true,
         room: true,
         teacher: true,
       },
     });
   }
+
+  async findAllByRoomId(roomId: string, where: Prisma.CourseSectionWhereInput) {
+    return this.prisma.courseSection.findMany({
+      where: { roomId, ...where },
+      include: {
+        course: true,
+        timeBlock: true,
+        room: true,
+        teacher: true,
+      },
+    });
+  }
+
+  async checkConflictForAcademicCycle(academicCycleId: string) {
+
+    const conflictedSections: ConflictedSection[] = [];
+    const sections = await this.prisma.courseSection.findMany({
+      where: { academicCycleId },
+    });
+
+    if (!sections) {
+      const errorResponse = ApiErrorResponseBuilder.create(
+        ErrorCode.CSSN,
+        'Course sections not found'
+      )
+        .withLogger(this.logger)
+        .build();
+      throw new NotFoundException(errorResponse);
+    }
+
+    for (const section of sections) {
+      // Check the section has conflicts with other sections it might be timeblock, room or teacher
+      const hasConflicts = await this.prisma.courseSection.findMany({
+        where: { 
+          academicCycleId: academicCycleId,
+          timeBlockId: section.timeBlockId,
+          OR: [
+            { roomId: section.roomId },
+            { teacherId: section.teacherId },
+          ],
+          id: { not: section.id },
+        },
+        include: {
+          room: true,
+          teacher: true,
+          timeBlock: true,
+          course: true,
+        },
+      });
+
+      if (hasConflicts && hasConflicts.length > 0) {
+        conflictedSections.push({ courseSection: section, conflictWithSections: hasConflicts });
+      }
+    }
+
+    return {
+      success: true,
+      data: conflictedSections,
+    };
+  }
 } 
+
+// Create type for conflictedSections
+export type ConflictedSection = {
+  courseSection: CourseSection;
+  conflictWithSections: CourseSection[];
+};
+

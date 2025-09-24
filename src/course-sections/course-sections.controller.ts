@@ -26,6 +26,7 @@ export class CourseSectionsController {
   @ApiQuery({ name: 'courseId', required: false, type: String })
   @ApiQuery({ name: 'academicCycleId', required: false, type: String })
   @ApiQuery({ name: 'teacherId', required: false, type: String })
+  @ApiQuery({ name: 'roomId', required: false, type: String })
   @ApiResponse({ status: 200, description: 'Return all course sections.' })
   findAll(
     @Query('skip', new DefaultValuePipe(0), ParseIntPipe) skip?: number,
@@ -33,12 +34,13 @@ export class CourseSectionsController {
     @Query('courseId') courseId?: string,
     @Query('academicCycleId') academicCycleId?: string,
     @Query('teacherId') teacherId?: string,
+    @Query('roomId') roomId?: string,
   ) {
     const where: Prisma.CourseSectionWhereInput = {};
     if (courseId) where.courseId = courseId;
     if (academicCycleId) where.academicCycleId = academicCycleId;
     if (teacherId) where.teacherId = teacherId;
-
+    if (roomId) where.roomId = roomId;
     return this.courseSectionsService.findAll({
       skip,
       take,
@@ -107,5 +109,26 @@ export class CourseSectionsController {
     if (teacherId) where.teacherId = teacherId;
 
     return this.courseSectionsService.findAllByCourseId(courseId, where);
+  }
+
+  @Get('room/:roomId')  
+  @ApiOperation({ summary: 'Get all course sections for a room' })
+  @ApiQuery({ name: 'academicCycleId', required: false, type: String })
+  @ApiResponse({ status: 200, description: 'Return all course sections for a room.' })
+  @ApiResponse({ status: 404, description: 'Room not found.' })
+  findAllByRoomId(@Param('roomId') roomId: string, @Query('academicCycleId') academicCycleId?: string) {
+    const where: Prisma.CourseSectionWhereInput = {};
+   
+    if (academicCycleId) where.academicCycleId = academicCycleId;
+    return this.courseSectionsService.findAllByRoomId(roomId, where);
+  }
+
+  // Check course sections conflict for an academic cycle
+  @Get('academic-cycle/:academicCycleId/check-conflict')
+  @ApiOperation({ summary: 'Check course sections conflict for an academic cycle' })
+  @ApiResponse({ status: 200, description: 'Return all course sections for a academic cycle.' })
+  @ApiResponse({ status: 404, description: 'Academic cycle not found.' })
+  checkConflictForAcademicCycle(@Param('academicCycleId') academicCycleId: string) {
+    return this.courseSectionsService.checkConflictForAcademicCycle(academicCycleId);
   }
 } 

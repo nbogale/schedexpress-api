@@ -29,6 +29,8 @@ export const errorMessages: Record<ErrorCode, string> = {
   [ErrorCode.CSSD]: 'Cannot delete a section that has enrolled students.',
   [ErrorCode.CSSE]: 'This section has reached its maximum enrollment capacity.',
   [ErrorCode.CSSF]: 'This section has no enrolled students.',
+  [ErrorCode.CSSG]: 'Room conflict: Room is already assigned during this time.',
+  [ErrorCode.CSSH]: 'Teacher conflict: Teacher is already assigned during this time.',
 
   // Course Prerequisite Error Messages
   [ErrorCode.CPAA]: 'The requested course prerequisite could not be found.',

@@ -33,6 +33,8 @@ export enum ErrorCode {
   CSSD = 'CSSD', // Cannot delete section with enrolled students
   CSSE = 'CSSE', // Section is already at maximum enrollment
   CSSF = 'CSSF', // Section has no enrolled students
+  CSSG = 'CSSG', // Room conflict: Room is already assigned during this time
+  CSSH = 'CSSH', // Teacher conflict: Teacher is already assigned during this time
 
   // Course Prerequisite Error Codes
   CPAA = 'CPAA', // Course prerequisite not found
