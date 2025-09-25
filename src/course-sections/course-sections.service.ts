@@ -201,33 +201,19 @@ export class CourseSectionsService {
     }
 
     // If updating time block, room, teacher, or rotation day, check for conflicts
-    if (updateCourseSectionDto.timeBlockId || updateCourseSectionDto.roomId || updateCourseSectionDto.teacherId || updateCourseSectionDto.rotationDay !== undefined) {
+    if (updateCourseSectionDto.timeBlockId || updateCourseSectionDto.roomId || updateCourseSectionDto.teacherId) {
       const newTimeBlockId = updateCourseSectionDto.timeBlockId || section.timeBlockId;
       const newRoomId = updateCourseSectionDto.roomId || section.roomId;
       const newTeacherId = updateCourseSectionDto.teacherId || section.teacherId;
-      const newRotationDay = updateCourseSectionDto.rotationDay !== undefined ? updateCourseSectionDto.rotationDay : section.rotationDay;
 
       const existingSection = await this.prisma.courseSection.findFirst({
         where: {
           id: { not: id },
           academicCycleId: section.academicCycleId,
           timeBlockId: newTimeBlockId,
-          AND: [
-            {
-              OR: [
-                // Same rotation day
-                { rotationDay: newRotationDay },
-                // If either section has no rotation day, they conflict (both run every day)
-                { rotationDay: null },
-                ...(newRotationDay === null ? [{ rotationDay: null }] : []),
-              ],
-            },
-            {
-              OR: [
-                { roomId: newRoomId },
-                { teacherId: newTeacherId },
-              ],
-            },
+          OR: [
+            { roomId: newRoomId },
+            { teacherId: newTeacherId },
           ],
         },
       });
@@ -248,7 +234,12 @@ export class CourseSectionsService {
       data: updateCourseSectionDto,
       include: {
         course: true,
-        academicCycle: true,
+        academicCycle: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
         timeBlock: true,
         room: true,
         teacher: true,
