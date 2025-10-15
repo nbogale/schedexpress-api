@@ -16,6 +16,14 @@ export const errorMessages: Record<ErrorCode, string> = {
   [ErrorCode.SCRL]: 'Only administrators and counselors can process requests.',
   [ErrorCode.SCRM]: 'This request can no longer be canceled.',
   [ErrorCode.SCRP]: 'You already have a pending schedule change request for this course change.',
+  [ErrorCode.SCRQ]: 'Invalid request type.',
+  [ErrorCode.SCRR]: 'Requested course section not found.',
+  [ErrorCode.SCRS]: 'Current course section not found.',
+  [ErrorCode.SCRT]: 'Both current and requested course sections are required.',
+  [ErrorCode.SCRU]: 'Requested course section is required for ADD_COURSE requests.',
+  [ErrorCode.SCRV]: 'Current course section is required for DROP_COURSE requests.',
+  [ErrorCode.SCRW]: 'Both current and requested course sections are required for CHANGE_SECTION requests.',
+  [ErrorCode.SCRX]: 'Current academic cycle not found.',
 
   // Schedule Error Messages
   [ErrorCode.SCHN]: 'The requested schedule could not be found.',

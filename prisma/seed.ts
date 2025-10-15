@@ -537,7 +537,7 @@ async function main() {
         configId: academicCycleConfig.id,
         scheduleChangeConfig: {
           "enabled": true,
-          "deadlineDays": 21,
+          "deadlineDays": 365,
           "notifyParents": true,
           "requireReason": true,
           "notifyTeachers": true,

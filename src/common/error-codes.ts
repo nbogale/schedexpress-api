@@ -20,6 +20,14 @@ export enum ErrorCode {
   SCRL = 'SCRL', // Only administrators and counselors can process requests
   SCRM = 'SCRM', // This request can no longer be canceled
   SCRP = 'SCRP', // You already have a pending schedule change request for this course change
+  SCRQ = 'SCRQ', // Invalid request type
+  SCRR = 'SCRR', // Requested course section not found
+  SCRS = 'SCRS', // Current course section not found
+  SCRT = 'SCRT', // Both current and requested course sections are required
+  SCRU = 'SCRU', // Requested course section is required for ADD_COURSE requests
+  SCRV = 'SCRV', // Current course section is required for DROP_COURSE requests
+  SCRW = 'SCRW', // Both current and requested course sections are required for CHANGE_SECTION requests
+  SCRX = 'SCRX', // Current academic cycle not found
 
   // Schedule Error Codes
   SCHN = 'SCHN', // Schedule not found

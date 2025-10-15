@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException, BadRequestException, ConflictException, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CoursesService } from '../courses/courses.service';
-import { CreateScheduleChangeRequestDto } from './dto/create-schedule-change-request.dto';
+import { CreateScheduleChangeRequestDto, RequestType } from './dto/create-schedule-change-request.dto';
 import { UpdateScheduleChangeRequestDto } from './dto/update-schedule-change-request.dto';
 import { ProcessChangeRequestDto } from './dto/process-change-request.dto';
 import { RequestStatus, RequestPriority, NotificationType, UserRoleType } from './enums/request-enums';
@@ -25,14 +25,12 @@ export class ScheduleChangesService {
     if (filters?.status) where.status = filters.status;
     if (filters?.studentId) where.studentId = filters.studentId;
     if (filters?.priority) where.priority = filters.priority;
-    if (filters?.termId) where.termId = filters.termId;
 
     return this.prisma.scheduleChangeRequest.findMany({
       where,
       include: {
         student: { include: { user: true, gradeLevel: true } },
-        schoolYear: true,
-        term: true,
+        academicCycle: true,
         currentCourseSection: { include: { course: true, timeBlock: true } },
         requestedCourseSection: { include: { course: true } },
         preferredTimeBlock: true,
@@ -51,8 +49,7 @@ export class ScheduleChangesService {
       where: { id },
       include: {
         student: { include: { user: true } },
-        schoolYear: true,
-        term: true,
+        academicCycle: true,
         currentCourseSection: {
           include: { course: true, teacher: true, room: true, timeBlock: true },
         },
@@ -89,62 +86,99 @@ export class ScheduleChangesService {
       );
     }
 
-    const currentCourseSection = await this.prisma.courseSection.findUnique({
-      where: { id: dto.currentCourseSectionId },
-      include: { course: true, timeBlock: true },
-    });
-
-    if (!currentCourseSection) {
-      throw new NotFoundException(
-        ApiErrorResponseBuilder.create(ErrorCode.CSSN, 'Current course section not found')
-          .withLogger(this.logger)
-          .build()
-      );
-    }
-
-    const requestedCourseSection = await this.prisma.courseSection.findUnique({
-      where: { id: dto.requestedCourseSectionId },
-      include: { course: { select: { name: true } }, timeBlock: true },
-    });
-
-    if (!requestedCourseSection) {
-      throw new NotFoundException(
-        ApiErrorResponseBuilder.create(ErrorCode.CSSN, 'Requested course section not found')
-          .withLogger(this.logger)
-          .build()
-      );
-    }
-
-    const studentSchedule = await this.prisma.schedule.findFirst({
-      where: {
-        studentId: student.id,
-        scheduleCourseSections: {
-          some: {
-            courseSectionId: currentCourseSection.id,
-          },
-        },
-      },
-      include: {
-        scheduleCourseSections: true,
-      },
-    });
-
-    if (!studentSchedule) {
+    // Validate request type and required fields
+    if (dto.requestType === RequestType.ADD_COURSE && !dto.requestedCourseSectionId) {
       throw new BadRequestException(
-        ApiErrorResponseBuilder.create(ErrorCode.SCRD, 'You are not enrolled in the current course section')
+        ApiErrorResponseBuilder.create(ErrorCode.SCRU, 'Requested course section is required for ADD_COURSE requests')
           .withLogger(this.logger)
           .build()
       );
     }
 
-    const duplicate = await this.prisma.scheduleChangeRequest.findFirst({
+    if (dto.requestType === RequestType.DROP_COURSE && !dto.currentCourseSectionId) {
+      throw new BadRequestException(
+        ApiErrorResponseBuilder.create(ErrorCode.SCRV, 'Current course section is required for DROP_COURSE requests')
+          .withLogger(this.logger)
+          .build()
+      );
+    }
+
+    if (dto.requestType === RequestType.CHANGE_SECTION && (!dto.currentCourseSectionId || !dto.requestedCourseSectionId)) {
+      throw new BadRequestException(
+        ApiErrorResponseBuilder.create(ErrorCode.SCRW, 'Both current and requested course sections are required for CHANGE_SECTION requests')
+          .withLogger(this.logger)
+          .build()
+      );
+    }
+
+    // Fetch current course section if provided
+    let currentCourseSection = null;
+    if (dto.currentCourseSectionId) {
+      currentCourseSection = await this.prisma.courseSection.findUnique({
+        where: { id: dto.currentCourseSectionId },
+        include: { course: true, timeBlock: true },
+      });
+
+      if (!currentCourseSection) {
+        throw new NotFoundException(
+          ApiErrorResponseBuilder.create(ErrorCode.CSSN, 'Current course section not found')
+            .withLogger(this.logger)
+            .build()
+        );
+      }
+    }
+
+    // Fetch requested course section if provided
+    let requestedCourseSection = null;
+    if (dto.requestedCourseSectionId) {
+      requestedCourseSection = await this.prisma.courseSection.findUnique({
+        where: { id: dto.requestedCourseSectionId },
+        include: { course: { select: { name: true } }, timeBlock: true },
+      });
+
+      if (!requestedCourseSection) {
+        throw new NotFoundException(
+          ApiErrorResponseBuilder.create(ErrorCode.CSSN, 'Requested course section not found')
+            .withLogger(this.logger)
+            .build()
+        );
+      }
+    }
+
+    // Validate student schedule based on request type
+    if (dto.requestType === RequestType.DROP_COURSE || dto.requestType === RequestType.CHANGE_SECTION) {
+      const studentSchedule = await this.prisma.schedule.findFirst({
         where: {
           studentId: student.id,
-          currentCourseSectionId: dto.currentCourseSectionId,
-          requestedCourseSectionId: dto.requestedCourseSectionId,
-          status: RequestStatus.PENDING,
+          scheduleCourseSections: {
+            some: {
+              courseSectionId: currentCourseSection.id,
+            },
+          },
+        },
+        include: {
+          scheduleCourseSections: true,
         },
       });
+
+      if (!studentSchedule) {
+        throw new BadRequestException(
+          ApiErrorResponseBuilder.create(ErrorCode.SCRD, 'You are not enrolled in the current course section')
+            .withLogger(this.logger)
+            .build()
+        );
+      }
+    }
+
+    // Check for duplicate requests
+    const duplicate = await this.prisma.scheduleChangeRequest.findFirst({
+      where: {
+        studentId: student.id,
+        currentCourseSectionId: dto.currentCourseSectionId,
+        requestedCourseSectionId: dto.requestedCourseSectionId,
+        status: RequestStatus.PENDING,
+      },
+    });
 
     if (duplicate) {
       throw new ConflictException(
@@ -154,7 +188,8 @@ export class ScheduleChangesService {
       );
     }
 
-    if (requestedCourseSection.currentEnrollment >= requestedCourseSection.maxEnrollment) {
+    // Check enrollment capacity for ADD_COURSE and CHANGE_SECTION
+    if (requestedCourseSection && requestedCourseSection.currentEnrollment >= requestedCourseSection.maxEnrollment) {
       throw new ConflictException(
         ApiErrorResponseBuilder.create(ErrorCode.CSSE, 'Requested course section is at maximum enrollment')
           .withLogger(this.logger)
@@ -162,25 +197,14 @@ export class ScheduleChangesService {
       );
     }
 
-    const currentSchoolYear = await this.prisma.schoolYear.findFirst({
+    // Get current academic cycle
+    const currentAcademicCycle = await this.prisma.academicCycle.findFirst({
       where: { isCurrent: true },
     });
 
-    if (!currentSchoolYear) {
+    if (!currentAcademicCycle) {
       throw new NotFoundException(
-        ApiErrorResponseBuilder.create(ErrorCode.SCRE, 'No active school year found')
-          .withLogger(this.logger)
-          .build()
-      );
-    }
-
-    const currentTerm = await this.prisma.term.findFirst({
-      where: { isCurrent: true },
-    });
-
-    if (!currentTerm) {
-      throw new NotFoundException(
-        ApiErrorResponseBuilder.create(ErrorCode.SCRF, 'No active term found')
+        ApiErrorResponseBuilder.create(ErrorCode.SCRX, 'Current academic cycle not found')
           .withLogger(this.logger)
           .build()
       );
@@ -221,14 +245,24 @@ export class ScheduleChangesService {
         },
       });
 
-      if(currentCourseSection.timeBlockId !== requestedCourseSection.timeBlockId && (existingSchedule && existingSchedule.scheduleCourseSections.length > 0)) {
-        const existingScheduleSection = existingSchedule.scheduleCourseSections.find(s => s.courseSection.timeBlockId === tb.id);
-        if (existingScheduleSection && existingScheduleSection.courseSection.id !== dto.currentCourseSectionId) {
-          throw new BadRequestException(
-            ApiErrorResponseBuilder.create(ErrorCode.SCRC, 'You already have a course scheduled during the preferred time block')
-              .withLogger(this.logger)
-              .build()
-          );
+      console.log('existingSchedule', existingSchedule);
+      console.log('currentCourseSection', currentCourseSection);
+      console.log('requestedCourseSection', requestedCourseSection);
+      console.log('tb', tb);
+      console.log('dto.currentCourseSectionId', dto.currentCourseSectionId);
+      console.log('dto.requestedCourseSectionId', dto.requestedCourseSectionId);
+
+      if (dto.requestType === RequestType.CHANGE_SECTION) {
+
+        if(currentCourseSection.timeBlockId !== requestedCourseSection.timeBlockId && (existingSchedule && existingSchedule.scheduleCourseSections.length > 0)) {
+          const existingScheduleSection = existingSchedule.scheduleCourseSections.find(s => s.courseSection.timeBlockId === tb.id);
+          if (existingScheduleSection && existingScheduleSection.courseSection.id !== dto.currentCourseSectionId) {
+            throw new BadRequestException(
+              ApiErrorResponseBuilder.create(ErrorCode.SCRC, 'You already have a course scheduled during the preferred time block')
+                .withLogger(this.logger)
+                .build()
+            );
+          }
         }
       }
     }
@@ -236,8 +270,8 @@ export class ScheduleChangesService {
     const req = await this.prisma.scheduleChangeRequest.create({
       data: {
         studentId: student.id,
-        schoolYearId: currentSchoolYear.id,
-        termId: currentTerm.id,
+        academicCycleId: currentAcademicCycle.id,
+        requestType: dto.requestType,
         currentCourseSectionId: dto.currentCourseSectionId,
         requestedCourseSectionId: dto.requestedCourseSectionId,
         preferredTimeBlockId: dto.preferredTimeBlockId,
@@ -247,11 +281,13 @@ export class ScheduleChangesService {
       },
     });
 
-    // Check course rules for conflicts
-    const courseRules = await this.prisma.courseRule.findMany({
-      where: {
-        courseId: requestedCourseSection.courseId,
-      },
+    // Check course rules for conflicts (only for ADD_COURSE and CHANGE_SECTION)
+    let courseRules = [];
+    if (requestedCourseSection) {
+      courseRules = await this.prisma.courseRule.findMany({
+        where: {
+          courseId: requestedCourseSection.courseId,
+        },
       include: {
         course: {
           select: {
@@ -269,6 +305,7 @@ export class ScheduleChangesService {
         },
       },
     });
+    }
 
     if (courseRules.length > 0) {
       const unsatisfiedRules: CourseRule[] = [];
@@ -287,8 +324,8 @@ export class ScheduleChangesService {
             //Save it to course conflict table
             await this.prisma.courseConflict.create({
               data: {
-                courseSectionId1: dto.currentCourseSectionId,
-                courseSectionId2: dto.requestedCourseSectionId,
+                courseSectionId1: dto.currentCourseSectionId || '',
+                courseSectionId2: dto.requestedCourseSectionId || '',
                 conflictType: this.mapRuleTypeToConflictType(rule.type),
                 isResolvable: rule.isOverridable,
                 resolutionNotes: rule.description,
@@ -420,7 +457,8 @@ export class ScheduleChangesService {
 
     let updateData: any = { status: dto.status, resolutionNotes: dto.resolutionNotes, reviewedById: user.id };
 
-    if (([RequestStatus.APPROVED, RequestStatus.COMPLETED] as RequestStatus[]).includes(dto.status) && dto.newCourseSectionId) {
+    // Handle different request types when approved/completed
+    if (([RequestStatus.APPROVED, RequestStatus.COMPLETED] as RequestStatus[]).includes(dto.status)) {
       await this.prisma.$transaction(async tx => {
         // Get the student's schedule first
         const studentSchedule = await tx.schedule.findUnique({
@@ -431,44 +469,142 @@ export class ScheduleChangesService {
           throw new NotFoundException('Student schedule not found');
         }
 
-        await tx.courseSection.update({ 
-          where: { id: req.currentCourseSectionId }, 
-          data: { currentEnrollment: { decrement: 1 } } 
-        });
-        
-        await tx.courseSection.update({ 
-          where: { id: dto.newCourseSectionId }, 
-          data: { currentEnrollment: { increment: 1 } } 
-        });
+        if (req.requestType === RequestType.ADD_COURSE) {
+          // For ADD_COURSE requests, add the new course section
+          if (!req.requestedCourseSectionId) {
+            throw new BadRequestException('Requested course section ID is required for ADD_COURSE requests');
+          }
 
-        // First delete the existing schedule course section
-        await tx.scheduleCourseSection.delete({
-          where: {
-            scheduleId_courseSectionId: {
-              scheduleId: studentSchedule.id,
-              courseSectionId: req.currentCourseSectionId,
+          // Check if course section exists and has space
+          const courseSection = await tx.courseSection.findUnique({
+            where: { id: req.requestedCourseSectionId }
+          });
+
+          if (!courseSection) {
+            throw new NotFoundException('Requested course section not found');
+          }
+
+          if (courseSection.currentEnrollment >= courseSection.maxEnrollment) {
+            throw new ConflictException('Course section is at maximum enrollment');
+          }
+
+          // Increment enrollment for the new course section
+          await tx.courseSection.update({ 
+            where: { id: req.requestedCourseSectionId }, 
+            data: { currentEnrollment: { increment: 1 } } 
+          });
+
+          // Add the new course section to student's schedule
+          await tx.scheduleCourseSection.create({
+            data: {
+              schedule: { connect: { id: studentSchedule.id } },
+              courseSection: { connect: { id: req.requestedCourseSectionId } },
             },
-          },
-        });
+          });
 
-        // Then create the new schedule course section
-        await tx.scheduleCourseSection.create({
-          data: {
-            schedule: { connect: { id: studentSchedule.id } },
-            courseSection: { connect: { id: dto.newCourseSectionId } },
-          },
-        });
+          // Create action record
+          await tx.scheduleChangeAction.create({
+            data: {
+              requestId: req.id,
+              addedCourseSectionId: req.requestedCourseSectionId,
+              actionById: user.id,
+              notes: 'Course added to schedule',
+            },
+          });
 
-        await tx.scheduleChangeAction.create({
-          data: {
-            requestId: req.id,
-            removedCourseSectionId: req.currentCourseSectionId,
-            addedCourseSectionId: dto.newCourseSectionId,
-            actionById: user.id,
-            notes: 'Schedule change completed',
-          },
-        });
+        } else if (req.requestType === RequestType.DROP_COURSE) {
+          // For DROP_COURSE requests, remove the current course section
+          if (!req.currentCourseSectionId) {
+            throw new BadRequestException('Current course section ID is required for DROP_COURSE requests');
+          }
 
+          // Decrement enrollment for the current course section
+          await tx.courseSection.update({ 
+            where: { id: req.currentCourseSectionId }, 
+            data: { currentEnrollment: { decrement: 1 } } 
+          });
+
+          // Remove the course section from student's schedule
+          await tx.scheduleCourseSection.delete({
+            where: {
+              scheduleId_courseSectionId: {
+                scheduleId: studentSchedule.id,
+                courseSectionId: req.currentCourseSectionId,
+              },
+            },
+          });
+
+          // Create action record
+          await tx.scheduleChangeAction.create({
+            data: {
+              requestId: req.id,
+              removedCourseSectionId: req.currentCourseSectionId,
+              actionById: user.id,
+              notes: 'Course dropped from schedule',
+            },
+          });
+
+        } else if (req.requestType === RequestType.CHANGE_SECTION) {
+          // For CHANGE_SECTION requests, replace current with new section
+          if (!req.currentCourseSectionId || !req.requestedCourseSectionId) {
+            throw new BadRequestException('Both current and requested course section IDs are required for CHANGE_SECTION requests');
+          }
+
+          // Check if new course section exists and has space
+          const newCourseSection = await tx.courseSection.findUnique({
+            where: { id: req.requestedCourseSectionId }
+          });
+
+          if (!newCourseSection) {
+            throw new NotFoundException('Requested course section not found');
+          }
+
+          if (newCourseSection.currentEnrollment >= newCourseSection.maxEnrollment) {
+            throw new ConflictException('Requested course section is at maximum enrollment');
+          }
+
+          // Update enrollments
+          await tx.courseSection.update({ 
+            where: { id: req.currentCourseSectionId }, 
+            data: { currentEnrollment: { decrement: 1 } } 
+          });
+          
+          await tx.courseSection.update({ 
+            where: { id: req.requestedCourseSectionId }, 
+            data: { currentEnrollment: { increment: 1 } } 
+          });
+
+          // Remove current course section from schedule
+          await tx.scheduleCourseSection.delete({
+            where: {
+              scheduleId_courseSectionId: {
+                scheduleId: studentSchedule.id,
+                courseSectionId: req.currentCourseSectionId,
+              },
+            },
+          });
+
+          // Add new course section to schedule
+          await tx.scheduleCourseSection.create({
+            data: {
+              schedule: { connect: { id: studentSchedule.id } },
+              courseSection: { connect: { id: req.requestedCourseSectionId } },
+            },
+          });
+
+          // Create action record
+          await tx.scheduleChangeAction.create({
+            data: {
+              requestId: req.id,
+              removedCourseSectionId: req.currentCourseSectionId,
+              addedCourseSectionId: req.requestedCourseSectionId,
+              actionById: user.id,
+              notes: 'Course section changed',
+            },
+          });
+        }
+
+        // Clean up waitlist entries
         await tx.courseWaitlist.deleteMany({ 
           where: { 
             studentId: req.studentId, 
@@ -479,8 +615,14 @@ export class ScheduleChangesService {
 
       if (dto.status === RequestStatus.APPROVED) updateData.status = RequestStatus.COMPLETED;
     } else if (dto.status === RequestStatus.APPROVED) {
-      const avail = await this.findAvailableSections(req.requestedCourseSection.course.id, req.studentId, req.preferredTimeBlockId);
-      if (!avail.length) await this.addToWaitlist(req);
+      // Handle approval without immediate completion (e.g., add to waitlist)
+      if (req.requestType === RequestType.ADD_COURSE && req.requestedCourseSection) {
+        const avail = await this.findAvailableSections(req.requestedCourseSection.course.id, req.studentId, req.preferredTimeBlockId);
+        if (!avail.length) await this.addToWaitlist(req);
+      } else if (req.requestType === RequestType.CHANGE_SECTION && req.requestedCourseSection) {
+        const avail = await this.findAvailableSections(req.requestedCourseSection.course.id, req.studentId, req.preferredTimeBlockId);
+        if (!avail.length) await this.addToWaitlist(req);
+      }
     }
 
     await this.notificationsService.createNotification({

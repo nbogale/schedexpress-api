@@ -371,6 +371,7 @@ model AcademicCycle {
   courseSections   CourseSection[]
   grades           StudentGrade[]
   schoolYearGrades StudentGrade[]       @relation("SchoolYearGrades")
+  scheduleChangeRequests ScheduleChangeRequest[]
 
   @@index([parentId])
   @@index([cycleType])
@@ -387,7 +388,6 @@ model SchoolYear {
   createdAt      DateTime                @default(now()) @map("created_at")
   updatedAt      DateTime                @updatedAt @map("updated_at")
   schedules      Schedule[]
-  changeRequests ScheduleChangeRequest[]
   courseHistory  StudentCourseHistory[]
   terms          Term[]
 
@@ -404,7 +404,6 @@ model Term {
   createdAt      DateTime                @default(now()) @map("created_at")
   updatedAt      DateTime                @updatedAt @map("updated_at")
   schedules      Schedule[]
-  changeRequests ScheduleChangeRequest[]
   courseHistory  StudentCourseHistory[]
   schoolYear     SchoolYear              @relation(fields: [schoolYearId], references: [id])
 
@@ -557,9 +556,9 @@ model Teacher {
 model ScheduleChangeRequest {
   id                       String                 @id @default(cuid())
   studentId                String                 @map("student_id")
-  schoolYearId             String                 @map("school_year_id")
-  termId                   String                 @map("term_id")
-  currentCourseSectionId   String                 @map("current_course_section_id")
+  academicCycleId          String                 @map("academic_cycle_id")
+  requestType              RequestType            @map("request_type")
+  currentCourseSectionId   String?                @map("current_course_section_id")
   preferredTimeBlockId     String?                @map("preferred_time_block_id")
   reason                   String
   status                   RequestStatus          @default(PENDING)
@@ -568,20 +567,20 @@ model ScheduleChangeRequest {
   resolutionNotes          String?                @map("resolution_notes")
   createdAt                DateTime               @default(now()) @map("created_at")
   updatedAt                DateTime               @updatedAt @map("updated_at")
-  requestedCourseSectionId String                 @map("requested_course_section_id")
+  requestedCourseSectionId String?                @map("requested_course_section_id")
   courseConflicts          CourseConflict[]
   waitlist                 CourseWaitlist[]
   actions                  ScheduleChangeAction[]
-  currentCourseSection     CourseSection          @relation("CurrentSection", fields: [currentCourseSectionId], references: [id])
+  currentCourseSection     CourseSection?         @relation("CurrentSection", fields: [currentCourseSectionId], references: [id])
   preferredTimeBlock       TimeBlock?             @relation(fields: [preferredTimeBlockId], references: [id])
-  requestedCourseSection   CourseSection          @relation("RequestedSection", fields: [requestedCourseSectionId], references: [id])
+  requestedCourseSection   CourseSection?         @relation("RequestedSection", fields: [requestedCourseSectionId], references: [id])
   reviewer                 User?                  @relation("RequestReviewer", fields: [reviewedById], references: [id])
-  schoolYear               SchoolYear             @relation(fields: [schoolYearId], references: [id])
   student                  Student                @relation(fields: [studentId], references: [id])
-  term                     Term                   @relation(fields: [termId], references: [id])
+  academicCycle            AcademicCycle          @relation(fields: [academicCycleId], references: [id])
 
   @@index([studentId])
   @@index([status])
+  @@index([academicCycleId])
   @@map("schedule_change_request")
 }
 
@@ -804,6 +803,14 @@ enum RequestStatus {
   DENIED
 
   @@map("request_status")
+}
+
+enum RequestType {
+  ADD_COURSE
+  DROP_COURSE
+  CHANGE_SECTION
+
+  @@map("request_type")
 }
 
 enum RequestPriority {
