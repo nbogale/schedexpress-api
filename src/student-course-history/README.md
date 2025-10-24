@@ -17,7 +17,7 @@ This module provides API endpoints for managing student course history records, 
 
 - `GET /student-course-history/student/:studentId` - Get all course history records for a specific student
 - `GET /student-course-history/course/:courseId` - Get all course history records for a specific course
-- `GET /student-course-history/school-year/:schoolYearId` - Get all course history records for a specific school year
+- `GET /student-course-history/academic-cycle/:academicCycleId` - Get all course history records for a specific accademic cycle
 - `GET /student-course-history/term/:termId` - Get all course history records for a specific term
 
 ### Specialized Endpoints

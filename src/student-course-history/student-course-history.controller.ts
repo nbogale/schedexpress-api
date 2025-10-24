@@ -83,12 +83,12 @@ export class StudentCourseHistoryController {
     return this.studentCourseHistoryService.findByCourse(courseId);
   }
 
-  @Get('school-year/:schoolYearId')
-  @ApiOperation({ summary: 'Get all course history records for a specific school year' })
-  @ApiParam({ name: 'schoolYearId', description: 'School Year ID' })
-  @ApiResponse({ status: 200, description: 'List of course history records for the school year' })
-  findBySchoolYear(@Param('schoolYearId') schoolYearId: string) {
-    return this.studentCourseHistoryService.findBySchoolYear(schoolYearId);
+  @Get('academic-cycle/:academicCycleId')
+  @ApiOperation({ summary: 'Get all course history records for a specific academic cycle' })
+  @ApiParam({ name: 'academicCycleId', description: 'Academic Cycle ID' })
+  @ApiResponse({ status: 200, description: 'List of course history records for the academic cycle' })
+  findByAcademicCycle(@Param('academicCycleId') academicCycleId: string) {
+    return this.studentCourseHistoryService.findByAcademicCycle(academicCycleId);
   }
 
   @Get('term/:termId')

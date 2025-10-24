@@ -31,7 +31,10 @@ async function main() {
     prisma.room.deleteMany(),
     prisma.gradeLevel.deleteMany(),
     prisma.courseLevel.deleteMany(),
-    prisma.department.deleteMany(),    prisma.userStatusHistory.deleteMany(),
+    prisma.department.deleteMany(),
+    prisma.term.deleteMany(),
+    prisma.schoolYear.deleteMany(),
+    prisma.userStatusHistory.deleteMany(),
     prisma.userAccountHistory.deleteMany(),
     prisma.userAccount.deleteMany(),
     prisma.user.deleteMany(),
@@ -421,7 +424,24 @@ async function main() {
 
   console.log('📖 Created courses');
 
-// Create Academic Cycle Config
+  // Create School Year and Terms
+  const schoolYear = await prisma.schoolYear.create({
+    data: {
+      name: '2025-2026',
+      startDate: new Date('2025-08-15'),
+      endDate: new Date('2026-06-15'),
+      isCurrent: true
+    }
+  });
+
+  const terms = await Promise.all([
+    prisma.term.create({ data: { name: 'Fall 2025', startDate: new Date('2025-08-15'), endDate: new Date('2025-12-20'), schoolYearId: schoolYear.id, isCurrent: true } }),
+    prisma.term.create({ data: { name: 'Spring 2026', startDate: new Date('2026-01-15'), endDate: new Date('2026-06-15'), schoolYearId: schoolYear.id, isCurrent: false } })
+  ]);
+
+  console.log('📅 Created school year and terms');
+
+  // Create Academic Cycle Config
   const academicCycleConfig = await prisma.academicCycleConfig.create({
     data: {
       name: 'High School Configuration',
@@ -749,26 +769,26 @@ async function main() {
   const courseSections = await Promise.all([
     // Math sections (multiple sections per course to handle 500 students)
     // Algebra I - 6 sections (125 Grade 9 students)
-    prisma.courseSection.create({ data: { sectionNumber: 'A', courseId: courses[0].id, teacherId: teachers[0].id, roomId: rooms[0].id, timeBlockId: timeBlocks[0].id, maxEnrollment: 25, currentEnrollment: 25, academicCycleId: currentAcademicCycle.id } }),
-    prisma.courseSection.create({ data: { sectionNumber: 'B', courseId: courses[0].id, teacherId: teachers[1].id, roomId: rooms[1].id, timeBlockId: timeBlocks[1].id, maxEnrollment: 25, currentEnrollment: 24, academicCycleId: currentAcademicCycle.id } }),
-    prisma.courseSection.create({ data: { sectionNumber: 'C', courseId: courses[0].id, teacherId: teachers[2].id, roomId: rooms[2].id, timeBlockId: timeBlocks[2].id, maxEnrollment: 25, currentEnrollment: 22, academicCycleId: currentAcademicCycle.id } }),
-    prisma.courseSection.create({ data: { sectionNumber: 'D', courseId: courses[0].id, teacherId: teachers[3].id, roomId: rooms[3].id, timeBlockId: timeBlocks[3].id, maxEnrollment: 25, currentEnrollment: 24, academicCycleId: currentAcademicCycle.id } }),
-    prisma.courseSection.create({ data: { sectionNumber: 'E', courseId: courses[0].id, teacherId: teachers[4].id, roomId: rooms[4].id, timeBlockId: timeBlocks[4].id, maxEnrollment: 25, currentEnrollment: 22, academicCycleId: currentAcademicCycle.id } }),
-    prisma.courseSection.create({ data: { sectionNumber: 'F', courseId: courses[0].id, teacherId: teachers[5].id, roomId: rooms[5].id, timeBlockId: timeBlocks[5].id, maxEnrollment: 25, currentEnrollment: 20, academicCycleId: currentAcademicCycle.id } }),
+    prisma.courseSection.create({ data: { sectionNumber: 'A', courseId: courses[0].id, teacherId: teachers[0].id, roomId: rooms[0].id, timeBlockId: timeBlocks[0].id, maxEnrollment: 30, currentEnrollment: 25, academicCycleId: currentAcademicCycle.id } }),
+    prisma.courseSection.create({ data: { sectionNumber: 'B', courseId: courses[0].id, teacherId: teachers[1].id, roomId: rooms[1].id, timeBlockId: timeBlocks[1].id, maxEnrollment: 30, currentEnrollment: 28, academicCycleId: currentAcademicCycle.id } }),
+    prisma.courseSection.create({ data: { sectionNumber: 'C', courseId: courses[0].id, teacherId: teachers[2].id, roomId: rooms[2].id, timeBlockId: timeBlocks[2].id, maxEnrollment: 30, currentEnrollment: 26, academicCycleId: currentAcademicCycle.id } }),
+    prisma.courseSection.create({ data: { sectionNumber: 'D', courseId: courses[0].id, teacherId: teachers[3].id, roomId: rooms[3].id, timeBlockId: timeBlocks[3].id, maxEnrollment: 30, currentEnrollment: 24, academicCycleId: currentAcademicCycle.id } }),
+    prisma.courseSection.create({ data: { sectionNumber: 'E', courseId: courses[0].id, teacherId: teachers[4].id, roomId: rooms[4].id, timeBlockId: timeBlocks[4].id, maxEnrollment: 30, currentEnrollment: 22, academicCycleId: currentAcademicCycle.id } }),
+    prisma.courseSection.create({ data: { sectionNumber: 'F', courseId: courses[0].id, teacherId: teachers[5].id, roomId: rooms[5].id, timeBlockId: timeBlocks[5].id, maxEnrollment: 30, currentEnrollment: 20, academicCycleId: currentAcademicCycle.id } }),
     
     // Geometry - 5 sections (125 Grade 10 students)
-    prisma.courseSection.create({ data: { sectionNumber: 'A', courseId: courses[1].id, teacherId: teachers[6].id, roomId: rooms[6].id, timeBlockId: timeBlocks[0].id, maxEnrollment: 25, currentEnrollment: 25, academicCycleId: currentAcademicCycle.id } }),
-    prisma.courseSection.create({ data: { sectionNumber: 'B', courseId: courses[1].id, teacherId: teachers[7].id, roomId: rooms[7].id, timeBlockId: timeBlocks[1].id, maxEnrollment: 25, currentEnrollment: 24, academicCycleId: currentAcademicCycle.id } }),
-    prisma.courseSection.create({ data: { sectionNumber: 'C', courseId: courses[1].id, teacherId: teachers[8].id, roomId: rooms[8].id, timeBlockId: timeBlocks[2].id, maxEnrollment: 25, currentEnrollment: 22, academicCycleId: currentAcademicCycle.id } }),
-    prisma.courseSection.create({ data: { sectionNumber: 'D', courseId: courses[1].id, teacherId: teachers[9].id, roomId: rooms[9].id, timeBlockId: timeBlocks[3].id, maxEnrollment: 25, currentEnrollment: 24, academicCycleId: currentAcademicCycle.id } }),
-    prisma.courseSection.create({ data: { sectionNumber: 'E', courseId: courses[1].id, teacherId: teachers[10].id, roomId: rooms[10].id, timeBlockId: timeBlocks[4].id, maxEnrollment: 25, currentEnrollment: 22, academicCycleId: currentAcademicCycle.id } }),
+    prisma.courseSection.create({ data: { sectionNumber: 'A', courseId: courses[1].id, teacherId: teachers[6].id, roomId: rooms[6].id, timeBlockId: timeBlocks[0].id, maxEnrollment: 30, currentEnrollment: 25, academicCycleId: currentAcademicCycle.id } }),
+    prisma.courseSection.create({ data: { sectionNumber: 'B', courseId: courses[1].id, teacherId: teachers[7].id, roomId: rooms[7].id, timeBlockId: timeBlocks[1].id, maxEnrollment: 30, currentEnrollment: 28, academicCycleId: currentAcademicCycle.id } }),
+    prisma.courseSection.create({ data: { sectionNumber: 'C', courseId: courses[1].id, teacherId: teachers[8].id, roomId: rooms[8].id, timeBlockId: timeBlocks[2].id, maxEnrollment: 30, currentEnrollment: 26, academicCycleId: currentAcademicCycle.id } }),
+    prisma.courseSection.create({ data: { sectionNumber: 'D', courseId: courses[1].id, teacherId: teachers[9].id, roomId: rooms[9].id, timeBlockId: timeBlocks[3].id, maxEnrollment: 30, currentEnrollment: 24, academicCycleId: currentAcademicCycle.id } }),
+    prisma.courseSection.create({ data: { sectionNumber: 'E', courseId: courses[1].id, teacherId: teachers[10].id, roomId: rooms[10].id, timeBlockId: timeBlocks[4].id, maxEnrollment: 30, currentEnrollment: 22, academicCycleId: currentAcademicCycle.id } }),
     
     // Algebra II - 5 sections (125 Grade 11 students)
-    prisma.courseSection.create({ data: { sectionNumber: 'A', courseId: courses[2].id, teacherId: teachers[11].id, roomId: rooms[11].id, timeBlockId: timeBlocks[0].id, maxEnrollment: 25, currentEnrollment: 25, academicCycleId: currentAcademicCycle.id } }),
-    prisma.courseSection.create({ data: { sectionNumber: 'B', courseId: courses[2].id, teacherId: teachers[12].id, roomId: rooms[12].id, timeBlockId: timeBlocks[1].id, maxEnrollment: 25, currentEnrollment: 24, academicCycleId: currentAcademicCycle.id } }),
-    prisma.courseSection.create({ data: { sectionNumber: 'C', courseId: courses[2].id, teacherId: teachers[13].id, roomId: rooms[13].id, timeBlockId: timeBlocks[2].id, maxEnrollment: 25, currentEnrollment: 22, academicCycleId: currentAcademicCycle.id } }),
-    prisma.courseSection.create({ data: { sectionNumber: 'D', courseId: courses[2].id, teacherId: teachers[14].id, roomId: rooms[14].id, timeBlockId: timeBlocks[3].id, maxEnrollment: 25, currentEnrollment: 24, academicCycleId: currentAcademicCycle.id } }),
-    prisma.courseSection.create({ data: { sectionNumber: 'E', courseId: courses[2].id, teacherId: teachers[15].id, roomId: rooms[15].id, timeBlockId: timeBlocks[4].id, maxEnrollment: 25, currentEnrollment: 22, academicCycleId: currentAcademicCycle.id } }),
+    prisma.courseSection.create({ data: { sectionNumber: 'A', courseId: courses[2].id, teacherId: teachers[11].id, roomId: rooms[11].id, timeBlockId: timeBlocks[0].id, maxEnrollment: 30, currentEnrollment: 25, academicCycleId: currentAcademicCycle.id } }),
+    prisma.courseSection.create({ data: { sectionNumber: 'B', courseId: courses[2].id, teacherId: teachers[12].id, roomId: rooms[12].id, timeBlockId: timeBlocks[1].id, maxEnrollment: 30, currentEnrollment: 28, academicCycleId: currentAcademicCycle.id } }),
+    prisma.courseSection.create({ data: { sectionNumber: 'C', courseId: courses[2].id, teacherId: teachers[13].id, roomId: rooms[13].id, timeBlockId: timeBlocks[2].id, maxEnrollment: 30, currentEnrollment: 26, academicCycleId: currentAcademicCycle.id } }),
+    prisma.courseSection.create({ data: { sectionNumber: 'D', courseId: courses[2].id, teacherId: teachers[14].id, roomId: rooms[14].id, timeBlockId: timeBlocks[3].id, maxEnrollment: 30, currentEnrollment: 24, academicCycleId: currentAcademicCycle.id } }),
+    prisma.courseSection.create({ data: { sectionNumber: 'E', courseId: courses[2].id, teacherId: teachers[15].id, roomId: rooms[15].id, timeBlockId: timeBlocks[4].id, maxEnrollment: 30, currentEnrollment: 22, academicCycleId: currentAcademicCycle.id } }),
     
     // Pre-Calculus - 3 sections (75 Grade 12 students)
     prisma.courseSection.create({ data: { sectionNumber: 'A', courseId: courses[3].id, teacherId: teachers[16].id, roomId: rooms[16].id, timeBlockId: timeBlocks[0].id, maxEnrollment: 25, currentEnrollment: 20, academicCycleId: currentAcademicCycle.id } }),
@@ -781,36 +801,36 @@ async function main() {
     
     // English sections (multiple sections per course)
     // English 9 - 5 sections (125 Grade 9 students)
-    prisma.courseSection.create({ data: { sectionNumber: 'A', courseId: courses[5].id, teacherId: teachers[21].id, roomId: rooms[21].id, timeBlockId: timeBlocks[0].id, maxEnrollment: 25, currentEnrollment: 25, academicCycleId: currentAcademicCycle.id } }),
-    prisma.courseSection.create({ data: { sectionNumber: 'B', courseId: courses[5].id, teacherId: teachers[22].id, roomId: rooms[22].id, timeBlockId: timeBlocks[1].id, maxEnrollment: 25, currentEnrollment: 24, academicCycleId: currentAcademicCycle.id } }),
-    prisma.courseSection.create({ data: { sectionNumber: 'C', courseId: courses[5].id, teacherId: teachers[23].id, roomId: rooms[23].id, timeBlockId: timeBlocks[2].id, maxEnrollment: 25, currentEnrollment: 22, academicCycleId: currentAcademicCycle.id } }),
-    prisma.courseSection.create({ data: { sectionNumber: 'D', courseId: courses[5].id, teacherId: teachers[24].id, roomId: rooms[24].id, timeBlockId: timeBlocks[3].id, maxEnrollment: 25, currentEnrollment: 24, academicCycleId: currentAcademicCycle.id } }),
-    prisma.courseSection.create({ data: { sectionNumber: 'E', courseId: courses[5].id, teacherId: teachers[0].id, roomId: rooms[25].id, timeBlockId: timeBlocks[4].id, maxEnrollment: 25, currentEnrollment: 22, academicCycleId: currentAcademicCycle.id } }),
+    prisma.courseSection.create({ data: { sectionNumber: 'A', courseId: courses[5].id, teacherId: teachers[21].id, roomId: rooms[21].id, timeBlockId: timeBlocks[0].id, maxEnrollment: 30, currentEnrollment: 25, academicCycleId: currentAcademicCycle.id } }),
+    prisma.courseSection.create({ data: { sectionNumber: 'B', courseId: courses[5].id, teacherId: teachers[22].id, roomId: rooms[22].id, timeBlockId: timeBlocks[1].id, maxEnrollment: 30, currentEnrollment: 28, academicCycleId: currentAcademicCycle.id } }),
+    prisma.courseSection.create({ data: { sectionNumber: 'C', courseId: courses[5].id, teacherId: teachers[23].id, roomId: rooms[23].id, timeBlockId: timeBlocks[2].id, maxEnrollment: 30, currentEnrollment: 26, academicCycleId: currentAcademicCycle.id } }),
+    prisma.courseSection.create({ data: { sectionNumber: 'D', courseId: courses[5].id, teacherId: teachers[24].id, roomId: rooms[24].id, timeBlockId: timeBlocks[3].id, maxEnrollment: 30, currentEnrollment: 24, academicCycleId: currentAcademicCycle.id } }),
+    prisma.courseSection.create({ data: { sectionNumber: 'E', courseId: courses[5].id, teacherId: teachers[0].id, roomId: rooms[25].id, timeBlockId: timeBlocks[4].id, maxEnrollment: 30, currentEnrollment: 22, academicCycleId: currentAcademicCycle.id } }),
     
     // English 10 - 5 sections (125 Grade 10 students)
-    prisma.courseSection.create({ data: { sectionNumber: 'A', courseId: courses[6].id, teacherId: teachers[1].id, roomId: rooms[26].id, timeBlockId: timeBlocks[0].id, maxEnrollment: 25, currentEnrollment: 25, academicCycleId: currentAcademicCycle.id } }),
-    prisma.courseSection.create({ data: { sectionNumber: 'B', courseId: courses[6].id, teacherId: teachers[2].id, roomId: rooms[27].id, timeBlockId: timeBlocks[1].id, maxEnrollment: 25, currentEnrollment: 24, academicCycleId: currentAcademicCycle.id } }),
-    prisma.courseSection.create({ data: { sectionNumber: 'C', courseId: courses[6].id, teacherId: teachers[3].id, roomId: rooms[28].id, timeBlockId: timeBlocks[2].id, maxEnrollment: 25, currentEnrollment: 22, academicCycleId: currentAcademicCycle.id } }),
-    prisma.courseSection.create({ data: { sectionNumber: 'D', courseId: courses[6].id, teacherId: teachers[4].id, roomId: rooms[29].id, timeBlockId: timeBlocks[3].id, maxEnrollment: 25, currentEnrollment: 24, academicCycleId: currentAcademicCycle.id } }),
-    prisma.courseSection.create({ data: { sectionNumber: 'E', courseId: courses[6].id, teacherId: teachers[5].id, roomId: rooms[30].id, timeBlockId: timeBlocks[4].id, maxEnrollment: 25, currentEnrollment: 22, academicCycleId: currentAcademicCycle.id } }),
+    prisma.courseSection.create({ data: { sectionNumber: 'A', courseId: courses[6].id, teacherId: teachers[1].id, roomId: rooms[26].id, timeBlockId: timeBlocks[0].id, maxEnrollment: 30, currentEnrollment: 25, academicCycleId: currentAcademicCycle.id } }),
+    prisma.courseSection.create({ data: { sectionNumber: 'B', courseId: courses[6].id, teacherId: teachers[2].id, roomId: rooms[27].id, timeBlockId: timeBlocks[1].id, maxEnrollment: 30, currentEnrollment: 28, academicCycleId: currentAcademicCycle.id } }),
+    prisma.courseSection.create({ data: { sectionNumber: 'C', courseId: courses[6].id, teacherId: teachers[3].id, roomId: rooms[28].id, timeBlockId: timeBlocks[2].id, maxEnrollment: 30, currentEnrollment: 26, academicCycleId: currentAcademicCycle.id } }),
+    prisma.courseSection.create({ data: { sectionNumber: 'D', courseId: courses[6].id, teacherId: teachers[4].id, roomId: rooms[29].id, timeBlockId: timeBlocks[3].id, maxEnrollment: 30, currentEnrollment: 24, academicCycleId: currentAcademicCycle.id } }),
+    prisma.courseSection.create({ data: { sectionNumber: 'E', courseId: courses[6].id, teacherId: teachers[5].id, roomId: rooms[30].id, timeBlockId: timeBlocks[4].id, maxEnrollment: 30, currentEnrollment: 22, academicCycleId: currentAcademicCycle.id } }),
     
     // English 11 - 5 sections (125 Grade 11 students)
-    prisma.courseSection.create({ data: { sectionNumber: 'A', courseId: courses[7].id, teacherId: teachers[6].id, roomId: rooms[31].id, timeBlockId: timeBlocks[0].id, maxEnrollment: 25, currentEnrollment: 25, academicCycleId: currentAcademicCycle.id } }),
-    prisma.courseSection.create({ data: { sectionNumber: 'B', courseId: courses[7].id, teacherId: teachers[7].id, roomId: rooms[32].id, timeBlockId: timeBlocks[1].id, maxEnrollment: 25, currentEnrollment: 24, academicCycleId: currentAcademicCycle.id } }),
-    prisma.courseSection.create({ data: { sectionNumber: 'C', courseId: courses[7].id, teacherId: teachers[8].id, roomId: rooms[33].id, timeBlockId: timeBlocks[2].id, maxEnrollment: 25, currentEnrollment: 22, academicCycleId: currentAcademicCycle.id } }),
-    prisma.courseSection.create({ data: { sectionNumber: 'D', courseId: courses[7].id, teacherId: teachers[9].id, roomId: rooms[34].id, timeBlockId: timeBlocks[3].id, maxEnrollment: 25, currentEnrollment: 24, academicCycleId: currentAcademicCycle.id } }),
-    prisma.courseSection.create({ data: { sectionNumber: 'E', courseId: courses[7].id, teacherId: teachers[10].id, roomId: rooms[35].id, timeBlockId: timeBlocks[4].id, maxEnrollment: 25, currentEnrollment: 22, academicCycleId: currentAcademicCycle.id } }),
+    prisma.courseSection.create({ data: { sectionNumber: 'A', courseId: courses[7].id, teacherId: teachers[6].id, roomId: rooms[31].id, timeBlockId: timeBlocks[0].id, maxEnrollment: 30, currentEnrollment: 25, academicCycleId: currentAcademicCycle.id } }),
+    prisma.courseSection.create({ data: { sectionNumber: 'B', courseId: courses[7].id, teacherId: teachers[7].id, roomId: rooms[32].id, timeBlockId: timeBlocks[1].id, maxEnrollment: 30, currentEnrollment: 28, academicCycleId: currentAcademicCycle.id } }),
+    prisma.courseSection.create({ data: { sectionNumber: 'C', courseId: courses[7].id, teacherId: teachers[8].id, roomId: rooms[33].id, timeBlockId: timeBlocks[2].id, maxEnrollment: 30, currentEnrollment: 26, academicCycleId: currentAcademicCycle.id } }),
+    prisma.courseSection.create({ data: { sectionNumber: 'D', courseId: courses[7].id, teacherId: teachers[9].id, roomId: rooms[34].id, timeBlockId: timeBlocks[3].id, maxEnrollment: 30, currentEnrollment: 24, academicCycleId: currentAcademicCycle.id } }),
+    prisma.courseSection.create({ data: { sectionNumber: 'E', courseId: courses[7].id, teacherId: teachers[10].id, roomId: rooms[35].id, timeBlockId: timeBlocks[4].id, maxEnrollment: 30, currentEnrollment: 22, academicCycleId: currentAcademicCycle.id } }),
     
     // AP English Language - 2 sections (50 Grade 11 students)
     prisma.courseSection.create({ data: { sectionNumber: 'A', courseId: courses[8].id, teacherId: teachers[11].id, roomId: rooms[36].id, timeBlockId: timeBlocks[0].id, maxEnrollment: 25, currentEnrollment: 20, academicCycleId: currentAcademicCycle.id } }),
     prisma.courseSection.create({ data: { sectionNumber: 'B', courseId: courses[8].id, teacherId: teachers[12].id, roomId: rooms[37].id, timeBlockId: timeBlocks[1].id, maxEnrollment: 25, currentEnrollment: 18, academicCycleId: currentAcademicCycle.id } }),
     
     // English 12 - 5 sections (125 Grade 12 students)
-    prisma.courseSection.create({ data: { sectionNumber: 'A', courseId: courses[9].id, teacherId: teachers[13].id, roomId: rooms[38].id, timeBlockId: timeBlocks[0].id, maxEnrollment: 25, currentEnrollment: 25, academicCycleId: currentAcademicCycle.id } }),
-    prisma.courseSection.create({ data: { sectionNumber: 'B', courseId: courses[9].id, teacherId: teachers[14].id, roomId: rooms[39].id, timeBlockId: timeBlocks[1].id, maxEnrollment: 25, currentEnrollment: 24, academicCycleId: currentAcademicCycle.id } }),
-    prisma.courseSection.create({ data: { sectionNumber: 'C', courseId: courses[9].id, teacherId: teachers[15].id, roomId: rooms[40].id, timeBlockId: timeBlocks[2].id, maxEnrollment: 25, currentEnrollment: 22, academicCycleId: currentAcademicCycle.id } }),
-    prisma.courseSection.create({ data: { sectionNumber: 'D', courseId: courses[9].id, teacherId: teachers[16].id, roomId: rooms[41].id, timeBlockId: timeBlocks[3].id, maxEnrollment: 25, currentEnrollment: 24, academicCycleId: currentAcademicCycle.id } }),
-    prisma.courseSection.create({ data: { sectionNumber: 'E', courseId: courses[9].id, teacherId: teachers[17].id, roomId: rooms[42].id, timeBlockId: timeBlocks[4].id, maxEnrollment: 25, currentEnrollment: 22, academicCycleId: currentAcademicCycle.id } }),
+    prisma.courseSection.create({ data: { sectionNumber: 'A', courseId: courses[9].id, teacherId: teachers[13].id, roomId: rooms[38].id, timeBlockId: timeBlocks[0].id, maxEnrollment: 30, currentEnrollment: 25, academicCycleId: currentAcademicCycle.id } }),
+    prisma.courseSection.create({ data: { sectionNumber: 'B', courseId: courses[9].id, teacherId: teachers[14].id, roomId: rooms[39].id, timeBlockId: timeBlocks[1].id, maxEnrollment: 30, currentEnrollment: 28, academicCycleId: currentAcademicCycle.id } }),
+    prisma.courseSection.create({ data: { sectionNumber: 'C', courseId: courses[9].id, teacherId: teachers[15].id, roomId: rooms[40].id, timeBlockId: timeBlocks[2].id, maxEnrollment: 30, currentEnrollment: 26, academicCycleId: currentAcademicCycle.id } }),
+    prisma.courseSection.create({ data: { sectionNumber: 'D', courseId: courses[9].id, teacherId: teachers[16].id, roomId: rooms[41].id, timeBlockId: timeBlocks[3].id, maxEnrollment: 30, currentEnrollment: 24, academicCycleId: currentAcademicCycle.id } }),
+    prisma.courseSection.create({ data: { sectionNumber: 'E', courseId: courses[9].id, teacherId: teachers[17].id, roomId: rooms[42].id, timeBlockId: timeBlocks[4].id, maxEnrollment: 30, currentEnrollment: 22, academicCycleId: currentAcademicCycle.id } }),
     
     // Science sections (multiple sections per course)
     // Biology - 4 sections (100 Grade 10 students)
@@ -848,29 +868,29 @@ async function main() {
     
     // Social Studies sections (multiple sections per course)
     // World History - 4 sections (100 Grade 10 students)
-    prisma.courseSection.create({ data: { sectionNumber: 'A', courseId: courses[17].id, teacherId: teachers[12].id, roomId: rooms[14].id, timeBlockId: timeBlocks[0].id, maxEnrollment: 25, currentEnrollment: 25, academicCycleId: currentAcademicCycle.id } }),
-    prisma.courseSection.create({ data: { sectionNumber: 'B', courseId: courses[17].id, teacherId: teachers[13].id, roomId: rooms[15].id, timeBlockId: timeBlocks[1].id, maxEnrollment: 25, currentEnrollment: 24, academicCycleId: currentAcademicCycle.id } }),
-    prisma.courseSection.create({ data: { sectionNumber: 'C', courseId: courses[17].id, teacherId: teachers[14].id, roomId: rooms[16].id, timeBlockId: timeBlocks[2].id, maxEnrollment: 25, currentEnrollment: 22, academicCycleId: currentAcademicCycle.id } }),
-    prisma.courseSection.create({ data: { sectionNumber: 'D', courseId: courses[17].id, teacherId: teachers[15].id, roomId: rooms[17].id, timeBlockId: timeBlocks[3].id, maxEnrollment: 25, currentEnrollment: 24, academicCycleId: currentAcademicCycle.id } }),
+    prisma.courseSection.create({ data: { sectionNumber: 'A', courseId: courses[17].id, teacherId: teachers[12].id, roomId: rooms[14].id, timeBlockId: timeBlocks[0].id, maxEnrollment: 30, currentEnrollment: 25, academicCycleId: currentAcademicCycle.id } }),
+    prisma.courseSection.create({ data: { sectionNumber: 'B', courseId: courses[17].id, teacherId: teachers[13].id, roomId: rooms[15].id, timeBlockId: timeBlocks[1].id, maxEnrollment: 30, currentEnrollment: 28, academicCycleId: currentAcademicCycle.id } }),
+    prisma.courseSection.create({ data: { sectionNumber: 'C', courseId: courses[17].id, teacherId: teachers[14].id, roomId: rooms[16].id, timeBlockId: timeBlocks[2].id, maxEnrollment: 30, currentEnrollment: 26, academicCycleId: currentAcademicCycle.id } }),
+    prisma.courseSection.create({ data: { sectionNumber: 'D', courseId: courses[17].id, teacherId: teachers[15].id, roomId: rooms[17].id, timeBlockId: timeBlocks[3].id, maxEnrollment: 30, currentEnrollment: 24, academicCycleId: currentAcademicCycle.id } }),
     
     // US History - 4 sections (100 Grade 11 students)
-    prisma.courseSection.create({ data: { sectionNumber: 'A', courseId: courses[18].id, teacherId: teachers[16].id, roomId: rooms[18].id, timeBlockId: timeBlocks[0].id, maxEnrollment: 25, currentEnrollment: 25, academicCycleId: currentAcademicCycle.id } }),
-    prisma.courseSection.create({ data: { sectionNumber: 'B', courseId: courses[18].id, teacherId: teachers[17].id, roomId: rooms[19].id, timeBlockId: timeBlocks[1].id, maxEnrollment: 25, currentEnrollment: 24, academicCycleId: currentAcademicCycle.id } }),
-    prisma.courseSection.create({ data: { sectionNumber: 'C', courseId: courses[18].id, teacherId: teachers[18].id, roomId: rooms[20].id, timeBlockId: timeBlocks[2].id, maxEnrollment: 25, currentEnrollment: 22, academicCycleId: currentAcademicCycle.id } }),
-    prisma.courseSection.create({ data: { sectionNumber: 'D', courseId: courses[18].id, teacherId: teachers[19].id, roomId: rooms[21].id, timeBlockId: timeBlocks[3].id, maxEnrollment: 25, currentEnrollment: 24, academicCycleId: currentAcademicCycle.id } }),
+    prisma.courseSection.create({ data: { sectionNumber: 'A', courseId: courses[18].id, teacherId: teachers[16].id, roomId: rooms[18].id, timeBlockId: timeBlocks[0].id, maxEnrollment: 30, currentEnrollment: 25, academicCycleId: currentAcademicCycle.id } }),
+    prisma.courseSection.create({ data: { sectionNumber: 'B', courseId: courses[18].id, teacherId: teachers[17].id, roomId: rooms[19].id, timeBlockId: timeBlocks[1].id, maxEnrollment: 30, currentEnrollment: 28, academicCycleId: currentAcademicCycle.id } }),
+    prisma.courseSection.create({ data: { sectionNumber: 'C', courseId: courses[18].id, teacherId: teachers[18].id, roomId: rooms[20].id, timeBlockId: timeBlocks[2].id, maxEnrollment: 30, currentEnrollment: 26, academicCycleId: currentAcademicCycle.id } }),
+    prisma.courseSection.create({ data: { sectionNumber: 'D', courseId: courses[18].id, teacherId: teachers[19].id, roomId: rooms[21].id, timeBlockId: timeBlocks[3].id, maxEnrollment: 30, currentEnrollment: 24, academicCycleId: currentAcademicCycle.id } }),
     
     // AP US History - 2 sections (50 Grade 11 students)
     prisma.courseSection.create({ data: { sectionNumber: 'A', courseId: courses[19].id, teacherId: teachers[20].id, roomId: rooms[22].id, timeBlockId: timeBlocks[0].id, maxEnrollment: 25, currentEnrollment: 20, academicCycleId: currentAcademicCycle.id } }),
     prisma.courseSection.create({ data: { sectionNumber: 'B', courseId: courses[19].id, teacherId: teachers[21].id, roomId: rooms[23].id, timeBlockId: timeBlocks[1].id, maxEnrollment: 25, currentEnrollment: 18, academicCycleId: currentAcademicCycle.id } }),
     
     // Government - 3 sections (75 Grade 12 students)
-    prisma.courseSection.create({ data: { sectionNumber: 'A', courseId: courses[20].id, teacherId: teachers[22].id, roomId: rooms[24].id, timeBlockId: timeBlocks[0].id, maxEnrollment: 25, currentEnrollment: 25, academicCycleId: currentAcademicCycle.id } }),
-    prisma.courseSection.create({ data: { sectionNumber: 'B', courseId: courses[20].id, teacherId: teachers[23].id, roomId: rooms[25].id, timeBlockId: timeBlocks[1].id, maxEnrollment: 25, currentEnrollment: 24, academicCycleId: currentAcademicCycle.id } }),
-    prisma.courseSection.create({ data: { sectionNumber: 'C', courseId: courses[20].id, teacherId: teachers[24].id, roomId: rooms[26].id, timeBlockId: timeBlocks[2].id, maxEnrollment: 25, currentEnrollment: 22, academicCycleId: currentAcademicCycle.id } }),
+    prisma.courseSection.create({ data: { sectionNumber: 'A', courseId: courses[20].id, teacherId: teachers[22].id, roomId: rooms[24].id, timeBlockId: timeBlocks[0].id, maxEnrollment: 30, currentEnrollment: 25, academicCycleId: currentAcademicCycle.id } }),
+    prisma.courseSection.create({ data: { sectionNumber: 'B', courseId: courses[20].id, teacherId: teachers[23].id, roomId: rooms[25].id, timeBlockId: timeBlocks[1].id, maxEnrollment: 30, currentEnrollment: 28, academicCycleId: currentAcademicCycle.id } }),
+    prisma.courseSection.create({ data: { sectionNumber: 'C', courseId: courses[20].id, teacherId: teachers[24].id, roomId: rooms[26].id, timeBlockId: timeBlocks[2].id, maxEnrollment: 30, currentEnrollment: 26, academicCycleId: currentAcademicCycle.id } }),
     
     // Economics - 2 sections (50 Grade 12 students)
-    prisma.courseSection.create({ data: { sectionNumber: 'A', courseId: courses[21].id, teacherId: teachers[0].id, roomId: rooms[27].id, timeBlockId: timeBlocks[0].id, maxEnrollment: 25, currentEnrollment: 25, academicCycleId: currentAcademicCycle.id } }),
-    prisma.courseSection.create({ data: { sectionNumber: 'B', courseId: courses[21].id, teacherId: teachers[1].id, roomId: rooms[28].id, timeBlockId: timeBlocks[1].id, maxEnrollment: 25, currentEnrollment: 24, academicCycleId: currentAcademicCycle.id } }),
+    prisma.courseSection.create({ data: { sectionNumber: 'A', courseId: courses[21].id, teacherId: teachers[0].id, roomId: rooms[27].id, timeBlockId: timeBlocks[0].id, maxEnrollment: 30, currentEnrollment: 25, academicCycleId: currentAcademicCycle.id } }),
+    prisma.courseSection.create({ data: { sectionNumber: 'B', courseId: courses[21].id, teacherId: teachers[1].id, roomId: rooms[28].id, timeBlockId: timeBlocks[1].id, maxEnrollment: 30, currentEnrollment: 28, academicCycleId: currentAcademicCycle.id } }),
     
     // AP World History - 2 sections (50 Grade 11 students)
     prisma.courseSection.create({ data: { sectionNumber: 'A', courseId: courses[22].id, teacherId: teachers[2].id, roomId: rooms[29].id, timeBlockId: timeBlocks[0].id, maxEnrollment: 25, currentEnrollment: 20, academicCycleId: currentAcademicCycle.id } }),
@@ -901,108 +921,103 @@ async function main() {
     
     // Physical Education sections (multiple sections per course)
     // PE 9 - 5 sections (125 Grade 9 students)
-    prisma.courseSection.create({ data: { sectionNumber: 'A', courseId: courses[28].id, teacherId: teachers[16].id, roomId: rooms[7].id, timeBlockId: timeBlocks[0].id, maxEnrollment: 25, currentEnrollment: 25, academicCycleId: currentAcademicCycle.id } }),
-    prisma.courseSection.create({ data: { sectionNumber: 'B', courseId: courses[28].id, teacherId: teachers[17].id, roomId: rooms[8].id, timeBlockId: timeBlocks[1].id, maxEnrollment: 25, currentEnrollment: 24, academicCycleId: currentAcademicCycle.id } }),
-    prisma.courseSection.create({ data: { sectionNumber: 'C', courseId: courses[28].id, teacherId: teachers[18].id, roomId: rooms[9].id, timeBlockId: timeBlocks[2].id, maxEnrollment: 25, currentEnrollment: 22, academicCycleId: currentAcademicCycle.id } }),
-    prisma.courseSection.create({ data: { sectionNumber: 'D', courseId: courses[28].id, teacherId: teachers[19].id, roomId: rooms[10].id, timeBlockId: timeBlocks[3].id, maxEnrollment: 25, currentEnrollment: 24, academicCycleId: currentAcademicCycle.id } }),
-    prisma.courseSection.create({ data: { sectionNumber: 'E', courseId: courses[28].id, teacherId: teachers[20].id, roomId: rooms[11].id, timeBlockId: timeBlocks[4].id, maxEnrollment: 25, currentEnrollment: 22, academicCycleId: currentAcademicCycle.id } }),
+    prisma.courseSection.create({ data: { sectionNumber: 'A', courseId: courses[28].id, teacherId: teachers[16].id, roomId: rooms[7].id, timeBlockId: timeBlocks[0].id, maxEnrollment: 30, currentEnrollment: 25, academicCycleId: currentAcademicCycle.id } }),
+    prisma.courseSection.create({ data: { sectionNumber: 'B', courseId: courses[28].id, teacherId: teachers[17].id, roomId: rooms[8].id, timeBlockId: timeBlocks[1].id, maxEnrollment: 30, currentEnrollment: 28, academicCycleId: currentAcademicCycle.id } }),
+    prisma.courseSection.create({ data: { sectionNumber: 'C', courseId: courses[28].id, teacherId: teachers[18].id, roomId: rooms[9].id, timeBlockId: timeBlocks[2].id, maxEnrollment: 30, currentEnrollment: 26, academicCycleId: currentAcademicCycle.id } }),
+    prisma.courseSection.create({ data: { sectionNumber: 'D', courseId: courses[28].id, teacherId: teachers[19].id, roomId: rooms[10].id, timeBlockId: timeBlocks[3].id, maxEnrollment: 30, currentEnrollment: 24, academicCycleId: currentAcademicCycle.id } }),
+    prisma.courseSection.create({ data: { sectionNumber: 'E', courseId: courses[28].id, teacherId: teachers[20].id, roomId: rooms[11].id, timeBlockId: timeBlocks[4].id, maxEnrollment: 30, currentEnrollment: 22, academicCycleId: currentAcademicCycle.id } }),
     
     // PE 10 - 5 sections (125 Grade 10 students)
-    prisma.courseSection.create({ data: { sectionNumber: 'A', courseId: courses[29].id, teacherId: teachers[21].id, roomId: rooms[22].id, timeBlockId: timeBlocks[0].id, maxEnrollment: 25, currentEnrollment: 25, academicCycleId: currentAcademicCycle.id } }),
-    prisma.courseSection.create({ data: { sectionNumber: 'B', courseId: courses[29].id, teacherId: teachers[22].id, roomId: rooms[23].id, timeBlockId: timeBlocks[1].id, maxEnrollment: 25, currentEnrollment: 24, academicCycleId: currentAcademicCycle.id } }),
-    prisma.courseSection.create({ data: { sectionNumber: 'C', courseId: courses[29].id, teacherId: teachers[23].id, roomId: rooms[24].id, timeBlockId: timeBlocks[2].id, maxEnrollment: 25, currentEnrollment: 22, academicCycleId: currentAcademicCycle.id } }),
-    prisma.courseSection.create({ data: { sectionNumber: 'D', courseId: courses[29].id, teacherId: teachers[24].id, roomId: rooms[25].id, timeBlockId: timeBlocks[3].id, maxEnrollment: 25, currentEnrollment: 24, academicCycleId: currentAcademicCycle.id } }),
-    prisma.courseSection.create({ data: { sectionNumber: 'E', courseId: courses[29].id, teacherId: teachers[0].id, roomId: rooms[26].id, timeBlockId: timeBlocks[4].id, maxEnrollment: 25, currentEnrollment: 22, academicCycleId: currentAcademicCycle.id } }),
+    prisma.courseSection.create({ data: { sectionNumber: 'A', courseId: courses[29].id, teacherId: teachers[21].id, roomId: rooms[22].id, timeBlockId: timeBlocks[0].id, maxEnrollment: 30, currentEnrollment: 25, academicCycleId: currentAcademicCycle.id } }),
+    prisma.courseSection.create({ data: { sectionNumber: 'B', courseId: courses[29].id, teacherId: teachers[22].id, roomId: rooms[23].id, timeBlockId: timeBlocks[1].id, maxEnrollment: 30, currentEnrollment: 28, academicCycleId: currentAcademicCycle.id } }),
+    prisma.courseSection.create({ data: { sectionNumber: 'C', courseId: courses[29].id, teacherId: teachers[23].id, roomId: rooms[24].id, timeBlockId: timeBlocks[2].id, maxEnrollment: 30, currentEnrollment: 26, academicCycleId: currentAcademicCycle.id } }),
+    prisma.courseSection.create({ data: { sectionNumber: 'D', courseId: courses[29].id, teacherId: teachers[24].id, roomId: rooms[25].id, timeBlockId: timeBlocks[3].id, maxEnrollment: 30, currentEnrollment: 24, academicCycleId: currentAcademicCycle.id } }),
+    prisma.courseSection.create({ data: { sectionNumber: 'E', courseId: courses[29].id, teacherId: teachers[0].id, roomId: rooms[26].id, timeBlockId: timeBlocks[4].id, maxEnrollment: 30, currentEnrollment: 22, academicCycleId: currentAcademicCycle.id } }),
     
     // Health - 4 sections (100 Grade 11 students)
-    prisma.courseSection.create({ data: { sectionNumber: 'A', courseId: courses[30].id, teacherId: teachers[1].id, roomId: rooms[27].id, timeBlockId: timeBlocks[0].id, maxEnrollment: 25, currentEnrollment: 25, academicCycleId: currentAcademicCycle.id } }),
-    prisma.courseSection.create({ data: { sectionNumber: 'B', courseId: courses[30].id, teacherId: teachers[2].id, roomId: rooms[28].id, timeBlockId: timeBlocks[1].id, maxEnrollment: 25, currentEnrollment: 24, academicCycleId: currentAcademicCycle.id } }),
-    prisma.courseSection.create({ data: { sectionNumber: 'C', courseId: courses[30].id, teacherId: teachers[3].id, roomId: rooms[29].id, timeBlockId: timeBlocks[2].id, maxEnrollment: 25, currentEnrollment: 22, academicCycleId: currentAcademicCycle.id } }),
-    prisma.courseSection.create({ data: { sectionNumber: 'D', courseId: courses[30].id, teacherId: teachers[4].id, roomId: rooms[30].id, timeBlockId: timeBlocks[3].id, maxEnrollment: 25, currentEnrollment: 24, academicCycleId: currentAcademicCycle.id } })
+    prisma.courseSection.create({ data: { sectionNumber: 'A', courseId: courses[30].id, teacherId: teachers[1].id, roomId: rooms[27].id, timeBlockId: timeBlocks[0].id, maxEnrollment: 30, currentEnrollment: 25, academicCycleId: currentAcademicCycle.id } }),
+    prisma.courseSection.create({ data: { sectionNumber: 'B', courseId: courses[30].id, teacherId: teachers[2].id, roomId: rooms[28].id, timeBlockId: timeBlocks[1].id, maxEnrollment: 30, currentEnrollment: 28, academicCycleId: currentAcademicCycle.id } }),
+    prisma.courseSection.create({ data: { sectionNumber: 'C', courseId: courses[30].id, teacherId: teachers[3].id, roomId: rooms[29].id, timeBlockId: timeBlocks[2].id, maxEnrollment: 30, currentEnrollment: 26, academicCycleId: currentAcademicCycle.id } }),
+    prisma.courseSection.create({ data: { sectionNumber: 'D', courseId: courses[30].id, teacherId: teachers[4].id, roomId: rooms[30].id, timeBlockId: timeBlocks[3].id, maxEnrollment: 30, currentEnrollment: 24, academicCycleId: currentAcademicCycle.id } })
   ]);
 
   console.log('📚 Created course sections');
 
   // Create schedules for all students in batches to avoid connection pool timeout
   console.log('📋 Creating schedules...');
-  
-  // Track how many courses each student is enrolled in
-  const studentCourseCount: { [studentId: string]: number } = {};
-  students.forEach(student => {
-    studentCourseCount[student.id] = 0;
-  });
-
-  // Sort course sections by course ID to process them in order
-  const sortedCourseSections = [...courseSections].sort((a, b) => {
-    // Group by course, then by section number (A, B, C, D, E, F)
-    if (a.courseId !== b.courseId) {
-      return courses.findIndex(c => c.id === a.courseId) - courses.findIndex(c => c.id === b.courseId);
-    }
-    return a.sectionNumber.localeCompare(b.sectionNumber);
-  });
-
-  // Process each course section and enroll students
-  const batchSize = 50;
-  const schedulesToCreate = [];
-
-  for (const section of sortedCourseSections) {
-    // Find the first 25 students who don't have 6 courses yet
-    const enrolledStudents = students
-      .filter(student => studentCourseCount[student.id] < 6)
-      .slice(0, 25);
-
-    // If no students available, skip this section
-    if (enrolledStudents.length === 0) {
-      console.log(`⚠️  No available students for course section ${section.courseId} section ${section.sectionNumber}`);
-      continue;
-    }
-
-    // Create schedule entries for these students
-    enrolledStudents.forEach(student => {
-      schedulesToCreate.push({
-        studentId: student.id,
-        courseSectionId: section.id,
-      });
-      studentCourseCount[student.id]++;
-    });
-
-    console.log(`✓ Enrolled ${enrolledStudents.length} students in section ${section.sectionNumber}`);
-  }
-
-  // Now create schedules in batches
-  // First, group schedules by student
-  const schedulesByStudent: { [studentId: string]: Array<{ courseSectionId: string }> } = {};
-  schedulesToCreate.forEach(item => {
-    if (!schedulesByStudent[item.studentId]) {
-      schedulesByStudent[item.studentId] = [];
-    }
-    schedulesByStudent[item.studentId].push({ courseSectionId: item.courseSectionId });
-  });
-
-  // Create schedule records with their course sections
+  const batchSize = 50; // Process 50 students at a time
   const schedules = [];
-  const studentIds = Object.keys(schedulesByStudent);
-
-  for (let i = 0; i < studentIds.length; i += batchSize) {
-    const batchStudentIds = studentIds.slice(i, i + batchSize);
-    console.log(`📋 Processing schedule batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(studentIds.length / batchSize)}`);
-
+  
+  for (let i = 0; i < students.length; i += batchSize) {
+    const batch = students.slice(i, i + batchSize);
+    console.log(`📋 Processing schedule batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(students.length / batchSize)} (${batch.length} students)`);
+    
     const batchSchedules = await Promise.all(
-      batchStudentIds.map(studentId => 
-        prisma.schedule.create({
+      batch.map(async (student, batchIndex) => {
+        const index = i + batchIndex;
+      // Determine grade level (0-124 = Grade 9, 125-249 = Grade 10, 250-374 = Grade 11, 375-499 = Grade 12)
+      const gradeLevel = Math.floor(index / 125) + 9;
+      
+      // Select appropriate course sections based on grade level
+      let selectedSections: any[] = [];
+      
+      if (gradeLevel === 9) {
+        // Grade 9: Algebra I, English 9, Biology, World History, PE 9, and electives
+        selectedSections = [
+          courseSections[0], // Algebra I A
+          courseSections[22], // English 9 A
+          courseSections[44], // Biology A
+          courseSections[60], // World History A
+          courseSections[88], // PE 9 A
+          courseSections[76] // Spanish I A
+        ];
+      } else if (gradeLevel === 10) {
+        // Grade 10: Geometry, English 10, Chemistry, US History, PE 10, and electives
+        selectedSections = [
+          courseSections[6], // Geometry A
+          courseSections[27], // English 10 A
+          courseSections[48], // Chemistry A
+          courseSections[64], // US History A
+          courseSections[93], // PE 10 A
+          courseSections[79] // Spanish II A
+        ];
+      } else if (gradeLevel === 11) {
+        // Grade 11: Algebra II, English 11, Physics, AP US History, Health, and electives
+        selectedSections = [
+          courseSections[11], // Algebra II A
+          courseSections[32], // English 11 A
+          courseSections[52], // Physics A
+          courseSections[68], // AP US History A
+          courseSections[98], // Health A
+          courseSections[82] // French I A
+        ];
+      } else if (gradeLevel === 12) {
+        // Grade 12: Pre-Calculus, English 12, AP Chemistry, Government, Economics, and electives
+        selectedSections = [
+          courseSections[16], // Pre-Calculus A
+          courseSections[37], // English 12 A
+          courseSections[56], // AP Chemistry A
+          courseSections[72], // Government A
+          courseSections[76], // Economics A
+          courseSections[85] // AP Spanish Language A
+        ];
+      }
+      
+        // Create schedule with course sections
+        return prisma.schedule.create({
           data: {
-            studentId,
+            studentId: student.id,
             academicCycleId: currentAcademicCycle.id,
             scheduleCourseSections: {
-              create: schedulesByStudent[studentId].map(item => ({
-                courseSectionId: item.courseSectionId
+              create: selectedSections.map(section => ({
+                courseSectionId: section.id
               }))
             }
           }
-        })
-      )
+        });
+      })
     );
-
+    
     schedules.push(...batchSchedules);
   }
 
@@ -1026,7 +1041,9 @@ async function main() {
       batch.flatMap(student => 
         // Each student gets 3-6 previous courses
         Array.from({ length: Math.floor(Math.random() * 4) + 3 }, async (_, i) => {
-          const course = previousYearCourses[Math.floor(Math.random() * previousYearCourses.length)];          const grade = ['A', 'B+', 'B', 'B-', 'C+', 'C', 'C-', 'D+', 'D', 'F', 'IN'][Math.floor(Math.random() * 11)];
+          const course = previousYearCourses[Math.floor(Math.random() * previousYearCourses.length)];
+          const term = terms[Math.floor(Math.random() * terms.length)];
+          const grade = ['A', 'B+', 'B', 'B-', 'C+', 'C', 'C-', 'D+', 'D', 'F', 'IN'][Math.floor(Math.random() * 11)];
           const isPassed = !['F', 'IN'].includes(grade); // All grades except F and IN are passing
           const creditEarned = isPassed ? course.credits : 0;
           

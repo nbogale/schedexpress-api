@@ -50,18 +50,11 @@ export class CreateBulkStudentCourseHistoryDto {
   courseId: string;
 
   @ApiProperty({
-    description: 'School Year ID',
+    description: 'Academic Cycle ID',
     example: 'clg789def',
   })
   @IsString()
-  schoolYearId: string;
-
-  @ApiProperty({
-    description: 'Term ID',
-    example: 'clg012ghi',
-  })
-  @IsString()
-  termId: string;
+  academicCycleId: string;
 
   @ApiProperty({
     description: 'Array of student grade data',

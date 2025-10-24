@@ -101,7 +101,8 @@ model StudentCourseHistory {
 #### Filtering Operations
 - `GET /student-course-history/student/:studentId` - Get by student
 - `GET /student-course-history/course/:courseId` - Get by course
-- `GET /student-course-history/school-year/:schoolYearId` - Get by school year
+- `GET /student-course-history/academic-cycle/:academicCycleId` - Get academic cycle
+
 - `GET /student-course-history/term/:termId` - Get by term
 
 #### Specialized Operations

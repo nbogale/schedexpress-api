@@ -18,18 +18,11 @@ export class CreateStudentCourseHistoryDto {
   courseId: string;
 
   @ApiProperty({
-    description: 'School Year ID',
+    description: 'Academic Cycle ID',
     example: 'clg789def',
   })
   @IsString()
-  schoolYearId: string;
-
-  @ApiProperty({
-    description: 'Term ID',
-    example: 'clg012ghi',
-  })
-  @IsString()
-  termId: string;
+  academicCycleId: string;
 
   @ApiProperty({
     description: 'Grade received (optional)',

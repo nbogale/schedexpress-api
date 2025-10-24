@@ -89,21 +89,20 @@ model Student {
 }
 
 model StudentCourseHistory {
-  id           String     @id @default(cuid())
-  studentId    String     @map("student_id")
-  courseId     String     @map("course_id")
-  schoolYearId String     @map("school_year_id")
-  termId       String     @map("term_id")
-  grade        String?    @db.VarChar(2)
-  isPassed     Boolean    @default(true) @map("is_passed")
-  creditEarned Decimal    @map("credit_earned") @db.Decimal(3, 1)
-  createdAt    DateTime   @default(now()) @map("created_at")
-  updatedAt    DateTime   @updatedAt @map("updated_at")
-  course       Course     @relation(fields: [courseId], references: [id])
-  schoolYear   SchoolYear @relation(fields: [schoolYearId], references: [id])
-  student      Student    @relation(fields: [studentId], references: [id])
-  term         Term       @relation(fields: [termId], references: [id])
+  id              String        @id @default(cuid())
+  studentId       String        @map("student_id")
+  courseId        String        @map("course_id")
+  academicCycleId String        @map("academic_cycle_id")
+  grade           String?       @db.VarChar(2)
+  isPassed        Boolean       @default(true) @map("is_passed")
+  creditEarned    Decimal       @map("credit_earned") @db.Decimal(3, 1)
+  createdAt       DateTime      @default(now()) @map("created_at")
+  updatedAt       DateTime      @updatedAt @map("updated_at")
+  course          Course        @relation(fields: [courseId], references: [id])
+  academicCycle   AcademicCycle @relation(fields: [academicCycleId], references: [id])
+  student         Student       @relation(fields: [studentId], references: [id])
 
+  @@index([academicCycleId])
   @@map("student_course_history")
 }
 
@@ -112,7 +111,6 @@ model StudentGrade {
   studentId       String        @map("student_id")
   courseId        String        @map("course_id")
   academicCycleId String        @map("academic_cycle_id")
-  schoolYearId    String        @map("school_year_id")
   grade           String?       @db.VarChar(2)
   gradePoints     Decimal?      @map("grade_points") @db.Decimal(3, 2)
   percentage      Decimal?      @db.Decimal(5, 2)
@@ -124,7 +122,6 @@ model StudentGrade {
   academicCycle   AcademicCycle @relation(fields: [academicCycleId], references: [id])
   course          Course        @relation(fields: [courseId], references: [id])
   teacher         User?         @relation("GradeTeacher", fields: [gradedBy], references: [id])
-  schoolYear      AcademicCycle @relation("SchoolYearGrades", fields: [schoolYearId], references: [id])
   student         Student       @relation(fields: [studentId], references: [id])
 
   @@unique([studentId, courseId, academicCycleId])
@@ -170,15 +167,12 @@ model Schedule {
   studentId              String                  @unique @map("student_id")
   createdAt              DateTime                @default(now()) @map("created_at")
   updatedAt              DateTime                @updatedAt @map("updated_at")
-  schoolYearId           String                  @map("school_year_id")
-  termId                 String                  @map("term_id")
-  schoolYear             SchoolYear              @relation(fields: [schoolYearId], references: [id])
+  academicCycleId        String                  @map("academic_cycle_id")
   student                Student                 @relation(fields: [studentId], references: [id])
-  term                   Term                    @relation(fields: [termId], references: [id])
+  academicCycle          AcademicCycle           @relation(fields: [academicCycleId], references: [id])
   scheduleCourseSections ScheduleCourseSection[]
 
-  @@index([schoolYearId])
-  @@index([termId])
+  @@index([academicCycleId])
   @@map("schedule")
 }
 
@@ -370,44 +364,14 @@ model AcademicCycle {
   validator        User?                @relation("AcademicCycleValidator", fields: [validatedBy], references: [id])
   courseSections   CourseSection[]
   grades           StudentGrade[]
-  schoolYearGrades StudentGrade[]       @relation("SchoolYearGrades")
   scheduleChangeRequests ScheduleChangeRequest[]
+  schedules        Schedule[]
+  studentCourseHistory StudentCourseHistory[]
 
   @@index([parentId])
   @@index([cycleType])
   @@index([configId])
   @@map("academic_cycle")
-}
-
-model SchoolYear {
-  id             String                  @id @default(cuid())
-  name           String                  @db.VarChar(50)
-  startDate      DateTime                @map("start_date")
-  endDate        DateTime                @map("end_date")
-  isCurrent      Boolean                 @default(false) @map("is_current")
-  createdAt      DateTime                @default(now()) @map("created_at")
-  updatedAt      DateTime                @updatedAt @map("updated_at")
-  schedules      Schedule[]
-  courseHistory  StudentCourseHistory[]
-  terms          Term[]
-
-  @@map("school_year")
-}
-
-model Term {
-  id             String                  @id @default(cuid())
-  schoolYearId   String                  @map("school_year_id")
-  name           String                  @db.VarChar(50)
-  startDate      DateTime                @map("start_date")
-  endDate        DateTime                @map("end_date")
-  isCurrent      Boolean                 @default(false) @map("is_current")
-  createdAt      DateTime                @default(now()) @map("created_at")
-  updatedAt      DateTime                @updatedAt @map("updated_at")
-  schedules      Schedule[]
-  courseHistory  StudentCourseHistory[]
-  schoolYear     SchoolYear              @relation(fields: [schoolYearId], references: [id])
-
-  @@map("term")
 }
 
 model Department {

@@ -21,6 +21,8 @@
     "prisma:generate": "PRISMA_QUERY_ENGINE_LIBRARY_PROVIDER=binary prisma generate",
     "prisma:migrate": "PRISMA_QUERY_ENGINE_LIBRARY_PROVIDER=binary prisma migrate dev",
     "prisma:seed": "PRISMA_QUERY_ENGINE_LIBRARY_PROVIDER=binary prisma db seed",
+    "prisma:seed:highschool": "PRISMA_QUERY_ENGINE_LIBRARY_PROVIDER=binary ts-node prisma/seed-high-school.ts",
+    "prisma:test:highschool": "node scripts/test-high-school-seed.js",
     "prisma:setup": "./scripts/init-prisma.sh --seed",
     "init-db": "node scripts/init-db.js",
     "docker:build": "docker-compose build",

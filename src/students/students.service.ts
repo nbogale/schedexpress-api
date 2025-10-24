@@ -433,8 +433,7 @@ export class StudentsService {
                 }
               }
             },
-            schoolYear: true,
-            term: true,
+            academicCycle: true,
           },
         },
       },

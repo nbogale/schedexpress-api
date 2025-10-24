@@ -142,11 +142,11 @@ export class GradeLookupService {
     return totalCredits > 0 ? totalGradePoints / totalCredits : 0;
   }
 
-  async calculateGPAByTerm(studentId: string, termId: string): Promise<number> {
+  async calculateGPAByTerm(studentId: string, academicCycleId: string): Promise<number> {
     const courseHistory = await this.prisma.studentCourseHistory.findMany({
       where: {
         studentId,
-        termId,
+        academicCycleId, //TODO: Changed from termId to academicCycleId
         grade: { not: null },
       },
       include: {

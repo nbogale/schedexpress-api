@@ -22,22 +22,13 @@ export class UpdateStudentCourseHistoryDto {
   courseId?: string;
 
   @ApiProperty({
-    description: 'School Year ID',
+    description: 'Academic Cycle ID',
     example: 'clg789def',
     required: false,
   })
   @IsString()
   @IsOptional()
-  schoolYearId?: string;
-
-  @ApiProperty({
-    description: 'Term ID',
-    example: 'clg012ghi',
-    required: false,
-  })
-  @IsString()
-  @IsOptional()
-  termId?: string;
+  academicCycleId?: string;
 
   @ApiProperty({
     description: 'Grade received',

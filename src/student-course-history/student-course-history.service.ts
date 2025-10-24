@@ -30,8 +30,7 @@ export class StudentCourseHistoryService {
       data: {
         studentId: createStudentCourseHistoryDto.studentId,
         courseId: createStudentCourseHistoryDto.courseId,
-        schoolYearId: createStudentCourseHistoryDto.schoolYearId,
-        termId: createStudentCourseHistoryDto.termId,
+        academicCycleId: createStudentCourseHistoryDto.academicCycleId,
         grade: createStudentCourseHistoryDto.grade,
         isPassed,
         creditEarned: createStudentCourseHistoryDto.creditEarned ?? 1.0,
@@ -43,8 +42,6 @@ export class StudentCourseHistoryService {
           },
         },
         course: true,
-        schoolYear: true,
-        term: true,
       },
     });
 
@@ -68,7 +65,7 @@ export class StudentCourseHistoryService {
   }
 
   async createBulk(createBulkStudentCourseHistoryDto: CreateBulkStudentCourseHistoryDto) {
-    const { courseId, schoolYearId, termId, students } = createBulkStudentCourseHistoryDto;
+    const { courseId, academicCycleId, students } = createBulkStudentCourseHistoryDto;
     
     const results = {
       created: [] as any[],
@@ -88,8 +85,7 @@ export class StudentCourseHistoryService {
           where: {
             studentId: studentData.studentId,
             courseId,
-            schoolYearId,
-            termId,
+            academicCycleId,
           },
         });
 
@@ -117,8 +113,7 @@ export class StudentCourseHistoryService {
           data: {
             studentId: studentData.studentId,
             courseId,
-            schoolYearId,
-            termId,
+            academicCycleId,
             grade: studentData.grade,
             isPassed,
             creditEarned: studentData.creditEarned ?? 1.0,
@@ -130,8 +125,6 @@ export class StudentCourseHistoryService {
               },
             },
             course: true,
-            schoolYear: true,
-            term: true,
           },
         });
 
@@ -160,8 +153,6 @@ export class StudentCourseHistoryService {
           },
         },
         course: true,
-        schoolYear: true,
-        term: true,
       },
     });
   }
@@ -178,8 +169,6 @@ export class StudentCourseHistoryService {
           },
         },
         course: true,
-        schoolYear: true,
-        term: true,
       },
     });
   }
@@ -196,16 +185,14 @@ export class StudentCourseHistoryService {
           },
         },
         course: true,
-        schoolYear: true,
-        term: true,
       },
     });
   }
 
-  async findBySchoolYear(schoolYearId: string) {
+  async findByAcademicCycle(academicCycleId: string) {
     return this.prisma.studentCourseHistory.findMany({
       where: {
-        schoolYearId,
+        academicCycleId,
       },
       include: {
         student: {
@@ -214,16 +201,14 @@ export class StudentCourseHistoryService {
           },
         },
         course: true,
-        schoolYear: true,
-        term: true,
       },
     });
   }
 
-  async findByTerm(termId: string) {
+  async findByTerm(academicCycleId: string) {
     return this.prisma.studentCourseHistory.findMany({
       where: {
-        termId,
+        academicCycleId,
       },
       include: {
         student: {
@@ -232,8 +217,6 @@ export class StudentCourseHistoryService {
           },
         },
         course: true,
-        schoolYear: true,
-        term: true,
       },
     });
   }
@@ -248,8 +231,6 @@ export class StudentCourseHistoryService {
           },
         },
         course: true,
-        schoolYear: true,
-        term: true,
       },
     });
 
@@ -281,8 +262,7 @@ export class StudentCourseHistoryService {
       data: {
         studentId: updateStudentCourseHistoryDto.studentId,
         courseId: updateStudentCourseHistoryDto.courseId,
-        schoolYearId: updateStudentCourseHistoryDto.schoolYearId,
-        termId: updateStudentCourseHistoryDto.termId,
+        academicCycleId: updateStudentCourseHistoryDto.academicCycleId,
         grade: updateStudentCourseHistoryDto.grade,
         isPassed,
         creditEarned: updateStudentCourseHistoryDto.creditEarned,
@@ -294,8 +274,6 @@ export class StudentCourseHistoryService {
           },
         },
         course: true,
-        schoolYear: true,
-        term: true,
       },
     });
   }
@@ -313,8 +291,6 @@ export class StudentCourseHistoryService {
           },
         },
         course: true,
-        schoolYear: true,
-        term: true,
       },
     });
   }
@@ -331,21 +307,18 @@ export class StudentCourseHistoryService {
             courseLevel: true,
           },
         },
-        schoolYear: true,
-        term: true,
+        academicCycle: true,
       },
       orderBy: [
-        { schoolYear: { startDate: 'desc' } },
-        { term: { startDate: 'desc' } },
       ],
     });
   }
 
-  async getStudentCreditsByTerm(studentId: string, termId: string) {
+  async getStudentCreditsByTerm(studentId: string, academicCycleId: string) {
     const records = await this.prisma.studentCourseHistory.findMany({
       where: {
         studentId,
-        termId,
+        academicCycleId,
         isPassed: true,
       },
     });

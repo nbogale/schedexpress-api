@@ -12,19 +12,11 @@ export class CreateScheduleDto {
 
   @ApiProperty({
     example: 'clg123xyz',
-    description: 'ID of the school year',
+    description: 'ID of the academic cycle',
   })
   @IsString()
   @IsNotEmpty()
-  schoolYearId: string;
-
-  @ApiProperty({
-    example: 'clg123xyz',
-    description: 'ID of the term',
-  })
-  @IsString()
-  @IsNotEmpty()
-  termId: string;
+  academicCycleId: string;
 
   @ApiProperty({
     example: ['clg456abc', 'clg789def'],

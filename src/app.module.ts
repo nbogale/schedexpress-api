@@ -16,8 +16,6 @@ import { StudentsModule } from './students/students.module';
 import { RoomsModule } from './rooms/rooms.module';
 import { DepartmentsModule } from './departments/departments.module';
 import { TimeBlocksModule } from './time-blocks/time-blocks.module';
-import { TermsModule } from './terms/terms.module';
-import { SchoolYearsModule } from './school-years/school-years.module';
 import { CourseLevelsModule } from './course-levels/course-levels.module';
 import { GradeLevelsModule } from './grade-levels/grade-levels.module';
 import { CourseSectionsModule } from './course-sections/course-sections.module';
@@ -49,8 +47,6 @@ import { ParentGuardiansModule } from './parent-guardians/parent-guardians.modul
     RoomsModule,
     DepartmentsModule,
     TimeBlocksModule,
-    TermsModule,
-    SchoolYearsModule,
     CourseLevelsModule,
     GradeLevelsModule,
     CourseSectionsModule,

@@ -15,7 +15,7 @@ export class SchedulesService {
   constructor(private readonly prisma: PrismaService, private readonly notificationsService: NotificationsService) {}
 
   async create(createScheduleDto: CreateScheduleDto) {
-    const { studentId, courseSectionIds, schoolYearId, termId, ...scheduleData } = createScheduleDto;
+    const { studentId, courseSectionIds, academicCycleId, ...scheduleData } = createScheduleDto;
 
     // Check if student exists
     const student = await this.prisma.student.findUnique({
@@ -117,8 +117,7 @@ export class SchedulesService {
     return this.prisma.schedule.create({
       data: {
         ...scheduleData,
-        schoolYear: { connect: { id: schoolYearId } },
-        term: { connect: { id: termId } },
+        academicCycle: { connect: { id: academicCycleId } },
         student: { connect: { id: studentId } },
         scheduleCourseSections: {
           create: courseSectionIds.map(id => ({
@@ -158,8 +157,7 @@ export class SchedulesService {
             },
           },
         },
-        schoolYear: true,
-        term: true,
+        academicCycle: true,
         scheduleCourseSections: {
           include: {
             courseSection: {
@@ -181,8 +179,7 @@ export class SchedulesService {
       where: { id },
       include: {
         student: true,
-        schoolYear: true,
-        term: true,
+        academicCycle: true,
         scheduleCourseSections: {
           include: {
             courseSection: {
@@ -234,8 +231,7 @@ export class SchedulesService {
             },
           },
         },
-        schoolYear: true,
-        term: true,
+        academicCycle: true,
         scheduleCourseSections: {
           include: {
             courseSection: {
