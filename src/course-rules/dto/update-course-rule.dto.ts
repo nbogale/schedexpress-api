@@ -50,4 +50,13 @@ export class UpdateCourseRuleDto {
   @IsBoolean()
   @IsOptional()
   isActive?: boolean;
+
+  @ApiProperty({
+    description: 'Whether the rule is overridable',
+    example: false,
+    required: false,
+  })
+  @IsBoolean()
+  @IsOptional()
+  isOverridable?: boolean;
 }
