@@ -19,7 +19,7 @@ export class AcademicPeriodStatusSchedulerService implements OnApplicationBootst
     setTimeout(async () => {
       this.logger.log('Running initial period status update after application start...');
       await this.updatePeriodStatuses();
-    }, 10 * 60 * 1000);
+    }, 2 * 60 * 1000);
   }
 
   /**

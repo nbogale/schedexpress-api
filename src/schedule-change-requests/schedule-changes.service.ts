@@ -754,6 +754,30 @@ export class ScheduleChangesService {
     return this.findAll({ status: RequestStatus.PENDING });
   }
 
+  async findCompleted() {
+    // Return only completed requests (APPROVED and DENIED)
+    return this.prisma.scheduleChangeRequest.findMany({
+      where: {
+        status: {
+          in: [RequestStatus.APPROVED, RequestStatus.DENIED],
+        },
+      },
+      include: {
+        student: { include: { user: true, gradeLevel: true } },
+        academicCycle: true,
+        currentCourseSection: { include: { course: true, timeBlock: true } },
+        requestedCourseSection: { include: { course: true } },
+        preferredTimeBlock: true,
+        reviewer: true,
+        courseConflicts: true,
+      },
+      orderBy: [
+        { priority: 'desc' },
+        { createdAt: 'desc' },
+      ],
+    });
+  }
+
   async findByStudent(studentId: string) {
     return this.findAll({ studentId });
   }

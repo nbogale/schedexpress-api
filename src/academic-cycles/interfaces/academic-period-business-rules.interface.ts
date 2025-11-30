@@ -263,7 +263,7 @@ export const DEFAULT_SCHEDULE_CHANGE_RULES: ScheduleChangeRuleConfig = {
   description: 'Default schedule change rules',
   periodBasedChanges: {
     requireActivePeriod: true,
-    allowedPeriodTypes: [AcademicPeriodType.REGISTRATION],
+    allowedPeriodTypes: [AcademicPeriodType.REGISTRATION, AcademicPeriodType.INSTRUCTION],
     changeWindowDays: 14, // 2 weeks after instruction starts
   },
   requestLimits: {

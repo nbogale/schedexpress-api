@@ -52,6 +52,16 @@ export class ScheduleChangesController {
     return this.scheduleChangesService.findPending();
   }
 
+  @Get('completed')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.COUNSELOR)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get completed schedule change requests (approved and denied)' })
+  @ApiResponse({ status: 200, description: 'Return completed requests' })
+  findCompleted() {
+    return this.scheduleChangesService.findCompleted();
+  }
+
   @Get(':id')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()

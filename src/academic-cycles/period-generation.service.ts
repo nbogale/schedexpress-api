@@ -274,7 +274,7 @@ export class PeriodGenerationService {
             startDate: instructionStart.toISOString().split('T')[0],
             endDate: instructionEnd.toISOString().split('T')[0],
             isInstructional: true,
-            allowsScheduleChanges: instructionConfig.allowsScheduleChanges || false,
+            allowsScheduleChanges: instructionConfig.allowsScheduleChanges !== undefined ? instructionConfig.allowsScheduleChanges : true, // Default to true for instruction periods
             description: 'Instructional period',
             sortOrder: sortOrder++,
             createdBy: userId,

@@ -335,34 +335,53 @@ export class AcademicPeriodBusinessRulesService {
     }
 
     if (currentPeriod) {
-      // Check if period type is allowed
-      if (!rules.periodBasedChanges.allowedPeriodTypes.includes(currentPeriod.periodType)) {
-        return {
-          allowed: false,
-          reason: `Schedule changes are not allowed during ${currentPeriod.periodType} periods.`,
-          errorCode: ErrorCode.ACRS2,
-          currentPeriod: {
-            id: currentPeriod.id,
-            name: currentPeriod.name,
-            periodType: currentPeriod.periodType,
-            allowsScheduleChanges: currentPeriod.allowsScheduleChanges,
-          },
-        };
-      }
+      // For INSTRUCTION periods: allow schedule changes if and only if the period capability is enabled
+      // This gives administrators fine-grained control over which instruction periods allow schedule changes
+      if (currentPeriod.periodType === AcademicPeriodType.INSTRUCTION) {
+        if (!currentPeriod.allowsScheduleChanges) {
+          return {
+            allowed: false,
+            reason: `Schedule changes are not allowed during the current ${currentPeriod.name} period.`,
+            errorCode: ErrorCode.ACRS3,
+            currentPeriod: {
+              id: currentPeriod.id,
+              name: currentPeriod.name,
+              periodType: currentPeriod.periodType,
+              allowsScheduleChanges: currentPeriod.allowsScheduleChanges,
+            },
+          };
+        }
+        // If INSTRUCTION period has allowsScheduleChanges: true, allow it (skip the allowedPeriodTypes check)
+      } else {
+        // For other period types: check if period type is allowed in business rules
+        if (!rules.periodBasedChanges.allowedPeriodTypes.includes(currentPeriod.periodType)) {
+          return {
+            allowed: false,
+            reason: `Schedule changes are not allowed during ${currentPeriod.periodType} periods.`,
+            errorCode: ErrorCode.ACRS2,
+            currentPeriod: {
+              id: currentPeriod.id,
+              name: currentPeriod.name,
+              periodType: currentPeriod.periodType,
+              allowsScheduleChanges: currentPeriod.allowsScheduleChanges,
+            },
+          };
+        }
 
-      // Check period capability
-      if (!currentPeriod.allowsScheduleChanges) {
-        return {
-          allowed: false,
-          reason: `Schedule changes are not allowed during the current ${currentPeriod.name} period.`,
-          errorCode: ErrorCode.ACRS3,
-          currentPeriod: {
-            id: currentPeriod.id,
-            name: currentPeriod.name,
-            periodType: currentPeriod.periodType,
-            allowsScheduleChanges: currentPeriod.allowsScheduleChanges,
-          },
-        };
+        // Check period capability for non-INSTRUCTION periods
+        if (!currentPeriod.allowsScheduleChanges) {
+          return {
+            allowed: false,
+            reason: `Schedule changes are not allowed during the current ${currentPeriod.name} period.`,
+            errorCode: ErrorCode.ACRS3,
+            currentPeriod: {
+              id: currentPeriod.id,
+              name: currentPeriod.name,
+              periodType: currentPeriod.periodType,
+              allowsScheduleChanges: currentPeriod.allowsScheduleChanges,
+            },
+          };
+        }
       }
 
       // Check period-specific restrictions
