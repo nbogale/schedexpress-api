@@ -99,4 +99,57 @@ export enum ErrorCode {
   ACCD = 'ACCD', // Academic period dates are not within the cycle dates
   ACCE = 'ACCE', // Academic cycle not found
   ACCF = 'ACCF', // Period overlaps with existing period(s)
+
+  // Academic Period Business Rules Error Codes
+  // Enrollment Rules (ACRE = ACademic Rules Enrollment)
+  ACRE1 = 'ACRE1', // No active period found - enrollment requires active period
+  ACRE2 = 'ACRE2', // Enrollment not allowed during this period type
+  ACRE3 = 'ACRE3', // Enrollment capability disabled for current period
+  ACRE4 = 'ACRE4', // Enrollment deadline has passed
+  ACRE5 = 'ACRE5', // Late enrollment requires approval
+  ACRE6 = 'ACRE6', // Course is at capacity and over-enrollment not allowed
+  ACRE7 = 'ACRE7', // Course exceeds over-enrollment limit
+  ACRE8 = 'ACRE8', // Add window has closed
+  ACRE9 = 'ACRE9', // Drop window has closed
+  ACREA = 'ACREA', // Add requires approval
+  ACREB = 'ACREB', // Drop requires approval
+
+  // Schedule Change Rules (ACRS = ACademic Rules Schedule)
+  ACRS1 = 'ACRS1', // No active period found - schedule changes require active period
+  ACRS2 = 'ACRS2', // Schedule changes not allowed during this period type
+  ACRS3 = 'ACRS3', // Schedule change capability disabled for current period
+  ACRS4 = 'ACRS4', // Schedule change window has closed
+  ACRS5 = 'ACRS5', // Request type not allowed
+  ACRS6 = 'ACRS6', // Request type not allowed during this period type
+  ACRS7 = 'ACRS7', // Maximum requests per cycle reached
+  ACRS8 = 'ACRS8', // Maximum requests per period reached
+  ACRS9 = 'ACRS9', // Maximum concurrent requests reached
+  ACRSA = 'ACRSA', // Concurrent requests not allowed - pending request exists
+
+  // Grading Rules (ACRG = ACademic Rules Grading)
+  ACRG1 = 'ACRG1', // No active period found - grading requires active period
+  ACRG2 = 'ACRG2', // Grading not allowed during this period type
+  ACRG3 = 'ACRG3', // Grading capability disabled for current period
+  ACRG4 = 'ACRG4', // Grading deadline has passed
+  ACRG5 = 'ACRG5', // Early grading not allowed
+  ACRG6 = 'ACRG6', // Late grading not allowed
+  ACRG7 = 'ACRG7', // Hard deadline passed - no grading allowed
+  ACRG8 = 'ACRG8', // All assignments must be graded before submission
+  ACRG9 = 'ACRG9', // Minimum grade count not met
+  ACRGA = 'ACRGA', // Comments required for low grades
+  ACRGB = 'ACRGB', // Grade locked - no modifications allowed
+  ACRGC = 'ACRGC', // Grade correction requires approval
+
+  // Instruction Rules (ACRI = ACademic Rules Instruction)
+  ACRI1 = 'ACRI1', // No instructional period found
+  ACRI2 = 'ACRI2', // Instruction not allowed during this period type
+  ACRI3 = 'ACRI3', // Instruction not allowed during break period
+  ACRI4 = 'ACRI4', // Attendance tracking required but not enabled for this period
+  ACRI5 = 'ACRI5', // Assignment creation not allowed during this period
+  ACRI6 = 'ACRI6', // Quiz creation not allowed during this period
+
+  // Break Period Rules (ACRB = ACademic Rules Break)
+  ACRB1 = 'ACRB1', // Enrollment disabled during break period
+  ACRB2 = 'ACRB2', // Schedule changes disabled during break period
+  ACRB3 = 'ACRB3', // Grading disabled during break period
 } 

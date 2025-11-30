@@ -8,12 +8,18 @@ import { ApiErrorResponseBuilder } from 'src/common/api-error-builder';
 import { NotificationsService } from 'src/notifications/notifications.service';
 import { NotificationType } from 'src/schedule-change-requests/enums/request-enums';
 import { AcademicPeriodStatus } from '@prisma/client';
+import { AcademicPeriodBusinessRulesService } from '../academic-cycles/academic-period-business-rules.service';
+import { EnrollmentRuleConfig } from '../academic-cycles/interfaces/academic-period-business-rules.interface';
 
 @Injectable()
 export class SchedulesService {
   private readonly logger = new Logger(SchedulesService.name);
 
-  constructor(private readonly prisma: PrismaService, private readonly notificationsService: NotificationsService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly notificationsService: NotificationsService,
+    private readonly businessRulesService: AcademicPeriodBusinessRulesService,
+  ) {}
 
   async create(createScheduleDto: CreateScheduleDto) {
     const { studentId, courseSectionIds, academicCycleId, ...scheduleData } = createScheduleDto;
@@ -72,21 +78,6 @@ export class SchedulesService {
       throw new NotFoundException(errorResponse);
     }
 
-    // Check capacity for each course
-    const overCapacityCourses = courseSections.filter(
-      course => course.currentEnrollment >= course.maxEnrollment
-    );
-
-    if (overCapacityCourses.length > 0) {
-      const errorResponse = ApiErrorResponseBuilder.create(
-        ErrorCode.SCHC,
-        `Some courses are at capacity: ${overCapacityCourses.map(c => c.course.name).join(', ')}`
-      )
-        .withLogger(this.logger)
-        .build();
-      throw new ConflictException(errorResponse);
-    }
-
     // Check for period conflicts
     const periods = courseSections.map(course => course.timeBlockId);
     const uniquePeriods = new Set(periods);
@@ -115,44 +106,71 @@ export class SchedulesService {
       throw new BadRequestException(errorResponse);
     }
 
-    // Check if enrollment is allowed based on current period
-    const academicCycle = await this.prisma.academicCycle.findUnique({
-      where: { id: academicCycleId },
-      include: {
-        periods: true
-      }
-    });
+    // Check if enrollment is allowed based on business rules
+    const enrollmentValidation = await this.businessRulesService.canEnroll(
+      studentId,
+      academicCycleId
+    );
 
-    if (academicCycle) {
-      const now = new Date();
-      const activePeriod = academicCycle.periods.find(period => {
-        const startDate = new Date(period.startDate);
-        const endDate = new Date(period.endDate);
-        return (
-          period.status === AcademicPeriodStatus.ACTIVE &&
-          now >= startDate &&
-          now <= endDate
-        );
+    if (!enrollmentValidation.allowed) {
+      const errorCode = enrollmentValidation.errorCode || ErrorCode.SCHB;
+      const errorResponse = ApiErrorResponseBuilder.create(
+        errorCode,
+        enrollmentValidation.reason || 'Enrollment is not allowed at this time.'
+      )
+        .withLogger(this.logger)
+        .build();
+      throw new BadRequestException(errorResponse);
+    }
+
+    // Check capacity based on business rules
+    const enrollmentRules = await this.businessRulesService.getRuleCategory('enrollment') as EnrollmentRuleConfig;
+    if (enrollmentRules && enrollmentRules.isActive && enrollmentRules.capacity.checkCapacity) {
+      const overCapacityCourses = courseSections.filter(course => {
+        const isOverCapacity = course.currentEnrollment >= course.maxEnrollment;
+        if (!isOverCapacity) return false;
+        
+        // Check if over-enrollment is allowed
+        if (enrollmentRules.capacity.allowOverEnrollment && enrollmentRules.capacity.overEnrollmentLimit) {
+          const currentPercentage = (course.currentEnrollment / course.maxEnrollment) * 100;
+          return currentPercentage > enrollmentRules.capacity.overEnrollmentLimit;
+        }
+        return true;
       });
 
-      if (!activePeriod) {
-        const errorResponse = ApiErrorResponseBuilder.create(
-          ErrorCode.SCHB,
-          'No active period found. Enrollment is only allowed during active periods.'
-        )
-          .withLogger(this.logger)
-          .build();
-        throw new BadRequestException(errorResponse);
-      }
+      if (overCapacityCourses.length > 0) {
+        // Check if any course exceeds over-enrollment limit
+        const exceedsLimit = overCapacityCourses.some(course => {
+          if (enrollmentRules.capacity.allowOverEnrollment && enrollmentRules.capacity.overEnrollmentLimit) {
+            const currentPercentage = (course.currentEnrollment / course.maxEnrollment) * 100;
+            return currentPercentage > enrollmentRules.capacity.overEnrollmentLimit;
+          }
+          return true; // At capacity and over-enrollment not allowed
+        });
 
-      if (!activePeriod.allowsEnrollment) {
+        const errorCode = exceedsLimit ? ErrorCode.ACRE7 : ErrorCode.ACRE6;
         const errorResponse = ApiErrorResponseBuilder.create(
-          ErrorCode.SCHB,
-          `Enrollment is not allowed during the current ${activePeriod.periodType} period.`
+          errorCode,
+          `Some courses are at capacity: ${overCapacityCourses.map(c => c.course.name).join(', ')}`
         )
           .withLogger(this.logger)
           .build();
-        throw new BadRequestException(errorResponse);
+        throw new ConflictException(errorResponse);
+      }
+    } else {
+      // Fallback to basic capacity check if rules are disabled
+      const overCapacityCourses = courseSections.filter(
+        course => course.currentEnrollment >= course.maxEnrollment
+      );
+
+      if (overCapacityCourses.length > 0) {
+        const errorResponse = ApiErrorResponseBuilder.create(
+          ErrorCode.CSSE,
+          `Some courses are at capacity: ${overCapacityCourses.map(c => c.course.name).join(', ')}`
+        )
+          .withLogger(this.logger)
+          .build();
+        throw new ConflictException(errorResponse);
       }
     }
 

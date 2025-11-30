@@ -1,20 +1,57 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateStudentCourseHistoryDto } from './dto/create-student-course-history.dto';
 import { UpdateStudentCourseHistoryDto } from './dto/update-student-course-history.dto';
 import { CreateBulkStudentCourseHistoryDto, StudentGradeData } from './dto/create-bulk-student-course-history.dto';
 import { GradeLookupService } from '../grade-lookup/grade-lookup.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { AcademicPeriodBusinessRulesService } from '../academic-cycles/academic-period-business-rules.service';
+import { ErrorCode } from '../common/error-codes';
+import { ApiErrorResponseBuilder } from '../common/api-error-builder';
 
 @Injectable()
 export class StudentCourseHistoryService {
+  private readonly logger = new Logger(StudentCourseHistoryService.name);
+
   constructor(
     private prisma: PrismaService,
     private gradeLookupService: GradeLookupService,
     private notificationsService: NotificationsService,
+    private businessRulesService: AcademicPeriodBusinessRulesService,
   ) {}
 
   async create(createStudentCourseHistoryDto: CreateStudentCourseHistoryDto) {
+    // If grade is provided, validate grading is allowed based on business rules
+    if (createStudentCourseHistoryDto.grade && createStudentCourseHistoryDto.academicCycleId) {
+      // Find course section to get info for validation
+      const courseSection = await this.prisma.courseSection.findFirst({
+        where: {
+          courseId: createStudentCourseHistoryDto.courseId,
+          academicCycleId: createStudentCourseHistoryDto.academicCycleId,
+        },
+        select: { id: true, teacherId: true },
+      });
+
+      // Validate grading is allowed
+      if (courseSection) {
+        const gradingValidation = await this.businessRulesService.canSubmitGrades(
+          courseSection.teacherId,
+          courseSection.id,
+        );
+
+        if (!gradingValidation.allowed) {
+          const errorCode = gradingValidation.errorCode || ErrorCode.SCHB;
+          const errorResponse = ApiErrorResponseBuilder.create(
+            errorCode,
+            gradingValidation.reason || 'Grading is not allowed at this time.'
+          )
+            .withLogger(this.logger)
+            .build();
+          throw new BadRequestException(errorResponse);
+        }
+      }
+    }
+
     // If grade is provided, determine if it's passing based on grade lookup
     let isPassed = createStudentCourseHistoryDto.isPassed ?? true;
     if (createStudentCourseHistoryDto.grade) {

@@ -9,6 +9,8 @@ import { NotificationsService } from 'src/notifications/notifications.service';
 import { ConflictType, CourseRule, RuleType, AcademicPeriodStatus } from '@prisma/client';
 import { ErrorCode } from 'src/common/error-codes';
 import { ApiErrorResponseBuilder } from 'src/common/api-error-builder';
+import { AcademicPeriodBusinessRulesService } from '../academic-cycles/academic-period-business-rules.service';
+import { ScheduleChangeRuleConfig } from '../academic-cycles/interfaces/academic-period-business-rules.interface';
 
 @Injectable()
 export class ScheduleChangesService {
@@ -18,6 +20,7 @@ export class ScheduleChangesService {
     private readonly prisma: PrismaService,
     private readonly coursesService: CoursesService,
     private readonly notificationsService: NotificationsService,
+    private readonly businessRulesService: AcademicPeriodBusinessRulesService,
   ) {}
 
   async findAll(filters?: any) {
@@ -197,12 +200,9 @@ export class ScheduleChangesService {
       );
     }
 
-    // Get current academic cycle with periods
+    // Get current academic cycle
     const currentAcademicCycle = await this.prisma.academicCycle.findFirst({
       where: { isCurrent: true },
-      include: {
-        periods: true
-      }
     });
 
     if (!currentAcademicCycle) {
@@ -213,32 +213,78 @@ export class ScheduleChangesService {
       );
     }
 
-    // Check if schedule changes are allowed based on current period
-    const now = new Date();
-    const activePeriod = currentAcademicCycle.periods.find(period => {
-      const startDate = new Date(period.startDate);
-      const endDate = new Date(period.endDate);
-      return (
-        period.status === AcademicPeriodStatus.ACTIVE &&
-        now >= startDate &&
-        now <= endDate
-      );
-    });
+    // Check if schedule changes are allowed based on business rules
+    const scheduleChangeValidation = await this.businessRulesService.canRequestScheduleChange(
+      student.id,
+      currentAcademicCycle.id,
+      dto.requestType
+    );
 
-    if (!activePeriod) {
+    if (!scheduleChangeValidation.allowed) {
+      const errorCode: ErrorCode = scheduleChangeValidation.errorCode || ErrorCode.SCRX;
       throw new BadRequestException(
-        ApiErrorResponseBuilder.create(ErrorCode.SCRX, 'No active period found. Schedule changes are only allowed during active periods.')
+        ApiErrorResponseBuilder.create(
+          errorCode,
+          scheduleChangeValidation.reason || 'Schedule changes are not allowed at this time.'
+        )
           .withLogger(this.logger)
           .build()
       );
     }
 
-    if (!activePeriod.allowsScheduleChanges) {
-      throw new BadRequestException(
-        ApiErrorResponseBuilder.create(ErrorCode.SCRX, `Schedule changes are not allowed during the current ${activePeriod.periodType} period.`)
-          .withLogger(this.logger)
-          .build()
-      );
+    // Check request limits based on business rules
+    const rules = await this.businessRulesService.getRuleCategory('scheduleChange') as ScheduleChangeRuleConfig;
+    if (rules && rules.isActive) {
+      // Count existing requests for this student in this cycle
+      const existingRequests = await this.prisma.scheduleChangeRequest.findMany({
+        where: {
+          studentId: student.id,
+          academicCycleId: currentAcademicCycle.id,
+        },
+      });
+
+      // Check max requests per cycle
+      if (existingRequests.length >= rules.requestLimits.maxRequestsPerCycle) {
+        throw new BadRequestException(
+          ApiErrorResponseBuilder.create(
+            ErrorCode.ACRS7,
+            `Maximum number of schedule change requests (${rules.requestLimits.maxRequestsPerCycle}) reached for this cycle.`
+          )
+            .withLogger(this.logger)
+            .build()
+        );
+      }
+
+      // Check concurrent requests
+      if (!rules.requestLimits.allowConcurrentRequests) {
+        const pendingRequests = existingRequests.filter(req =>
+          req.status === RequestStatus.PENDING
+        );
+        if (pendingRequests.length > 0) {
+          throw new BadRequestException(
+            ApiErrorResponseBuilder.create(
+              ErrorCode.ACRSA,
+              'You have a pending schedule change request. Please wait for it to be processed.'
+            )
+              .withLogger(this.logger)
+              .build()
+          );
+        }
+      } else {
+        const pendingRequests = existingRequests.filter(req =>
+          req.status === RequestStatus.PENDING
+        );
+        if (pendingRequests.length >= rules.requestLimits.maxConcurrentRequests) {
+          throw new BadRequestException(
+            ApiErrorResponseBuilder.create(
+              ErrorCode.ACRS9,
+              `Maximum concurrent requests (${rules.requestLimits.maxConcurrentRequests}) reached.`
+            )
+              .withLogger(this.logger)
+              .build()
+          );
+        }
+      }
     }
 
     if (dto.preferredTimeBlockId) {
