@@ -6,7 +6,7 @@ import { UpdateScheduleChangeRequestDto } from './dto/update-schedule-change-req
 import { ProcessChangeRequestDto } from './dto/process-change-request.dto';
 import { RequestStatus, RequestPriority, NotificationType, UserRoleType } from './enums/request-enums';
 import { NotificationsService } from 'src/notifications/notifications.service';
-import { ConflictType, CourseRule, RuleType } from '@prisma/client';
+import { ConflictType, CourseRule, RuleType, AcademicPeriodStatus } from '@prisma/client';
 import { ErrorCode } from 'src/common/error-codes';
 import { ApiErrorResponseBuilder } from 'src/common/api-error-builder';
 
@@ -197,14 +197,45 @@ export class ScheduleChangesService {
       );
     }
 
-    // Get current academic cycle
+    // Get current academic cycle with periods
     const currentAcademicCycle = await this.prisma.academicCycle.findFirst({
       where: { isCurrent: true },
+      include: {
+        periods: true
+      }
     });
 
     if (!currentAcademicCycle) {
       throw new NotFoundException(
         ApiErrorResponseBuilder.create(ErrorCode.SCRX, 'Current academic cycle not found')
+          .withLogger(this.logger)
+          .build()
+      );
+    }
+
+    // Check if schedule changes are allowed based on current period
+    const now = new Date();
+    const activePeriod = currentAcademicCycle.periods.find(period => {
+      const startDate = new Date(period.startDate);
+      const endDate = new Date(period.endDate);
+      return (
+        period.status === AcademicPeriodStatus.ACTIVE &&
+        now >= startDate &&
+        now <= endDate
+      );
+    });
+
+    if (!activePeriod) {
+      throw new BadRequestException(
+        ApiErrorResponseBuilder.create(ErrorCode.SCRX, 'No active period found. Schedule changes are only allowed during active periods.')
+          .withLogger(this.logger)
+          .build()
+      );
+    }
+
+    if (!activePeriod.allowsScheduleChanges) {
+      throw new BadRequestException(
+        ApiErrorResponseBuilder.create(ErrorCode.SCRX, `Schedule changes are not allowed during the current ${activePeriod.periodType} period.`)
           .withLogger(this.logger)
           .build()
       );

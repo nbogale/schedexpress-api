@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException, ConflictException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ConflictException, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateAcademicCycleConfigDto } from './dto/create-academic-cycle-config.dto';
 import { UpdateAcademicCycleConfigDto } from './dto/update-academic-cycle-config.dto';
@@ -6,10 +6,16 @@ import { CreateAcademicCycleRuleDto } from './dto/create-academic-cycle-rule.dto
 import { CreateAcademicCycleDto } from './dto/create-academic-cycle.dto';
 import { UpdateAcademicCycleDto } from './dto/update-academic-cycle.dto';
 import { ValidateAcademicCycleDto } from './dto/validate-academic-cycle.dto';
-import { CycleType } from '@prisma/client';
+import { CreateAcademicPeriodDto } from './dto/create-academic-period.dto';
+import { UpdateAcademicPeriodDto } from './dto/update-academic-period.dto';
+import { CycleType, AcademicPeriodStatus, AcademicPeriodType } from '@prisma/client';
+import { ErrorCode } from 'src/common/error-codes';
+import { ApiErrorResponseBuilder } from 'src/common/api-error-builder';
 
 @Injectable()
 export class AcademicCyclesService {
+  private readonly logger = new Logger(AcademicCyclesService.name);
+
   constructor(private prisma: PrismaService) {}
 
   // Academic Cycle Config Methods
@@ -605,5 +611,552 @@ export class AcademicCyclesService {
       isValid: errors.length === 0,
       errors
     };
+  }
+
+  // Academic Period Methods
+  async createPeriod(createPeriodDto: CreateAcademicPeriodDto, userId: string) {
+    // Validate that the cycle exists
+    const cycle = await this.prisma.academicCycle.findUnique({
+      where: { id: createPeriodDto.cycleId }
+    });
+
+    if (!cycle) {
+      const errorResponse = ApiErrorResponseBuilder.create(
+        ErrorCode.ACCE,
+        `Academic cycle with ID ${createPeriodDto.cycleId} not found`
+      )
+        .withLogger(this.logger)
+        .build();
+
+      throw new NotFoundException(errorResponse);
+    }
+
+    // Validate dates are within cycle dates
+    // Normalize dates to compare only the date part (without time)
+    const normalizeDate = (date: Date) => {
+      const normalized = new Date(date);
+      normalized.setHours(0, 0, 0, 0);
+      return normalized;
+    };
+
+    const startDate = normalizeDate(new Date(createPeriodDto.startDate));
+    const endDate = normalizeDate(new Date(createPeriodDto.endDate));
+    const cycleStart = normalizeDate(new Date(cycle.startDate));
+    const cycleEnd = normalizeDate(new Date(cycle.endDate));
+
+    const formatDateForMessage = (date: Date | string) => {
+      if (date instanceof Date) {
+        return date.toISOString().split('T')[0];
+      }
+      return date.toString().split('T')[0];
+    };
+
+    if (startDate < cycleStart) {
+      const errorResponse = ApiErrorResponseBuilder.create(
+        ErrorCode.ACCB,
+        `Period start date (${createPeriodDto.startDate.split('T')[0]}) cannot be before the cycle start date (${formatDateForMessage(cycle.startDate)})`
+      )
+        .withLogger(this.logger)
+        .build();
+
+      throw new BadRequestException(errorResponse);
+    }
+
+    if (endDate > cycleEnd) {
+      const errorResponse = ApiErrorResponseBuilder.create(
+        ErrorCode.ACCB,
+        `Period end date (${createPeriodDto.endDate.split('T')[0]}) cannot be after the cycle end date (${formatDateForMessage(cycle.endDate)})`
+      )
+        .withLogger(this.logger)
+        .build();
+
+      throw new BadRequestException(errorResponse);
+    }
+
+    if (startDate >= endDate) {
+      const errorResponse = ApiErrorResponseBuilder.create(
+        ErrorCode.ACCC,
+        'Start date must be before end date'
+      )
+        .withLogger(this.logger)
+        .build();
+
+      throw new BadRequestException(errorResponse);
+    }
+
+    // Check for overlapping periods with smart rules for BREAK periods
+    const overlappingPeriods = await this.prisma.academicPeriod.findMany({
+      where: {
+        cycleId: createPeriodDto.cycleId,
+        OR: [
+          {
+            AND: [
+              { startDate: { lte: startDate } },
+              { endDate: { gte: startDate } }
+            ]
+          },
+          {
+            AND: [
+              { startDate: { lte: endDate } },
+              { endDate: { gte: endDate } }
+            ]
+          },
+          {
+            AND: [
+              { startDate: { gte: startDate } },
+              { endDate: { lte: endDate } }
+            ]
+          }
+        ]
+      }
+    });
+
+    if (overlappingPeriods.length > 0) {
+      // Smart overlap rules: BREAK periods can overlap with INSTRUCTION, EXAM, GRADING, REVIEW
+      // But BREAK cannot overlap with other BREAK periods or other period types
+      const isCreatingBreak = createPeriodDto.periodType === AcademicPeriodType.BREAK;
+      
+      if (isCreatingBreak) {
+        // For BREAK periods: filter out periods that BREAK can overlap with
+        const allowedOverlapTypes = [
+          AcademicPeriodType.INSTRUCTION,
+          AcademicPeriodType.EXAM,
+          AcademicPeriodType.GRADING,
+          AcademicPeriodType.REVIEW
+        ];
+        
+        // Find periods that BREAK cannot overlap with (other BREAKs or non-allowed types)
+        const conflictingPeriods = overlappingPeriods.filter(p => {
+          // BREAK cannot overlap with another BREAK
+          if (p.periodType === AcademicPeriodType.BREAK) {
+            return true;
+          }
+          // BREAK cannot overlap with periods not in the allowed list
+          const isAllowedType = allowedOverlapTypes.some(type => type === p.periodType);
+          if (!isAllowedType) {
+            return true;
+          }
+          return false;
+        });
+
+        if (conflictingPeriods.length > 0) {
+          const conflictingNames = conflictingPeriods.map(p => p.name).join(', ');
+          const errorResponse = ApiErrorResponseBuilder.create(
+            ErrorCode.ACCF,
+            `Break period overlaps with incompatible period(s): ${conflictingNames}. Break periods can only overlap with Instruction, Exam, Grading, or Review periods.`
+          )
+            .withLogger(this.logger)
+            .build();
+
+          throw new ConflictException(errorResponse);
+        }
+        // If we get here, all overlapping periods are allowed (INSTRUCTION, EXAM, GRADING, or REVIEW)
+        // Allow the overlap to proceed
+      } else {
+        // For non-BREAK periods: check if any overlapping period is a BREAK
+        const overlappingBreaks = overlappingPeriods.filter(p => p.periodType === AcademicPeriodType.BREAK);
+        const overlappingNonBreaks = overlappingPeriods.filter(p => p.periodType !== AcademicPeriodType.BREAK);
+        
+        // Non-BREAK periods cannot overlap with other non-BREAK periods
+        if (overlappingNonBreaks.length > 0) {
+          const conflictingNames = overlappingNonBreaks.map(p => p.name).join(', ');
+          const errorResponse = ApiErrorResponseBuilder.create(
+            ErrorCode.ACCF,
+            `Period overlaps with existing period(s): ${conflictingNames}. Please adjust the dates.`
+          )
+            .withLogger(this.logger)
+            .build();
+
+          throw new ConflictException(errorResponse);
+        }
+        // If only overlapping with BREAK periods, that's allowed (non-BREAK can overlap with BREAK)
+      }
+    }
+
+    // Convert date strings to ISO DateTime format for Prisma
+    // Prisma DateTime fields require full ISO-8601 DateTime strings, not just dates
+    let startDateForDb = createPeriodDto.startDate;
+    let endDateForDb = createPeriodDto.endDate;
+
+    if (typeof createPeriodDto.startDate === 'string') {
+      if (/^\d{4}-\d{2}-\d{2}$/.test(createPeriodDto.startDate)) {
+        // Date-only format: convert to DateTime with time component
+        startDateForDb = new Date(createPeriodDto.startDate + 'T00:00:00.000Z').toISOString();
+      }
+    }
+
+    if (typeof createPeriodDto.endDate === 'string') {
+      if (/^\d{4}-\d{2}-\d{2}$/.test(createPeriodDto.endDate)) {
+        // Date-only format: convert to DateTime with time component
+        // Use end of day to ensure the full day is included
+        endDateForDb = new Date(createPeriodDto.endDate + 'T23:59:59.999Z').toISOString();
+      }
+    }
+
+    return this.prisma.academicPeriod.create({
+      data: {
+        cycleId: createPeriodDto.cycleId,
+        name: createPeriodDto.name,
+        periodType: createPeriodDto.periodType,
+        status: createPeriodDto.status || AcademicPeriodStatus.PLANNED,
+        startDate: startDateForDb,
+        endDate: endDateForDb,
+        description: createPeriodDto.description,
+        isInstructional: createPeriodDto.isInstructional || false,
+        allowsEnrollment: createPeriodDto.allowsEnrollment || false,
+        allowsGrading: createPeriodDto.allowsGrading || false,
+        allowsScheduleChanges: createPeriodDto.allowsScheduleChanges || false,
+        isBreak: createPeriodDto.isBreak || false,
+        sortOrder: createPeriodDto.sortOrder || 0,
+        createdBy: userId
+      },
+      include: {
+        cycle: {
+          select: {
+            id: true,
+            name: true,
+            cycleType: true
+          }
+        },
+        creator: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true
+          }
+        }
+      }
+    });
+  }
+
+  async findAllPeriods(cycleId?: string) {
+    const where = cycleId ? { cycleId } : {};
+    
+    return this.prisma.academicPeriod.findMany({
+      where,
+      include: {
+        cycle: {
+          select: {
+            id: true,
+            name: true,
+            cycleType: true
+          }
+        },
+        creator: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true
+          }
+        }
+      },
+      orderBy: [
+        { sortOrder: 'asc' },
+        { startDate: 'asc' }
+      ]
+    });
+  }
+
+  async findPeriodById(id: string) {
+    const period = await this.prisma.academicPeriod.findUnique({
+      where: { id },
+      include: {
+        cycle: {
+          select: {
+            id: true,
+            name: true,
+            cycleType: true,
+            startDate: true,
+            endDate: true
+          }
+        },
+        creator: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true
+          }
+        }
+      }
+    });
+
+    if (!period) {
+      throw new NotFoundException(`Academic period with ID ${id} not found`);
+    }
+
+    return period;
+  }
+
+  async findPeriodsByCycle(cycleId: string) {
+    return this.prisma.academicPeriod.findMany({
+      where: { cycleId },
+      include: {
+        creator: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true
+          }
+        }
+      },
+      orderBy: [
+        { sortOrder: 'asc' },
+        { startDate: 'asc' }
+      ]
+    });
+  }
+
+  async findCurrentPeriod(cycleId?: string) {
+    const now = new Date();
+    const where: any = {
+      status: AcademicPeriodStatus.ACTIVE,
+      startDate: { lte: now },
+      endDate: { gte: now }
+    };
+
+    if (cycleId) {
+      where.cycleId = cycleId;
+    }
+
+    return this.prisma.academicPeriod.findFirst({
+      where,
+      include: {
+        cycle: {
+          select: {
+            id: true,
+            name: true,
+            cycleType: true
+          }
+        }
+      },
+      orderBy: { startDate: 'asc' }
+    });
+  }
+
+  async findUpcomingPeriods(cycleId?: string, limit: number = 5) {
+    const now = new Date();
+    const where: any = {
+      status: AcademicPeriodStatus.PLANNED,
+      startDate: { gte: now }
+    };
+
+    if (cycleId) {
+      where.cycleId = cycleId;
+    }
+
+    return this.prisma.academicPeriod.findMany({
+      where,
+      include: {
+        cycle: {
+          select: {
+            id: true,
+            name: true,
+            cycleType: true
+          }
+        }
+      },
+      orderBy: { startDate: 'asc' },
+      take: limit
+    });
+  }
+
+  async updatePeriod(id: string, updatePeriodDto: UpdateAcademicPeriodDto) {
+    const period = await this.findPeriodById(id);
+
+    // If dates are being updated, validate them
+    if (updatePeriodDto.startDate || updatePeriodDto.endDate) {
+      const startDate = updatePeriodDto.startDate ? new Date(updatePeriodDto.startDate) : new Date(period.startDate);
+      const endDate = updatePeriodDto.endDate ? new Date(updatePeriodDto.endDate) : new Date(period.endDate);
+
+      if (startDate >= endDate) {
+        const errorResponse = ApiErrorResponseBuilder.create(
+          ErrorCode.ACCA,
+          'Start date must be before end date'
+        )
+          .withLogger(this.logger)
+          .build();
+
+        throw new BadRequestException(errorResponse);
+      }
+
+      // Get cycle to validate dates
+      const cycle = await this.prisma.academicCycle.findUnique({
+        where: { id: period.cycleId }
+      });
+
+      if (cycle) {
+        const cycleStart = new Date(cycle.startDate);
+        const cycleEnd = new Date(cycle.endDate);
+
+        if (startDate < cycleStart || endDate > cycleEnd) {
+          const errorResponse = ApiErrorResponseBuilder.create(
+            ErrorCode.ACCD,
+            'Period dates must be within the cycle dates'
+          )
+            .withLogger(this.logger)
+            .build();
+
+          throw new BadRequestException(errorResponse);
+        }
+
+        // Check for overlapping periods (excluding current period) with smart rules for BREAK periods
+        const overlappingPeriods = await this.prisma.academicPeriod.findMany({
+          where: {
+            cycleId: period.cycleId,
+            id: { not: id },
+            OR: [
+              {
+                AND: [
+                  { startDate: { lte: startDate } },
+                  { endDate: { gte: startDate } }
+                ]
+              },
+              {
+                AND: [
+                  { startDate: { lte: endDate } },
+                  { endDate: { gte: endDate } }
+                ]
+              },
+              {
+                AND: [
+                  { startDate: { gte: startDate } },
+                  { endDate: { lte: endDate } }
+                ]
+              }
+            ]
+          }
+        });
+
+        if (overlappingPeriods.length > 0) {
+          // Determine the period type we're checking (use updatePeriodDto if provided, otherwise use existing period type)
+          const periodType = updatePeriodDto.periodType || period.periodType;
+          const isUpdatingToBreak = periodType === AcademicPeriodType.BREAK;
+          
+          if (isUpdatingToBreak) {
+            // For BREAK periods: filter out periods that BREAK can overlap with
+            const allowedOverlapTypes = [
+              AcademicPeriodType.INSTRUCTION,
+              AcademicPeriodType.EXAM,
+              AcademicPeriodType.GRADING,
+              AcademicPeriodType.REVIEW
+            ];
+            
+            // Find periods that BREAK cannot overlap with (other BREAKs or non-allowed types)
+            const conflictingPeriods = overlappingPeriods.filter(p => {
+              // BREAK cannot overlap with another BREAK
+              if (p.periodType === AcademicPeriodType.BREAK) {
+                return true;
+              }
+              // BREAK cannot overlap with periods not in the allowed list
+              const isAllowedType = allowedOverlapTypes.some(type => type === p.periodType);
+              if (!isAllowedType) {
+                return true;
+              }
+              return false;
+            });
+
+            if (conflictingPeriods.length > 0) {
+              const conflictingNames = conflictingPeriods.map(p => p.name).join(', ');
+              const errorResponse = ApiErrorResponseBuilder.create(
+                ErrorCode.ACCF,
+                `Break period overlaps with incompatible period(s): ${conflictingNames}. Break periods can only overlap with Instruction, Exam, Grading, or Review periods.`
+              )
+                .withLogger(this.logger)
+                .build();
+
+              throw new ConflictException(errorResponse);
+            }
+            // If we get here, all overlapping periods are allowed (INSTRUCTION, EXAM, GRADING, or REVIEW)
+            // Allow the overlap to proceed
+          } else {
+            // For non-BREAK periods: check if any overlapping period is a BREAK
+            const overlappingBreaks = overlappingPeriods.filter(p => p.periodType === AcademicPeriodType.BREAK);
+            const overlappingNonBreaks = overlappingPeriods.filter(p => p.periodType !== AcademicPeriodType.BREAK);
+            
+            // Non-BREAK periods cannot overlap with other non-BREAK periods
+            if (overlappingNonBreaks.length > 0) {
+              const conflictingNames = overlappingNonBreaks.map(p => p.name).join(', ');
+              const errorResponse = ApiErrorResponseBuilder.create(
+                ErrorCode.ACCF,
+                `Period overlaps with existing period(s): ${conflictingNames}. Please adjust the dates.`
+              )
+                .withLogger(this.logger)
+                .build();
+
+              throw new ConflictException(errorResponse);
+            }
+            // If only overlapping with BREAK periods, that's allowed (non-BREAK can overlap with BREAK)
+          }
+        }
+      }
+    }
+
+    // Convert date strings to ISO DateTime format for Prisma if dates are being updated
+    const updateData: any = { ...updatePeriodDto };
+    
+    if (updatePeriodDto.startDate && typeof updatePeriodDto.startDate === 'string') {
+      if (/^\d{4}-\d{2}-\d{2}$/.test(updatePeriodDto.startDate)) {
+        // Date-only format: convert to DateTime with time component
+        updateData.startDate = new Date(updatePeriodDto.startDate + 'T00:00:00.000Z').toISOString();
+      }
+    }
+
+    if (updatePeriodDto.endDate && typeof updatePeriodDto.endDate === 'string') {
+      if (/^\d{4}-\d{2}-\d{2}$/.test(updatePeriodDto.endDate)) {
+        // Date-only format: convert to DateTime with time component
+        // Use end of day to ensure the full day is included
+        updateData.endDate = new Date(updatePeriodDto.endDate + 'T23:59:59.999Z').toISOString();
+      }
+    }
+
+    return this.prisma.academicPeriod.update({
+      where: { id },
+      data: updateData,
+      include: {
+        cycle: {
+          select: {
+            id: true,
+            name: true,
+            cycleType: true
+          }
+        },
+        creator: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true
+          }
+        }
+      }
+    });
+  }
+
+  async deletePeriod(id: string) {
+    await this.findPeriodById(id);
+    return this.prisma.academicPeriod.delete({
+      where: { id }
+    });
+  }
+
+  async updatePeriodStatus(id: string, status: AcademicPeriodStatus) {
+    await this.findPeriodById(id);
+    return this.prisma.academicPeriod.update({
+      where: { id },
+      data: { status },
+      include: {
+        cycle: {
+          select: {
+            id: true,
+            name: true,
+            cycleType: true
+          }
+        }
+      }
+    });
   }
 }

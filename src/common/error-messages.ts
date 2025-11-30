@@ -87,4 +87,12 @@ export const errorMessages: Record<ErrorCode, string> = {
 
   // School Year Error Messages
   [ErrorCode.SCYA]: 'School year is used in course sections.',
+
+  // Academic Cycle Error Messages
+  [ErrorCode.ACCA]: 'Academic period start date can not be before academic cycle date.',
+  [ErrorCode.ACCB]: 'Academic cycle end date must be after start date.',
+  [ErrorCode.ACCC]: 'Academic period start date must be before end date.',
+  [ErrorCode.ACCD]: 'Academic period dates are not within the cycle dates.',
+  [ErrorCode.ACCE]: 'Academic cycle not found.',
+  [ErrorCode.ACCF]: 'Period overlaps with existing period(s). Please adjust the dates.',
 };

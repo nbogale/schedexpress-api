@@ -18,11 +18,9 @@ async function main() {
     prisma.studentCourseHistory.deleteMany(),
     prisma.courseSection.deleteMany(),
     prisma.schedule.deleteMany(),
-    prisma.academicPeriod.deleteMany(),
     prisma.academicCycle.deleteMany(),
     prisma.academicCycleRule.deleteMany(),
     prisma.academicCycleConfig.deleteMany(),
-    prisma.academicSettings.deleteMany(),
     prisma.coursePrerequisite.deleteMany(),
     prisma.courseSequence.deleteMany(),
     prisma.courseRule.deleteMany(),
@@ -33,7 +31,8 @@ async function main() {
     prisma.room.deleteMany(),
     prisma.gradeLevel.deleteMany(),
     prisma.courseLevel.deleteMany(),
-    prisma.department.deleteMany(),    prisma.userStatusHistory.deleteMany(),
+    prisma.department.deleteMany(),
+    prisma.userStatusHistory.deleteMany(),
     prisma.userAccountHistory.deleteMany(),
     prisma.userAccount.deleteMany(),
     prisma.user.deleteMany(),
@@ -41,7 +40,6 @@ async function main() {
     prisma.notification.deleteMany(),
     prisma.notificationPreferences.deleteMany(),
     prisma.parentGuardian.deleteMany(),
-    prisma.settings.deleteMany(),
   ]);
 
   console.log('🧹 Cleared existing data');
@@ -590,8 +588,6 @@ async function main() {
       cycleNumber: null,
       startDate: new Date('2025-08-15'),
       endDate: new Date('2026-06-15'),
-      openingDate: new Date('2025-08-01'), // Opening day (preparation starts)
-      closingDate: new Date('2026-06-15'), // Closing day (last day of school)
       isCurrent: true,
       isActive: true,
       isValidated: true,
@@ -749,280 +745,6 @@ async function main() {
   const currentAcademicCycle = academicCycles[0]; // School Year
 
   console.log('🔄 Created academic cycles (School Year, Semesters, Quarters)');
-
-  // Create Academic Periods for the School Year
-  console.log('📅 Creating academic periods...');
-  
-  const schoolYearPeriods = await Promise.all([
-    // Preparation Period (before school year starts)
-    prisma.academicPeriod.create({
-      data: {
-        cycleId: schoolYearCycle.id,
-        name: '2025-2026 Preparation',
-        periodType: 'PREPARATION',
-        status: 'PLANNED',
-        startDate: new Date('2025-08-01'),
-        endDate: new Date('2025-08-14'),
-        description: 'Pre-cycle setup, teacher preparation, and room assignment',
-        isInstructional: false,
-        allowsEnrollment: false,
-        allowsGrading: false,
-        allowsScheduleChanges: false,
-        isBreak: false,
-        sortOrder: 1,
-        createdBy: users[0].id
-      }
-    }),
-    
-    // Registration Period (at school year level - Option A: Single registration)
-    prisma.academicPeriod.create({
-      data: {
-        cycleId: schoolYearCycle.id,
-        name: '2025-2026 Registration',
-        periodType: 'REGISTRATION',
-        status: 'PLANNED',
-        startDate: new Date('2025-08-01'),
-        endDate: new Date('2025-08-15'),
-        description: 'Student enrollment period for the entire academic year',
-        isInstructional: false,
-        allowsEnrollment: true,
-        allowsGrading: false,
-        allowsScheduleChanges: true,
-        isBreak: false,
-        sortOrder: 2,
-        createdBy: users[0].id
-      }
-    })
-  ]);
-
-  // Create Academic Periods for Fall Semester
-  const fallSemesterPeriods = await Promise.all([
-    // Fall Instruction Period
-    prisma.academicPeriod.create({
-      data: {
-        cycleId: fallSemester.id,
-        name: 'Fall Semester Instruction',
-        periodType: 'INSTRUCTION',
-        status: 'PLANNED',
-        startDate: new Date('2025-08-20'),
-        endDate: new Date('2025-12-10'),
-        description: 'Main instruction period for fall semester',
-        isInstructional: true,
-        allowsEnrollment: false,
-        allowsGrading: false,
-        allowsScheduleChanges: true, // Allow changes in first few weeks
-        isBreak: false,
-        sortOrder: 1,
-        createdBy: users[0].id
-      }
-    }),
-    
-    // Thanksgiving Break
-    prisma.academicPeriod.create({
-      data: {
-        cycleId: fallSemester.id,
-        name: 'Thanksgiving Break',
-        periodType: 'BREAK',
-        status: 'PLANNED',
-        startDate: new Date('2025-11-24'),
-        endDate: new Date('2025-11-28'),
-        description: 'Thanksgiving holiday break',
-        isInstructional: false,
-        allowsEnrollment: false,
-        allowsGrading: false,
-        allowsScheduleChanges: false,
-        isBreak: true,
-        sortOrder: 2,
-        createdBy: users[0].id
-      }
-    }),
-    
-    // Fall Exam Period
-    prisma.academicPeriod.create({
-      data: {
-        cycleId: fallSemester.id,
-        name: 'Fall Final Exams',
-        periodType: 'EXAM',
-        status: 'PLANNED',
-        startDate: new Date('2025-12-11'),
-        endDate: new Date('2025-12-15'),
-        description: 'Final examination period for fall semester',
-        isInstructional: false,
-        allowsEnrollment: false,
-        allowsGrading: false,
-        allowsScheduleChanges: false,
-        isBreak: false,
-        sortOrder: 3,
-        createdBy: users[0].id
-      }
-    }),
-    
-    // Fall Grading Period
-    prisma.academicPeriod.create({
-      data: {
-        cycleId: fallSemester.id,
-        name: 'Fall Grade Submission',
-        periodType: 'GRADING',
-        status: 'PLANNED',
-        startDate: new Date('2025-12-16'),
-        endDate: new Date('2025-12-20'),
-        description: 'Grade submission period for fall semester',
-        isInstructional: false,
-        allowsEnrollment: false,
-        allowsGrading: true,
-        allowsScheduleChanges: false,
-        isBreak: false,
-        sortOrder: 4,
-        createdBy: users[0].id
-      }
-    })
-  ]);
-
-  // Create Academic Periods for Spring Semester
-  const springSemesterPeriods = await Promise.all([
-    // Spring Instruction Period
-    prisma.academicPeriod.create({
-      data: {
-        cycleId: springSemester.id,
-        name: 'Spring Semester Instruction',
-        periodType: 'INSTRUCTION',
-        status: 'PLANNED',
-        startDate: new Date('2026-01-15'),
-        endDate: new Date('2026-05-15'),
-        description: 'Main instruction period for spring semester',
-        isInstructional: true,
-        allowsEnrollment: false,
-        allowsGrading: false,
-        allowsScheduleChanges: true, // Allow changes in first few weeks
-        isBreak: false,
-        sortOrder: 1,
-        createdBy: users[0].id
-      }
-    }),
-    
-    // Spring Break
-    prisma.academicPeriod.create({
-      data: {
-        cycleId: springSemester.id,
-        name: 'Spring Break',
-        periodType: 'BREAK',
-        status: 'PLANNED',
-        startDate: new Date('2026-03-10'),
-        endDate: new Date('2026-03-14'),
-        description: 'Spring break holiday',
-        isInstructional: false,
-        allowsEnrollment: false,
-        allowsGrading: false,
-        allowsScheduleChanges: false,
-        isBreak: true,
-        sortOrder: 2,
-        createdBy: users[0].id
-      }
-    }),
-    
-    // Review Period
-    prisma.academicPeriod.create({
-      data: {
-        cycleId: springSemester.id,
-        name: 'Spring Review Week',
-        periodType: 'REVIEW',
-        status: 'PLANNED',
-        startDate: new Date('2026-05-16'),
-        endDate: new Date('2026-05-20'),
-        description: 'Review week before final exams',
-        isInstructional: true,
-        allowsEnrollment: false,
-        allowsGrading: false,
-        allowsScheduleChanges: false,
-        isBreak: false,
-        sortOrder: 3,
-        createdBy: users[0].id
-      }
-    }),
-    
-    // Spring Exam Period
-    prisma.academicPeriod.create({
-      data: {
-        cycleId: springSemester.id,
-        name: 'Spring Final Exams',
-        periodType: 'EXAM',
-        status: 'PLANNED',
-        startDate: new Date('2026-05-21'),
-        endDate: new Date('2026-05-25'),
-        description: 'Final examination period for spring semester',
-        isInstructional: false,
-        allowsEnrollment: false,
-        allowsGrading: false,
-        allowsScheduleChanges: false,
-        isBreak: false,
-        sortOrder: 4,
-        createdBy: users[0].id
-      }
-    }),
-    
-    // Spring Grading Period
-    prisma.academicPeriod.create({
-      data: {
-        cycleId: springSemester.id,
-        name: 'Spring Grade Submission',
-        periodType: 'GRADING',
-        status: 'PLANNED',
-        startDate: new Date('2026-05-26'),
-        endDate: new Date('2026-05-30'),
-        description: 'Grade submission period for spring semester',
-        isInstructional: false,
-        allowsEnrollment: false,
-        allowsGrading: true,
-        allowsScheduleChanges: false,
-        isBreak: false,
-        sortOrder: 5,
-        createdBy: users[0].id
-      }
-    })
-  ]);
-
-  // Create Winter Break Period (spans between semesters, attached to school year)
-  const winterBreak = await prisma.academicPeriod.create({
-    data: {
-      cycleId: schoolYearCycle.id,
-      name: 'Winter Break',
-      periodType: 'BREAK',
-      status: 'PLANNED',
-      startDate: new Date('2025-12-21'),
-      endDate: new Date('2026-01-05'),
-      description: 'Winter holiday break between semesters',
-      isInstructional: false,
-      allowsEnrollment: false,
-      allowsGrading: false,
-      allowsScheduleChanges: false,
-      isBreak: true,
-      sortOrder: 3,
-      createdBy: users[0].id
-    }
-  });
-
-  // Create Transition/Closing Period (end of school year)
-  const closingPeriod = await prisma.academicPeriod.create({
-    data: {
-      cycleId: schoolYearCycle.id,
-      name: '2025-2026 Closing',
-      periodType: 'TRANSITION',
-      status: 'PLANNED',
-      startDate: new Date('2026-06-01'),
-      endDate: new Date('2026-06-15'),
-      description: 'End of year transition and closing activities',
-      isInstructional: false,
-      allowsEnrollment: false,
-      allowsGrading: false,
-      allowsScheduleChanges: false,
-      isBreak: false,
-      sortOrder: 4,
-      createdBy: users[0].id
-    }
-  });
-
-  const allPeriods = [...schoolYearPeriods, ...fallSemesterPeriods, ...springSemesterPeriods, winterBreak, closingPeriod];
-  console.log(`📅 Created ${allPeriods.length} academic periods`);
 
   // Create Course Sections (Expanded for 500 students)
   const courseSections = await Promise.all([
@@ -1568,130 +1290,6 @@ async function main() {
   ]);
 
   console.log('📊 Created grade lookup entries');
-
-  // Create Settings and AcademicSettings with default period configuration
-  let settings = await prisma.settings.findFirst();
-  if (!settings) {
-    settings = await prisma.settings.create({
-      data: {
-        schoolName: 'East High School',
-        maxCourseLoad: 8,
-        allowConflicts: false,
-        scheduleType: 'STANDARD',
-        hasRotationDays: false,
-        minBlockDuration: 45,
-        maxBlockDuration: 120,
-        allowOverlappingBlocks: false,
-      },
-    });
-  }
-
-  const defaultPeriodConfiguration = {
-    schoolYear: {
-      preparation: {
-        daysBeforeStart: 14,
-        duration: 14,
-      },
-      registration: {
-        timing: 'BEFORE_INSTRUCTION',
-        duration: 10,
-      },
-      orientation: {
-        duration: 5,
-      },
-      closing: {
-        daysBeforeEnd: 14,
-        duration: 14,
-      },
-    },
-    semesterQuarter: {
-      instruction: {
-        nameTemplate: '{Cycle Name} Instruction',
-        allowsScheduleChanges: true,
-        scheduleChangeWindow: 14,
-      },
-      exam: {
-        duration: 5,
-        timing: 'END_OF_CYCLE',
-      },
-      grading: {
-        duration: 5,
-        timing: 'AFTER_EXAMS',
-      },
-      breaks: {
-        thanksgiving: {
-          enabled: true,
-          duration: 5,
-        },
-        spring: {
-          enabled: true,
-          duration: 7,
-        },
-        winter: {
-          enabled: true,
-          duration: 14,
-        },
-      },
-    },
-  };
-
-  const academicPeriodRules = {
-    enrollment: {
-      defaultDuration: 14,
-      allowLateEnrollment: true,
-      lateEnrollmentGracePeriod: 7,
-      requireCounselorApproval: true,
-    },
-    grading: {
-      defaultDuration: 5,
-      allowLateSubmission: true,
-      lateSubmissionGracePeriod: 3,
-      requireAdminApproval: true,
-    },
-    scheduleChanges: {
-      defaultWindow: 14,
-      allowChangesAfterDeadline: false,
-      requireReason: true,
-      maxChangesPerStudent: 2,
-    },
-    uiVisibility: {
-      hideEnrollmentOutsidePeriods: true,
-      hideGradingOutsidePeriods: true,
-      hideScheduleChangesOutsidePeriods: true,
-      showPeriodWarnings: true,
-    },
-    notifications: {
-      notifyBeforeTransitions: true,
-      notifyTeachersBeforeGrading: true,
-      notifyAdminsBeforeEnrollment: true,
-      notificationLeadTime: 3,
-    },
-  };
-
-  const academicSettings = await prisma.academicSettings.upsert({
-    where: { settingsId: settings.id },
-    update: {
-      academicStructureType: 'SEMESTER_QUARTERS',
-      defaultSemesterCount: 2,
-      defaultQuarterCount: 4,
-      defaultTrimesterCount: 3,
-      semestersHaveQuarters: true,
-      defaultPeriodConfiguration: defaultPeriodConfiguration as any,
-      academicPeriodRules: academicPeriodRules as any,
-    },
-    create: {
-      settingsId: settings.id,
-      academicStructureType: 'SEMESTER_QUARTERS',
-      defaultSemesterCount: 2,
-      defaultQuarterCount: 4,
-      defaultTrimesterCount: 3,
-      semestersHaveQuarters: true,
-      defaultPeriodConfiguration: defaultPeriodConfiguration as any,
-      academicPeriodRules: academicPeriodRules as any,
-    },
-  });
-
-  console.log('⚙️ Created Settings and AcademicSettings with default period configuration');
 
   console.log('✅ High school mock data seeding completed successfully!');
   console.log(`📈 Created:`);

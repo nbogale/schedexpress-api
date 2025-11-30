@@ -1,0 +1,646 @@
+{
+  "school": {
+    "name": "Lincoln High School",
+    "type": "Public High School (Grades 9-12)",
+    "address": "123 Education Street, Lincoln, State 12345",
+    "phone": "(555) 123-4567",
+    "email": "info@lincolnhs.edu",
+    "website": "www.lincolnhs.edu",
+    "academicYear": "2024-2025",
+    "totalStudents": 1200,
+    "totalTeachers": 85,
+    "totalStaff": 110
+  },
+  "departments": [
+    {
+      "id": "dept-001",
+      "name": "Mathematics",
+      "description": "Mathematics Department - Algebra, Geometry, Pre-Calculus, Calculus, and AP Courses",
+      "head": "Dr. Sarah Johnson"
+    },
+    {
+      "id": "dept-002", 
+      "name": "English Language Arts",
+      "description": "English Language Arts Department - Literature, Composition, and AP Courses",
+      "head": "Ms. Emily Rodriguez"
+    },
+    {
+      "id": "dept-003",
+      "name": "Science", 
+      "description": "Science Department - Biology, Chemistry, Physics, and AP Sciences",
+      "head": "Mr. David Chen"
+    },
+    {
+      "id": "dept-004",
+      "name": "Social Studies",
+      "description": "Social Studies Department - History, Government, Economics, and AP Courses", 
+      "head": "Mrs. Lisa Thompson"
+    },
+    {
+      "id": "dept-005",
+      "name": "Physical Education & Health",
+      "description": "Physical Education and Health Department",
+      "head": "Coach Michael Brown"
+    },
+    {
+      "id": "dept-006",
+      "name": "Arts & Music",
+      "description": "Arts and Music Department - Visual Arts, Band, Orchestra, Choir, Drama, and AP Courses",
+      "head": "Ms. Jennifer Davis"
+    },
+    {
+      "id": "dept-007",
+      "name": "World Languages",
+      "description": "World Languages Department - Spanish, French, German, and AP Courses",
+      "head": "Señora Maria Garcia"
+    },
+    {
+      "id": "dept-008",
+      "name": "Technology & Computer Science",
+      "description": "Technology and Computer Science Department - Programming, AP Computer Science",
+      "head": "Mr. Robert Wilson"
+    },
+    {
+      "id": "dept-009",
+      "name": "Career & Technical Education",
+      "description": "Career and Technical Education Department - Business, Culinary, Automotive, Health Sciences",
+      "head": "Mr. James Anderson"
+    },
+    {
+      "id": "dept-010",
+      "name": "Special Education",
+      "description": "Special Education Department - Resource, Life Skills, and Transition Planning",
+      "head": "Mrs. Amanda Foster"
+    },
+    {
+      "id": "dept-011",
+      "name": "Counseling",
+      "description": "Student Counseling and Guidance Department - Academic, Career, and College Planning",
+      "head": "Dr. Patricia Lee"
+    }
+  ],
+  "gradeLevels": [
+    {
+      "id": "grade-9",
+      "name": "Grade 9",
+      "level": 9,
+      "description": "Ninth Grade - Freshman year of high school",
+      "studentCount": 300
+    },
+    {
+      "id": "grade-10", 
+      "name": "Grade 10",
+      "level": 10,
+      "description": "Tenth Grade - Sophomore year of high school",
+      "studentCount": 300
+    },
+    {
+      "id": "grade-11",
+      "name": "Grade 11", 
+      "level": 11,
+      "description": "Eleventh Grade - Junior year of high school",
+      "studentCount": 300
+    },
+    {
+      "id": "grade-12",
+      "name": "Grade 12", 
+      "level": 12,
+      "description": "Twelfth Grade - Senior year of high school",
+      "studentCount": 300
+    }
+  ],
+  "timeBlocks": [
+    {
+      "id": "time-001",
+      "name": "Period 1",
+      "startTime": "08:00:00",
+      "endTime": "08:50:00",
+      "rotationDay": "MONDAY",
+      "description": "First period of the day"
+    },
+    {
+      "id": "time-002",
+      "name": "Period 2", 
+      "startTime": "08:55:00",
+      "endTime": "09:45:00",
+      "rotationDay": "MONDAY",
+      "description": "Second period of the day"
+    },
+    {
+      "id": "time-003",
+      "name": "Period 3",
+      "startTime": "09:50:00", 
+      "endTime": "10:40:00",
+      "rotationDay": "MONDAY",
+      "description": "Third period of the day"
+    },
+    {
+      "id": "time-004",
+      "name": "Period 4",
+      "startTime": "10:45:00",
+      "endTime": "11:35:00", 
+      "rotationDay": "MONDAY",
+      "description": "Fourth period of the day"
+    },
+    {
+      "id": "time-005",
+      "name": "Period 5",
+      "startTime": "12:25:00",
+      "endTime": "13:15:00",
+      "rotationDay": "MONDAY", 
+      "description": "Fifth period of the day (after lunch)"
+    },
+    {
+      "id": "time-006",
+      "name": "Period 6",
+      "startTime": "13:20:00",
+      "endTime": "14:10:00",
+      "rotationDay": "MONDAY",
+      "description": "Sixth period of the day"
+    },
+    {
+      "id": "time-007",
+      "name": "Period 7",
+      "startTime": "14:15:00",
+      "endTime": "15:05:00",
+      "rotationDay": "MONDAY",
+      "description": "Seventh period of the day"
+    },
+    {
+      "id": "time-008",
+      "name": "Period 8",
+      "startTime": "15:10:00",
+      "endTime": "16:00:00",
+      "rotationDay": "MONDAY",
+      "description": "Eighth period of the day"
+    },
+    {
+      "id": "time-009",
+      "name": "Advisory",
+      "startTime": "07:45:00",
+      "endTime": "08:00:00",
+      "rotationDay": "MONDAY",
+      "description": "Advisory period for homeroom"
+    },
+    {
+      "id": "time-010",
+      "name": "Lunch",
+      "startTime": "11:40:00",
+      "endTime": "12:20:00",
+      "rotationDay": "MONDAY",
+      "description": "Lunch period"
+    }
+  ],
+  "rooms": [
+    {
+      "id": "room-a101",
+      "name": "A101 - Math Lab",
+      "capacity": 30,
+      "roomType": "LABORATORY",
+      "building": "Building A",
+      "floor": 1,
+      "description": "Mathematics laboratory with computers"
+    },
+    {
+      "id": "room-a102",
+      "name": "A102 - Algebra I",
+      "capacity": 25,
+      "roomType": "CLASSROOM",
+      "building": "Building A",
+      "floor": 1,
+      "description": "Algebra I classroom"
+    },
+    {
+      "id": "room-b101",
+      "name": "B101 - English 6",
+      "capacity": 25,
+      "roomType": "CLASSROOM",
+      "building": "Building B",
+      "floor": 1,
+      "description": "Sixth grade English classroom"
+    },
+    {
+      "id": "room-c101",
+      "name": "C101 - Art Studio",
+      "capacity": 25,
+      "roomType": "STUDIO",
+      "building": "Building C",
+      "floor": 1,
+      "description": "Art studio with easels and supplies"
+    },
+    {
+      "id": "room-d101",
+      "name": "D101 - Gymnasium",
+      "capacity": 100,
+      "roomType": "GYM",
+      "building": "Building D",
+      "floor": 1,
+      "description": "Main gymnasium"
+    }
+  ],
+  "courses": [
+    {
+      "id": "course-math-901",
+      "name": "Algebra I",
+      "code": "MATH-901",
+      "description": "First-year algebra course covering linear equations, functions, and graphing",
+      "credits": 1.0,
+      "departmentId": "dept-001",
+      "gradeLevelId": "grade-9"
+    },
+    {
+      "id": "course-eng-901",
+      "name": "English 9",
+      "code": "ENG-901", 
+      "description": "Ninth-grade English language arts with literature and composition",
+      "credits": 1.0,
+      "departmentId": "dept-002",
+      "gradeLevelId": "grade-9"
+    },
+    {
+      "id": "course-sci-901",
+      "name": "Biology",
+      "code": "SCI-901",
+      "description": "Introduction to biological concepts and laboratory skills",
+      "credits": 1.0,
+      "departmentId": "dept-003",
+      "gradeLevelId": "grade-9"
+    },
+    {
+      "id": "course-math-905",
+      "name": "AP Calculus AB",
+      "code": "MATH-905",
+      "description": "Advanced Placement Calculus AB course",
+      "credits": 1.0,
+      "departmentId": "dept-001",
+      "gradeLevelId": "grade-12"
+    },
+    {
+      "id": "course-eng-905",
+      "name": "AP English Language",
+      "code": "ENG-905",
+      "description": "Advanced Placement English Language and Composition",
+      "credits": 1.0,
+      "departmentId": "dept-002",
+      "gradeLevelId": "grade-11"
+    },
+    {
+      "id": "course-sci-904",
+      "name": "AP Biology",
+      "code": "SCI-904",
+      "description": "Advanced Placement Biology course",
+      "credits": 1.0,
+      "departmentId": "dept-003",
+      "gradeLevelId": "grade-11"
+    }
+  ],
+  "teachers": [
+    {
+      "id": "user-teacher-001",
+      "email": "s.johnson@lincolnhs.edu",
+      "username": "s.johnson",
+      "firstName": "Sarah",
+      "lastName": "Johnson",
+      "role": "TEACHER",
+      "department": "Mathematics",
+      "isActive": true,
+      "subjects": ["Algebra I", "AP Calculus AB"]
+    },
+    {
+      "id": "user-teacher-002",
+      "email": "j.miller@lincolnhs.edu",
+      "username": "j.miller",
+      "firstName": "James",
+      "lastName": "Miller",
+      "role": "TEACHER",
+      "department": "Mathematics",
+      "isActive": true,
+      "subjects": ["Geometry", "Pre-Calculus"]
+    },
+    {
+      "id": "user-teacher-009",
+      "email": "e.rodriguez@lincolnhs.edu",
+      "username": "e.rodriguez",
+      "firstName": "Emily",
+      "lastName": "Rodriguez",
+      "role": "TEACHER",
+      "department": "English Language Arts",
+      "isActive": true,
+      "subjects": ["English 11", "AP English Language"]
+    }
+  ],
+  "students": [
+    {
+      "id": "user-student-001",
+      "email": "alex.thompson@student.lincolnhs.edu",
+      "username": "alex.thompson",
+      "firstName": "Alex",
+      "lastName": "Thompson",
+      "role": "STUDENT",
+      "gradeLevel": "Grade 9",
+      "studentId": "240001",
+      "isActive": true
+    },
+    {
+      "id": "user-student-002",
+      "email": "bella.rodriguez@student.lincolnhs.edu",
+      "username": "bella.rodriguez",
+      "firstName": "Bella",
+      "lastName": "Rodriguez",
+      "role": "STUDENT",
+      "gradeLevel": "Grade 9",
+      "studentId": "240002",
+      "isActive": true
+    },
+    {
+      "id": "user-student-003",
+      "email": "caleb.johnson@student.lincolnhs.edu",
+      "username": "caleb.johnson",
+      "firstName": "Caleb",
+      "lastName": "Johnson",
+      "role": "STUDENT",
+      "gradeLevel": "Grade 9",
+      "studentId": "240003",
+      "isActive": true
+    }
+  ],
+  "parents": [
+    {
+      "id": "user-parent-001",
+      "email": "john.thompson@email.com",
+      "firstName": "John",
+      "lastName": "Thompson",
+      "role": "PARENT_GUARDIAN",
+      "isActive": true,
+      "children": ["user-student-001"]
+    },
+    {
+      "id": "user-parent-002",
+      "email": "maria.rodriguez@email.com",
+      "firstName": "Maria",
+      "lastName": "Rodriguez",
+      "role": "PARENT_GUARDIAN",
+      "isActive": true,
+      "children": ["user-student-002"]
+    }
+  ],
+  "administrators": [
+    {
+      "id": "user-admin-001",
+      "email": "p.williams@lincolnhs.edu",
+      "username": "p.williams",
+      "firstName": "Patricia",
+      "lastName": "Williams",
+      "role": "ADMIN",
+      "position": "Principal",
+      "isActive": true
+    },
+    {
+      "id": "user-admin-002",
+      "email": "j.anderson@lincolnhs.edu",
+      "username": "j.anderson",
+      "firstName": "James",
+      "lastName": "Anderson",
+      "role": "ADMIN",
+      "position": "Vice Principal",
+      "isActive": true
+    }
+  ],
+  "counselors": [
+    {
+      "id": "user-counselor-001",
+      "email": "p.lee@lincolnhs.edu",
+      "username": "p.lee",
+      "firstName": "Patricia",
+      "lastName": "Lee",
+      "role": "COUNSELOR",
+      "position": "Head Counselor",
+      "isActive": true
+    },
+    {
+      "id": "user-counselor-002",
+      "email": "m.torres@lincolnhs.edu",
+      "username": "m.torres",
+      "firstName": "Michael",
+      "lastName": "Torres",
+      "role": "COUNSELOR",
+      "position": "Grade 9 Counselor",
+      "isActive": true
+    },
+    {
+      "id": "user-counselor-003",
+      "email": "j.adams@lincolnhs.edu",
+      "username": "j.adams",
+      "firstName": "Jennifer",
+      "lastName": "Adams",
+      "role": "COUNSELOR",
+      "position": "Grade 10 Counselor",
+      "isActive": true
+    },
+    {
+      "id": "user-counselor-004",
+      "email": "r.kim@lincolnhs.edu",
+      "username": "r.kim",
+      "firstName": "Robert",
+      "lastName": "Kim",
+      "role": "COUNSELOR",
+      "position": "Grade 11 Counselor",
+      "isActive": true
+    },
+    {
+      "id": "user-counselor-005",
+      "email": "s.garcia@lincolnhs.edu",
+      "username": "s.garcia",
+      "firstName": "Sarah",
+      "lastName": "Garcia",
+      "role": "COUNSELOR",
+      "position": "Grade 12 Counselor",
+      "isActive": true
+    },
+    {
+      "id": "user-counselor-006",
+      "email": "d.martinez@lincolnhs.edu",
+      "username": "d.martinez",
+      "firstName": "David",
+      "lastName": "Martinez",
+      "role": "COUNSELOR",
+      "position": "College & Career Counselor",
+      "isActive": true
+    }
+  ],
+  "courseSections": [
+    {
+      "id": "section-math-901-a",
+      "name": "Algebra I A",
+      "courseId": "course-math-901",
+      "teacherId": "user-teacher-001",
+      "timeBlockId": "time-001",
+      "roomId": "room-a102",
+      "maxEnrollment": 30,
+      "currentEnrollment": 30,
+      "rotationDay": "MONDAY"
+    },
+    {
+      "id": "section-eng-901-a",
+      "name": "English 9A",
+      "courseId": "course-eng-901",
+      "teacherId": "user-teacher-010",
+      "timeBlockId": "time-002",
+      "roomId": "room-b101",
+      "maxEnrollment": 30,
+      "currentEnrollment": 30,
+      "rotationDay": "MONDAY"
+    },
+    {
+      "id": "section-math-905-a",
+      "name": "AP Calculus AB A",
+      "courseId": "course-math-905",
+      "teacherId": "user-teacher-001",
+      "timeBlockId": "time-002",
+      "roomId": "room-a103",
+      "maxEnrollment": 25,
+      "currentEnrollment": 25,
+      "rotationDay": "MONDAY"
+    }
+  ],
+  "schedules": [
+    {
+      "id": "schedule-001",
+      "studentId": "user-student-001",
+      "academicCycleId": "cycle-2024-2025",
+      "courseSections": [
+        "section-math-901-a",
+        "section-eng-901-a",
+        "section-sci-901-a",
+        "section-ss-901-a",
+        "section-pe-901-a",
+        "section-art-901-a",
+        "section-tech-901-a"
+      ]
+    }
+  ],
+  "scheduleChangeRequests": [
+    {
+      "id": "scr-001",
+      "studentId": "user-student-001",
+      "requestType": "CHANGE_SECTION",
+      "currentCourseSectionId": "section-math-901-a",
+      "requestedCourseSectionId": "section-math-901-b",
+      "preferredTimeBlockId": "time-003",
+      "reason": "Need to change from Period 1 to Period 3 due to band practice conflict",
+      "priority": "MEDIUM",
+      "status": "PENDING",
+      "academicCycleId": "cycle-2024-2025"
+    },
+    {
+      "id": "scr-002",
+      "studentId": "user-student-002",
+      "requestType": "ADD_COURSE",
+      "currentCourseSectionId": null,
+      "requestedCourseSectionId": "section-art-905",
+      "preferredTimeBlockId": "time-007",
+      "reason": "Interested in pursuing art for college portfolio",
+      "priority": "LOW",
+      "status": "APPROVED",
+      "comments": "Approved - student has artistic background",
+      "academicCycleId": "cycle-2024-2025"
+    }
+  ],
+  "academicCycles": [
+    {
+      "id": "cycle-2024-2025",
+      "name": "2024-2025 School Year",
+      "cycleType": "SCHOOL_YEAR",
+      "startDate": "2024-08-26",
+      "endDate": "2025-06-06",
+      "isCurrent": true,
+      "description": "Full academic year 2024-2025"
+    },
+    {
+      "id": "cycle-fall-2024",
+      "name": "Fall Semester 2024",
+      "cycleType": "SEMESTER",
+      "startDate": "2024-08-26",
+      "endDate": "2024-12-20",
+      "isCurrent": true,
+      "description": "Fall semester 2024"
+    }
+  ],
+  "notifications": [
+    {
+      "id": "notif-001",
+      "userId": "user-student-001",
+      "title": "Schedule Change Approved",
+      "message": "Your request to change from Period 1 to Period 3 for Pre-Algebra has been approved.",
+      "type": "SCHEDULE_CHANGE",
+      "isRead": false
+    },
+    {
+      "id": "notif-002",
+      "userId": "user-student-002",
+      "title": "New Course Added",
+      "message": "Advanced Art has been added to your schedule for Period 7.",
+      "type": "COURSE_ADDED",
+      "isRead": false
+    }
+  ],
+  "settings": [
+    {
+      "id": "setting-001",
+      "key": "school.name",
+      "value": "Lincoln Middle School",
+      "description": "Official school name",
+      "category": "GENERAL"
+    },
+    {
+      "id": "setting-002",
+      "key": "schedule.change.deadline.days",
+      "value": "14",
+      "description": "Number of days after semester start when schedule changes are allowed",
+      "category": "SCHEDULE"
+    },
+    {
+      "id": "setting-003",
+      "key": "schedule.change.student.enabled",
+      "value": "true",
+      "description": "Whether students can submit schedule change requests",
+      "category": "SCHEDULE"
+    }
+  ],
+  "statistics": {
+    "enrollment": {
+      "totalStudents": 1200,
+      "grade9": 300,
+      "grade10": 300,
+      "grade11": 300,
+      "grade12": 300
+    },
+    "staff": {
+      "totalStaff": 110,
+      "teachers": 85,
+      "counselors": 6,
+      "administrators": 2,
+      "platformAdmins": 2,
+      "supportStaff": 15
+    },
+    "courses": {
+      "totalSections": 218,
+      "mathematics": 36,
+      "english": 36,
+      "science": 30,
+      "socialStudies": 24,
+      "physicalEducation": 20,
+      "artsMusic": 18,
+      "worldLanguages": 18,
+      "technology": 12,
+      "careerTechnical": 24,
+      "specialEducation": 20
+    },
+    "facilities": {
+      "totalRooms": 32,
+      "classrooms": 20,
+      "laboratories": 6,
+      "specialized": 6
+    }
+  }
+}

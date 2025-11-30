@@ -91,4 +91,12 @@ export enum ErrorCode {
 
   // School Year Error Codes
   SCYA = 'SCYA', // School year is used in course sections
+
+  // Academic Cycle Error Codes
+  ACCA = 'ACCA', // Academic period start date can not be before academic cycle date
+  ACCB = 'ACCB', // Academic cycle end date must be after start date
+  ACCC = 'ACCC', // Academic period start date must be before end date
+  ACCD = 'ACCD', // Academic period dates are not within the cycle dates
+  ACCE = 'ACCE', // Academic cycle not found
+  ACCF = 'ACCF', // Period overlaps with existing period(s)
 } 

@@ -7,6 +7,7 @@ import { ErrorCode } from 'src/common/error-codes';
 import { ApiErrorResponseBuilder } from 'src/common/api-error-builder';
 import { NotificationsService } from 'src/notifications/notifications.service';
 import { NotificationType } from 'src/schedule-change-requests/enums/request-enums';
+import { AcademicPeriodStatus } from '@prisma/client';
 
 @Injectable()
 export class SchedulesService {
@@ -112,6 +113,47 @@ export class SchedulesService {
         .withLogger(this.logger)
         .build();
       throw new BadRequestException(errorResponse);
+    }
+
+    // Check if enrollment is allowed based on current period
+    const academicCycle = await this.prisma.academicCycle.findUnique({
+      where: { id: academicCycleId },
+      include: {
+        periods: true
+      }
+    });
+
+    if (academicCycle) {
+      const now = new Date();
+      const activePeriod = academicCycle.periods.find(period => {
+        const startDate = new Date(period.startDate);
+        const endDate = new Date(period.endDate);
+        return (
+          period.status === AcademicPeriodStatus.ACTIVE &&
+          now >= startDate &&
+          now <= endDate
+        );
+      });
+
+      if (!activePeriod) {
+        const errorResponse = ApiErrorResponseBuilder.create(
+          ErrorCode.SCHB,
+          'No active period found. Enrollment is only allowed during active periods.'
+        )
+          .withLogger(this.logger)
+          .build();
+        throw new BadRequestException(errorResponse);
+      }
+
+      if (!activePeriod.allowsEnrollment) {
+        const errorResponse = ApiErrorResponseBuilder.create(
+          ErrorCode.SCHB,
+          `Enrollment is not allowed during the current ${activePeriod.periodType} period.`
+        )
+          .withLogger(this.logger)
+          .build();
+        throw new BadRequestException(errorResponse);
+      }
     }
 
     return this.prisma.schedule.create({

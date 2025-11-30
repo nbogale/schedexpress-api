@@ -1,23 +1,29 @@
 import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, Query, Request } from '@nestjs/common';
 import { AcademicCyclesService } from './academic-cycles.service';
+import { PeriodGenerationService } from './period-generation.service';
 import { CreateAcademicCycleConfigDto } from './dto/create-academic-cycle-config.dto';
 import { UpdateAcademicCycleConfigDto } from './dto/update-academic-cycle-config.dto';
 import { CreateAcademicCycleRuleDto } from './dto/create-academic-cycle-rule.dto';
 import { CreateAcademicCycleDto } from './dto/create-academic-cycle.dto';
 import { UpdateAcademicCycleDto } from './dto/update-academic-cycle.dto';
 import { ValidateAcademicCycleDto } from './dto/validate-academic-cycle.dto';
+import { CreateAcademicPeriodDto } from './dto/create-academic-period.dto';
+import { UpdateAcademicPeriodDto } from './dto/update-academic-period.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiParam, ApiQuery } from '@nestjs/swagger';
-import { UserRole, CycleType } from '@prisma/client';
+import { UserRole, CycleType, AcademicPeriodStatus } from '@prisma/client';
 
 @ApiTags('Academic Cycles')
 @Controller('academic-cycles')
 @UseGuards(JwtAuthGuard, RolesGuard)
 @ApiBearerAuth()
 export class AcademicCyclesController {
-  constructor(private readonly academicCyclesService: AcademicCyclesService) {}
+  constructor(
+    private readonly academicCyclesService: AcademicCyclesService,
+    private readonly periodGenerationService: PeriodGenerationService,
+  ) {}
 
   // Academic Cycle Config Endpoints
   @Post('configs')
@@ -169,5 +175,101 @@ export class AcademicCyclesController {
   @ApiParam({ name: 'id', description: 'Cycle ID' })
   removeCycle(@Param('id') id: string) {
     return this.academicCyclesService.removeCycle(id);
+  }
+
+  // Academic Period Endpoints
+  @Post('periods')
+  @Roles(UserRole.ADMIN, UserRole.PLATFORM_ADMIN)
+  @ApiOperation({ summary: 'Create a new academic period' })
+  @ApiResponse({ status: 201, description: 'Period created successfully' })
+  createPeriod(@Body() createPeriodDto: CreateAcademicPeriodDto, @Request() req) {
+    console.log('createPeriodDto', JSON.stringify(createPeriodDto));
+    return this.academicCyclesService.createPeriod(createPeriodDto, req.user.id);
+  }
+
+  @Get('periods')
+  @ApiOperation({ summary: 'Get all academic periods' })
+  @ApiResponse({ status: 200, description: 'Return all periods' })
+  @ApiQuery({ name: 'cycleId', required: false, description: 'Filter by cycle ID' })
+  findAllPeriods(@Query('cycleId') cycleId?: string) {
+    return this.academicCyclesService.findAllPeriods(cycleId);
+  }
+
+  @Get('periods/current')
+  @ApiOperation({ summary: 'Get current active period' })
+  @ApiResponse({ status: 200, description: 'Return current period' })
+  @ApiQuery({ name: 'cycleId', required: false, description: 'Filter by cycle ID' })
+  findCurrentPeriod(@Query('cycleId') cycleId?: string) {
+    return this.academicCyclesService.findCurrentPeriod(cycleId);
+  }
+
+  @Get('periods/upcoming')
+  @ApiOperation({ summary: 'Get upcoming periods' })
+  @ApiResponse({ status: 200, description: 'Return upcoming periods' })
+  @ApiQuery({ name: 'cycleId', required: false, description: 'Filter by cycle ID' })
+  @ApiQuery({ name: 'limit', required: false, description: 'Limit number of results', type: Number })
+  findUpcomingPeriods(@Query('cycleId') cycleId?: string, @Query('limit') limit?: string) {
+    return this.academicCyclesService.findUpcomingPeriods(cycleId, limit ? parseInt(limit) : 5);
+  }
+
+  @Get('cycles/:cycleId/periods')
+  @ApiOperation({ summary: 'Get all periods for a cycle' })
+  @ApiResponse({ status: 200, description: 'Return all periods for the cycle' })
+  @ApiParam({ name: 'cycleId', description: 'Cycle ID' })
+  findPeriodsByCycle(@Param('cycleId') cycleId: string) {
+    return this.academicCyclesService.findPeriodsByCycle(cycleId);
+  }
+
+  @Get('periods/:id')
+  @ApiOperation({ summary: 'Get a period by id' })
+  @ApiResponse({ status: 200, description: 'Return the period' })
+  @ApiParam({ name: 'id', description: 'Period ID' })
+  findPeriodById(@Param('id') id: string) {
+    return this.academicCyclesService.findPeriodById(id);
+  }
+
+  @Patch('periods/:id')
+  @Roles(UserRole.ADMIN, UserRole.PLATFORM_ADMIN)
+  @ApiOperation({ summary: 'Update a period' })
+  @ApiResponse({ status: 200, description: 'Period updated successfully' })
+  @ApiParam({ name: 'id', description: 'Period ID' })
+  updatePeriod(@Param('id') id: string, @Body() updatePeriodDto: UpdateAcademicPeriodDto) {
+    return this.academicCyclesService.updatePeriod(id, updatePeriodDto);
+  }
+
+  @Patch('periods/:id/status')
+  @Roles(UserRole.ADMIN, UserRole.PLATFORM_ADMIN)
+  @ApiOperation({ summary: 'Update period status' })
+  @ApiResponse({ status: 200, description: 'Period status updated successfully' })
+  @ApiParam({ name: 'id', description: 'Period ID' })
+  @ApiQuery({ name: 'status', enum: AcademicPeriodStatus, description: 'New status' })
+  updatePeriodStatus(@Param('id') id: string, @Query('status') status: AcademicPeriodStatus) {
+    return this.academicCyclesService.updatePeriodStatus(id, status);
+  }
+
+  @Delete('periods/:id')
+  @Roles(UserRole.ADMIN, UserRole.PLATFORM_ADMIN)
+  @ApiOperation({ summary: 'Delete a period' })
+  @ApiResponse({ status: 200, description: 'Period deleted successfully' })
+  @ApiParam({ name: 'id', description: 'Period ID' })
+  deletePeriod(@Param('id') id: string) {
+    return this.academicCyclesService.deletePeriod(id);
+  }
+
+  @Post('cycles/:cycleId/generate-periods')
+  @Roles(UserRole.ADMIN, UserRole.PLATFORM_ADMIN)
+  @ApiOperation({ summary: 'Generate and create academic periods for a cycle based on default configuration' })
+  @ApiResponse({ status: 201, description: 'Periods generated successfully' })
+  @ApiParam({ name: 'cycleId', description: 'Cycle ID' })
+  async generatePeriodsForCycle(@Param('cycleId') cycleId: string, @Request() req) {
+    const result = await this.periodGenerationService.generatePeriodsForCycle(cycleId, req.user.id);
+    return {
+      success: true,
+      data: {
+        periods: result.periods,
+        warnings: result.warnings,
+        totalPeriods: result.periods.length,
+      },
+    };
   }
 }

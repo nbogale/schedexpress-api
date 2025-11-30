@@ -20,6 +20,8 @@ model User {
   role                    UserRole
   academicCycleValidators AcademicCycle[]         @relation("AcademicCycleValidator")
   academicCycleConfigs    AcademicCycleConfig[]   @relation("AcademicCycleConfigCreator")
+  academicPeriodsCreated  AcademicPeriod[]        @relation("AcademicPeriodCreator")
+  academicYearTemplates   AcademicYearTemplate[]  @relation("AcademicYearTemplateCreator")
   auditLogs               AuditLog[]
   notifications           Notification[]
   performedActions        ScheduleChangeAction[]  @relation("ActionPerformer")
@@ -286,10 +288,39 @@ model Settings {
   // Schedule Change Request Configuration (Global Defaults)
   scheduleChangeConfig   Json?            @map("schedule_change_config")
   
+  // Relations
+  academicSettings       AcademicSettings?
+  
   createdAt              DateTime         @default(now()) @map("created_at")
   updatedAt              DateTime         @updatedAt @map("updated_at")
 
   @@map("settings")
+}
+
+model AcademicSettings {
+  id                        String              @id @default(cuid())
+  settingsId                String              @unique @map("settings_id")
+  
+  // Academic Structure Configuration
+  academicStructureType     String              @default("SEMESTER_QUARTERS") @map("academic_structure_type") @db.VarChar(50)
+  defaultSemesterCount      Int                 @default(2) @map("default_semester_count")
+  defaultQuarterCount       Int                 @default(4) @map("default_quarter_count")
+  defaultTrimesterCount     Int                 @default(3) @map("default_trimester_count")
+  semestersHaveQuarters     Boolean             @default(true) @map("semesters_have_quarters")
+  
+  // Academic Period Defaults Configuration (JSON for flexibility)
+  defaultPeriodConfiguration Json?              @map("default_period_configuration")
+  
+  // Academic Period Business Rules (JSON)
+  academicPeriodRules       Json?               @map("academic_period_rules")
+  
+  // Relations
+  settings                  Settings            @relation(fields: [settingsId], references: [id], onDelete: Cascade)
+  
+  createdAt                 DateTime            @default(now()) @map("created_at")
+  updatedAt                 DateTime            @updatedAt @map("updated_at")
+  
+  @@map("academic_settings")
 }
 
 model AcademicCycleConfig {
@@ -345,6 +376,11 @@ model AcademicCycle {
   cycleNumber      Int?                 @map("cycle_number")
   startDate        DateTime             @map("start_date") @db.Date
   endDate          DateTime             @map("end_date") @db.Date
+  
+  // Opening/Closing dates (for school year)
+  openingDate      DateTime?            @map("opening_date") @db.Date
+  closingDate      DateTime?            @map("closing_date") @db.Date
+  
   isCurrent        Boolean              @default(false) @map("is_current")
   isActive         Boolean              @default(true) @map("is_active")
   isValidated      Boolean              @default(false) @map("is_validated")
@@ -362,6 +398,7 @@ model AcademicCycle {
   parent           AcademicCycle?       @relation("CycleHierarchy", fields: [parentId], references: [id])
   children         AcademicCycle[]      @relation("CycleHierarchy")
   validator        User?                @relation("AcademicCycleValidator", fields: [validatedBy], references: [id])
+  periods          AcademicPeriod[]
   courseSections   CourseSection[]
   grades           StudentGrade[]
   scheduleChangeRequests ScheduleChangeRequest[]
@@ -371,7 +408,95 @@ model AcademicCycle {
   @@index([parentId])
   @@index([cycleType])
   @@index([configId])
+  @@index([openingDate, closingDate])
   @@map("academic_cycle")
+}
+
+model AcademicPeriod {
+  id                    String                @id @default(cuid())
+  cycleId               String                @map("cycle_id")
+  name                  String                @db.VarChar(100)
+  periodType            AcademicPeriodType    @map("period_type")
+  status                AcademicPeriodStatus  @default(PLANNED)
+  startDate             DateTime              @map("start_date") @db.Date
+  endDate               DateTime              @map("end_date") @db.Date
+  description           String?
+  
+  // Configuration
+  isInstructional       Boolean               @default(false) @map("is_instructional")
+  allowsEnrollment      Boolean               @default(false) @map("allows_enrollment")
+  allowsGrading         Boolean               @default(false) @map("allows_grading")
+  allowsScheduleChanges Boolean               @default(false) @map("allows_schedule_changes")
+  isBreak               Boolean               @default(false) @map("is_break")
+  
+  // Metadata
+  sortOrder             Int                   @default(0) @map("sort_order")
+  createdBy             String                @map("created_by")
+  createdAt             DateTime              @default(now()) @map("created_at")
+  updatedAt             DateTime              @updatedAt @map("updated_at")
+  
+  // Relations
+  cycle                 AcademicCycle         @relation(fields: [cycleId], references: [id], onDelete: Cascade)
+  creator               User                  @relation("AcademicPeriodCreator", fields: [createdBy], references: [id])
+  
+  @@index([cycleId])
+  @@index([periodType])
+  @@index([startDate, endDate])
+  @@map("academic_period")
+}
+
+model AcademicYearTemplate {
+  id                String                    @id @default(cuid())
+  name              String                    @db.VarChar(100)
+  description       String?
+  schoolLevel       String                    @map("school_level") @db.VarChar(50)
+  
+  // Structure
+  hasSemesters      Boolean                   @default(true) @map("has_semesters")
+  hasQuarters       Boolean                   @default(true) @map("has_quarters")
+  hasTrimesters     Boolean                   @default(false) @map("has_trimesters")
+  
+  // Default periods configuration (JSON for flexibility)
+  defaultPeriods    Json?                     @map("default_periods")
+  
+  isActive          Boolean                   @default(false) @map("is_active")
+  isDefault         Boolean                   @default(false) @map("is_default")
+  
+  createdBy         String                    @map("created_by")
+  createdAt         DateTime                  @default(now()) @map("created_at")
+  updatedAt         DateTime                  @updatedAt @map("updated_at")
+  
+  creator           User                      @relation("AcademicYearTemplateCreator", fields: [createdBy], references: [id])
+  periodDefinitions TemplatePeriodDefinition[]
+  
+  @@map("academic_year_template")
+}
+
+model TemplatePeriodDefinition {
+  id                    String                @id @default(cuid())
+  templateId            String                @map("template_id")
+  cycleType             CycleType             @map("cycle_type")
+  periodType            AcademicPeriodType    @map("period_type")
+  
+  // Timing configuration (relative to cycle start/end)
+  timingType            String                @map("timing_type") @db.VarChar(50)
+  timingValue           Int                   @map("timing_value")
+  duration              Int
+  
+  // Configuration flags
+  isInstructional       Boolean               @default(false) @map("is_instructional")
+  allowsEnrollment      Boolean               @default(false) @map("allows_enrollment")
+  allowsGrading         Boolean               @default(false) @map("allows_grading")
+  allowsScheduleChanges Boolean               @default(false) @map("allows_schedule_changes")
+  isBreak               Boolean               @default(false) @map("is_break")
+  
+  sortOrder             Int                   @default(0) @map("sort_order")
+  name                  String?               @db.VarChar(100)
+  
+  template              AcademicYearTemplate   @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  
+  @@index([templateId])
+  @@map("template_period_definition")
 }
 
 model Department {
@@ -863,6 +988,30 @@ enum CycleType {
   SESSION
 
   @@map("cycle_type")
+}
+
+enum AcademicPeriodType {
+  PREPARATION
+  REGISTRATION
+  INSTRUCTION
+  EXAM
+  BREAK
+  GRADING
+  TRANSITION
+  ORIENTATION
+  REVIEW
+  MAKEUP
+
+  @@map("academic_period_type")
+}
+
+enum AcademicPeriodStatus {
+  PLANNED
+  ACTIVE
+  COMPLETED
+  CANCELLED
+
+  @@map("academic_period_status")
 }
 
 enum RelationshipType {
