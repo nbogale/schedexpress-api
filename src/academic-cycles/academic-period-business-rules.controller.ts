@@ -4,11 +4,13 @@ import {
   Put,
   Post,
   Body,
+  Query,
+  Request,
   UseGuards,
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AcademicPeriodBusinessRulesService } from './academic-period-business-rules.service';
 import {
@@ -16,6 +18,8 @@ import {
   UpdateAcademicPeriodBusinessRulesDto,
 } from './dto/academic-period-business-rules.dto';
 import { AcademicPeriodBusinessRules } from './interfaces/academic-period-business-rules.interface';
+import { RequestType } from '../schedule-change-requests/interfaces/schedule-change-config.interface';
+import { PrismaService } from '../prisma/prisma.service';
 
 @ApiTags('Academic Period Business Rules')
 @ApiBearerAuth()
@@ -23,7 +27,8 @@ import { AcademicPeriodBusinessRules } from './interfaces/academic-period-busine
 @Controller('academic-period-business-rules')
 export class AcademicPeriodBusinessRulesController {
   constructor(
-    private readonly businessRulesService: AcademicPeriodBusinessRulesService
+    private readonly businessRulesService: AcademicPeriodBusinessRulesService,
+    private readonly prisma: PrismaService,
   ) {}
 
   @Get()
@@ -111,6 +116,73 @@ export class AcademicPeriodBusinessRulesController {
   })
   async resetToDefaults(): Promise<AcademicPeriodBusinessRules> {
     return this.businessRulesService.resetToDefaults();
+  }
+
+  @Post('validate-schedule-change')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Validate if schedule change is allowed for current user' })
+  @ApiQuery({ name: 'cycleId', required: true, description: 'Academic cycle ID' })
+  @ApiQuery({ name: 'requestType', required: true, enum: RequestType, description: 'Type of schedule change request' })
+  @ApiResponse({
+    status: 200,
+    description: 'Validation result',
+  })
+  async validateScheduleChange(
+    @Request() req: any,
+    @Query('cycleId') cycleId: string,
+    @Query('requestType') requestType: RequestType,
+  ) {
+    // Get student ID from user
+    const student = await this.prisma.student.findUnique({
+      where: { userId: req.user.id },
+      select: { id: true },
+    });
+
+    if (!student) {
+      return {
+        allowed: false,
+        reason: 'Student record not found for current user.',
+        errorCode: 'USRN',
+      };
+    }
+
+    return this.businessRulesService.canRequestScheduleChange(
+      student.id,
+      cycleId,
+      requestType,
+    );
+  }
+
+  @Post('validate-grading')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Validate if grading is allowed for current user' })
+  @ApiQuery({ name: 'courseSectionId', required: true, description: 'Course section ID' })
+  @ApiResponse({
+    status: 200,
+    description: 'Validation result',
+  })
+  async validateGrading(
+    @Request() req: any,
+    @Query('courseSectionId') courseSectionId: string,
+  ) {
+    // Get teacher ID from user
+    const teacher = await this.prisma.teacher.findUnique({
+      where: { userId: req.user.id },
+      select: { id: true },
+    });
+
+    if (!teacher) {
+      return {
+        allowed: false,
+        reason: 'Teacher record not found for current user.',
+        errorCode: 'USRN',
+      };
+    }
+
+    return this.businessRulesService.canSubmitGrades(
+      teacher.id,
+      courseSectionId,
+    );
   }
 }
 

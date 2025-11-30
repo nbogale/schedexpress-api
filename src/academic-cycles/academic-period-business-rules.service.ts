@@ -515,17 +515,88 @@ export class AcademicPeriodBusinessRulesService {
   /**
    * Get current active period for a cycle
    */
+  /**
+   * Get the current active period for a cycle
+   * Checks both ACTIVE status periods and PLANNED periods that should be active based on dates
+   * Also searches child cycles (semesters, quarters) since periods are often created at that level
+   * This handles cases where the scheduler hasn't updated the status yet
+   */
   private async getCurrentPeriod(cycleId: string) {
     const now = new Date();
-    return this.prisma.academicPeriod.findFirst({
+    
+    // Get the cycle and its children (semesters, quarters)
+    const cycle = await this.prisma.academicCycle.findUnique({
+      where: { id: cycleId },
+      include: {
+        children: {
+          select: { id: true },
+        },
+      },
+    });
+
+    if (!cycle) {
+      this.logger.warn(`Cycle ${cycleId} not found`);
+      return null;
+    }
+
+    // Collect all cycle IDs to search: the main cycle and all its children
+    const cycleIdsToSearch = [cycleId, ...cycle.children.map(c => c.id)];
+
+    // First, try to find a period with ACTIVE status that matches the date range
+    // Search in the main cycle and all child cycles
+    let period = await this.prisma.academicPeriod.findFirst({
       where: {
-        cycleId,
+        cycleId: { in: cycleIdsToSearch },
         status: AcademicPeriodStatus.ACTIVE,
         startDate: { lte: now },
         endDate: { gte: now },
       },
       orderBy: { startDate: 'desc' },
+      include: {
+        cycle: {
+          select: {
+            id: true,
+            name: true,
+            cycleType: true,
+          },
+        },
+      },
     });
+
+    // If no ACTIVE period found, check for PLANNED periods that should be active based on dates
+    // This handles cases where the scheduler hasn't run yet or periods haven't been updated
+    // The scheduler runs at 2 AM, 3 AM, 4 AM, and 10 minutes after startup, so periods
+    // might still be PLANNED even if they should be ACTIVE
+    if (!period) {
+      period = await this.prisma.academicPeriod.findFirst({
+        where: {
+          cycleId: { in: cycleIdsToSearch },
+          status: AcademicPeriodStatus.PLANNED,
+          startDate: { lte: now },
+          endDate: { gte: now },
+        },
+        orderBy: { startDate: 'desc' },
+        include: {
+          cycle: {
+            select: {
+              id: true,
+              name: true,
+              cycleType: true,
+            },
+          },
+        },
+      });
+      
+      // Log if we found a PLANNED period that should be ACTIVE (for debugging)
+      if (period) {
+        this.logger.warn(
+          `Found PLANNED period "${period.name}" (${period.cycle.name}) that should be ACTIVE (scheduler may not have run yet). ` +
+          `Period dates: ${period.startDate.toISOString()} to ${period.endDate.toISOString()}`
+        );
+      }
+    }
+
+    return period;
   }
 
   /**
