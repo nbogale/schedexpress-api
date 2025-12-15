@@ -127,6 +127,56 @@ export class StudentCourseHistoryController {
     return this.studentCourseHistoryService.getStudentTotalCredits(studentId);
   }
 
+  @Get('history/:studentId/:courseId/:academicCycleId')
+  @ApiOperation({ summary: 'Get all grade submissions (history) for a student/course/cycle' })
+  @ApiParam({ name: 'studentId', description: 'Student ID' })
+  @ApiParam({ name: 'courseId', description: 'Course ID' })
+  @ApiParam({ name: 'academicCycleId', description: 'Academic Cycle ID' })
+  @ApiResponse({ status: 200, description: 'List of all grade submissions' })
+  getGradeHistory(
+    @Param('studentId') studentId: string,
+    @Param('courseId') courseId: string,
+    @Param('academicCycleId') academicCycleId: string,
+  ) {
+    return this.studentCourseHistoryService.getGradeHistory(studentId, courseId, academicCycleId);
+  }
+
+  @Get('current/:studentId/:courseId/:academicCycleId')
+  @ApiOperation({ summary: 'Get the current (latest) grade for a student/course/cycle' })
+  @ApiParam({ name: 'studentId', description: 'Student ID' })
+  @ApiParam({ name: 'courseId', description: 'Course ID' })
+  @ApiParam({ name: 'academicCycleId', description: 'Academic Cycle ID' })
+  @ApiResponse({ status: 200, description: 'Current grade submission' })
+  getCurrentGrade(
+    @Param('studentId') studentId: string,
+    @Param('courseId') courseId: string,
+    @Param('academicCycleId') academicCycleId: string,
+  ) {
+    return this.studentCourseHistoryService.getCurrentGrade(studentId, courseId, academicCycleId);
+  }
+
+  @Post('final/calculate')
+  @ApiOperation({ summary: 'Calculate and set final grade based on interim grades' })
+  @ApiResponse({ status: 201, description: 'Final grade calculated and created successfully' })
+  @ApiResponse({ status: 400, description: 'Bad request - no interim grades found or final grade already exists' })
+  calculateFinalGrade(
+    @Body() body: {
+      studentId: string;
+      courseId: string;
+      academicCycleId: string;
+      calculationMethod?: 'AVERAGE' | 'WEIGHTED' | 'LATEST' | 'MANUAL';
+      manualGrade?: string;
+    },
+  ) {
+    return this.studentCourseHistoryService.calculateFinalGrade(
+      body.studentId,
+      body.courseId,
+      body.academicCycleId,
+      body.calculationMethod || 'AVERAGE',
+      body.manualGrade,
+    );
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Get a specific student course history record' })
   @ApiParam({ name: 'id', description: 'Student course history record ID' })

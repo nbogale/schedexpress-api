@@ -537,9 +537,14 @@ export class ScheduleChangesService {
     // Handle different request types when approved/completed
     if (([RequestStatus.APPROVED, RequestStatus.COMPLETED] as RequestStatus[]).includes(dto.status)) {
       await this.prisma.$transaction(async tx => {
-        // Get the student's schedule first
+        // Get the student's schedule first - use composite unique constraint
         const studentSchedule = await tx.schedule.findUnique({
-          where: { studentId: req.studentId }
+          where: {
+            studentId_academicCycleId: {
+              studentId: req.studentId,
+              academicCycleId: req.academicCycleId,
+            },
+          },
         });
 
         if (!studentSchedule) {
@@ -830,8 +835,8 @@ export class ScheduleChangesService {
       );
     }
 
-    // Get the student's current schedule
-    const schedule = await this.prisma.schedule.findUnique({
+    // Get the student's current schedule - use findFirst since we may not have academicCycleId
+    const schedule = await this.prisma.schedule.findFirst({
       where: { studentId },
       include: { 
         scheduleCourseSections: {
@@ -845,6 +850,7 @@ export class ScheduleChangesService {
           }
         } 
       },
+      orderBy: { createdAt: 'desc' }, // Get most recent schedule
     });
     
     // Check if any current sections have the same time block as the new section

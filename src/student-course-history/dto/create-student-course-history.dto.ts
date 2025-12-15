@@ -1,6 +1,7 @@
-import { ApiProperty } from '@nestjs/swagger';
-import { IsString, IsOptional, IsBoolean, IsDecimal, Min, Max } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { IsString, IsOptional, IsBoolean, IsDecimal, IsEnum, Min, Max, IsArray } from 'class-validator';
 import { Type } from 'class-transformer';
+import { GradeType } from '@prisma/client';
 
 export class CreateStudentCourseHistoryDto {
   @ApiProperty({
@@ -53,4 +54,30 @@ export class CreateStudentCourseHistoryDto {
   @Max(10)
   @IsOptional()
   creditEarned?: number;
+
+  @ApiPropertyOptional({
+    description: 'Type of grade submission',
+    enum: GradeType,
+    default: GradeType.INTERIM,
+    example: GradeType.INTERIM,
+  })
+  @IsEnum(GradeType)
+  @IsOptional()
+  gradeType?: GradeType;
+
+  @ApiPropertyOptional({
+    description: 'ID of the user submitting the grade (teacher)',
+    example: 'clg789xyz',
+  })
+  @IsString()
+  @IsOptional()
+  submittedBy?: string;
+
+  @ApiPropertyOptional({
+    description: 'Optional notes about the grade',
+    example: 'Great improvement from midterm',
+  })
+  @IsString()
+  @IsOptional()
+  notes?: string;
 } 

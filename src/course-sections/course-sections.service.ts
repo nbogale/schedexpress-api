@@ -139,6 +139,7 @@ export class CourseSectionsService {
     where?: Prisma.CourseSectionWhereInput;
     orderBy?: Prisma.CourseSectionOrderByWithRelationInput;
   }) {
+    console.log('findAll params: ', JSON.stringify(params, null, 2));
     const { skip, take, where, orderBy } = params;
     return this.prisma.courseSection.findMany({
       skip,
@@ -418,6 +419,41 @@ export class CourseSectionsService {
       success: true,
       data: conflictedSections,
     };
+  }
+
+  async getStudentsForCourseSection(courseSectionId: string) {
+    // Verify course section exists
+    const section = await this.prisma.courseSection.findUnique({
+      where: { id: courseSectionId },
+    });
+    if (!section) {
+      const errorResponse = ApiErrorResponseBuilder.create(
+        ErrorCode.CSSN,
+        'Course section not found'
+      )
+        .withLogger(this.logger)
+        .build();
+      throw new NotFoundException(errorResponse);
+    }
+
+    // Get students enrolled in this course section
+    const scheduleCourseSections = await this.prisma.scheduleCourseSection.findMany({
+      where: { courseSectionId },
+      include: {
+        schedule: {
+          include: {
+            student: {
+              include: {
+                user: true,
+                gradeLevel: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    return scheduleCourseSections;
   }
 } 
 

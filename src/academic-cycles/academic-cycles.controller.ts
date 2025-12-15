@@ -104,7 +104,7 @@ export class AcademicCyclesController {
 
   // Academic Cycle Endpoints
   @Post()
-  @Roles(UserRole.ADMIN, UserRole.PLATFORM_ADMIN)
+  @Roles(UserRole.ADMIN, UserRole.PLATFORM_ADMIN, UserRole.PRINCIPAL)
   @ApiOperation({ summary: 'Create a new academic cycle' })
   @ApiResponse({ status: 201, description: 'Cycle created successfully' })
   createCycle(@Body() createCycleDto: CreateAcademicCycleDto) {
@@ -124,6 +124,13 @@ export class AcademicCyclesController {
   @ApiQuery({ name: 'type', enum: CycleType, required: false, description: 'Filter by cycle type' })
   findCurrentCycle(@Query('type') type?: CycleType) {
     return this.academicCyclesService.findCurrentCycle(type);
+  }
+
+  @Get('current/academic-year')
+  @ApiOperation({ summary: 'Get current academic academic year' })
+  @ApiResponse({ status: 200, description: 'Return current academic academic year' })
+  findCurrentAcademicAcademicYear() {
+    return this.academicCyclesService.findCurrentCycle(CycleType.SCHOOL_YEAR);
   }
 
   @Get('type/:type')
@@ -257,7 +264,7 @@ export class AcademicCyclesController {
   }
 
   @Post('cycles/:cycleId/generate-periods')
-  @Roles(UserRole.ADMIN, UserRole.PLATFORM_ADMIN)
+  @Roles(UserRole.ADMIN, UserRole.PLATFORM_ADMIN, UserRole.PRINCIPAL)
   @ApiOperation({ summary: 'Generate and create academic periods for a cycle based on default configuration' })
   @ApiResponse({ status: 201, description: 'Periods generated successfully' })
   @ApiParam({ name: 'cycleId', description: 'Cycle ID' })

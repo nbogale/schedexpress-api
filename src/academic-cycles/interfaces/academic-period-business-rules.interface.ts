@@ -105,6 +105,19 @@ export interface GradingRuleConfig extends BusinessRuleConfig {
     correctionRequiresApproval: boolean;
     finalGradeLock: boolean;
   };
+  multipleSubmissions: {
+    allowMultipleSubmissions: boolean; // Default: true
+    maxSubmissionsPerCycle?: number; // Optional limit
+    submissionInterval?: number; // Days between submissions (optional)
+    allowOverwriteInterim: boolean; // Allow updating interim grades
+    requireFinalGradeAtCycleEnd: boolean; // Auto-calculate final at cycle end
+  };
+  finalGradeCalculation: {
+    method: 'AVERAGE' | 'WEIGHTED' | 'LATEST' | 'MANUAL';
+    weights?: Record<string, number>; // For weighted average
+    includeAllInterim: boolean; // Include all interim grades in calculation
+    dropLowest?: number; // Drop N lowest grades
+  };
 }
 
 /**
@@ -286,7 +299,7 @@ export const DEFAULT_GRADING_RULES: GradingRuleConfig = {
   description: 'Default grading rules',
   periodBasedGrading: {
     requireActivePeriod: true,
-    allowedPeriodTypes: [AcademicPeriodType.GRADING],
+    allowedPeriodTypes: [AcademicPeriodType.GRADING, AcademicPeriodType.INSTRUCTION],
     earlyGradingAllowed: false,
     lateGradingAllowed: false,
   },
@@ -307,6 +320,18 @@ export const DEFAULT_GRADING_RULES: GradingRuleConfig = {
     allowCorrections: true,
     correctionRequiresApproval: false,
     finalGradeLock: false,
+  },
+  multipleSubmissions: {
+    allowMultipleSubmissions: true,
+    maxSubmissionsPerCycle: undefined, // No limit by default
+    submissionInterval: undefined, // No interval requirement
+    allowOverwriteInterim: true,
+    requireFinalGradeAtCycleEnd: true,
+  },
+  finalGradeCalculation: {
+    method: 'AVERAGE',
+    includeAllInterim: true,
+    dropLowest: 0,
   },
 };
 

@@ -7,42 +7,64 @@ async function main() {
   console.log('🌱 Starting high school mock data seeding...');
 
   // Clear existing data
-  await prisma.$transaction([
-    prisma.studentGrade.deleteMany(),
-    prisma.auditLog.deleteMany(),
-    prisma.systemSetting.deleteMany(),
-    prisma.courseWaitlist.deleteMany(),
-    prisma.courseConflict.deleteMany(),
-    prisma.scheduleChangeAction.deleteMany(),
-    prisma.scheduleChangeRequest.deleteMany(),
-    prisma.studentCourseHistory.deleteMany(),
-    prisma.courseSection.deleteMany(),
-    prisma.schedule.deleteMany(),
-    prisma.academicPeriod.deleteMany(),
-    prisma.academicCycle.deleteMany(),
-    prisma.academicCycleRule.deleteMany(),
-    prisma.academicCycleConfig.deleteMany(),
-    prisma.academicSettings.deleteMany(),
-    prisma.coursePrerequisite.deleteMany(),
-    prisma.courseSequence.deleteMany(),
-    prisma.courseRule.deleteMany(),
-    prisma.course.deleteMany(),
-    prisma.student.deleteMany(),
-    prisma.teacher.deleteMany(),
-    prisma.timeBlock.deleteMany(),
-    prisma.room.deleteMany(),
-    prisma.gradeLevel.deleteMany(),
-    prisma.courseLevel.deleteMany(),
-    prisma.department.deleteMany(),    prisma.userStatusHistory.deleteMany(),
-    prisma.userAccountHistory.deleteMany(),
-    prisma.userAccount.deleteMany(),
-    prisma.user.deleteMany(),
-    prisma.gradeLookup.deleteMany(),
-    prisma.notification.deleteMany(),
-    prisma.notificationPreferences.deleteMany(),
-    prisma.parentGuardian.deleteMany(),
-    prisma.settings.deleteMany(),
-  ]);
+  // Delete in order: child tables first, then parent tables (respecting foreign key constraints)
+  // Run sequentially to avoid deadlocks
+  const deleteOperations = [
+    // Level 1: Most dependent tables (have foreign keys to multiple other tables)
+    () => prisma.scheduleCourseSection.deleteMany().catch(() => {}),
+    () => prisma.scheduleImportDetail.deleteMany().catch(() => {}),
+    () => prisma.studentCourseHistory.deleteMany().catch(() => {}),
+    () => prisma.studentGrade.deleteMany().catch(() => {}),
+    () => prisma.scheduleChangeAction.deleteMany().catch(() => {}),
+    () => prisma.courseWaitlist.deleteMany().catch(() => {}),
+    () => prisma.courseConflict.deleteMany().catch(() => {}),
+    
+    // Level 2: Tables that depend on Level 1 or other Level 2 tables
+    () => prisma.schedule.deleteMany().catch(() => {}),
+    () => prisma.scheduleChangeRequest.deleteMany().catch(() => {}),
+    () => prisma.scheduleImportFile.deleteMany().catch(() => {}),
+    () => prisma.courseSection.deleteMany().catch(() => {}),
+    () => prisma.academicPeriod.deleteMany().catch(() => {}),
+    () => prisma.coursePrerequisite.deleteMany().catch(() => {}),
+    () => prisma.courseSequence.deleteMany().catch(() => {}),
+    () => prisma.courseRule.deleteMany().catch(() => {}),
+    () => prisma.academicCycleRule.deleteMany().catch(() => {}),
+    
+    // Level 3: Tables that depend on Level 2
+    () => prisma.academicCycle.deleteMany().catch(() => {}),
+    () => prisma.course.deleteMany().catch(() => {}),
+    () => prisma.student.deleteMany().catch(() => {}),
+    () => prisma.notification.deleteMany().catch(() => {}),
+    () => prisma.auditLog.deleteMany().catch(() => {}),
+    
+    // Level 4: User-related tables
+    () => prisma.userStatusHistory.deleteMany().catch(() => {}),
+    () => prisma.userAccountHistory.deleteMany().catch(() => {}),
+    () => prisma.userAccount.deleteMany().catch(() => {}),
+    () => prisma.parentGuardian.deleteMany().catch(() => {}),
+    () => prisma.notificationPreferences.deleteMany().catch(() => {}),
+    () => prisma.teacher.deleteMany().catch(() => {}),
+    
+    // Level 5: Base reference tables (few or no dependencies)
+    () => prisma.academicCycleConfig.deleteMany().catch(() => {}),
+    () => prisma.academicSettings.deleteMany().catch(() => {}),
+    () => prisma.timeBlock.deleteMany().catch(() => {}),
+    () => prisma.room.deleteMany().catch(() => {}),
+    () => prisma.gradeLevel.deleteMany().catch(() => {}),
+    () => prisma.courseLevel.deleteMany().catch(() => {}),
+    () => prisma.department.deleteMany().catch(() => {}),
+    () => prisma.gradeLookup.deleteMany().catch(() => {}),
+    () => prisma.systemSetting.deleteMany().catch(() => {}),
+    () => prisma.settings.deleteMany().catch(() => {}),
+    
+    // Level 6: User table (depends on nothing, but many depend on it)
+    () => prisma.user.deleteMany().catch(() => {}),
+  ];
+
+  // Run sequentially to avoid deadlocks
+  for (const operation of deleteOperations) {
+    await operation();
+  }
 
   console.log('🧹 Cleared existing data');
 
@@ -165,6 +187,9 @@ async function main() {
     // Platform Administrators
     prisma.user.create({ data: { email: 's.mitchell@lincolnhs.edu', username: 'smitchell', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.PLATFORM_ADMIN, firstName: 'Sarah', lastName: 'Mitchell' } }),
     prisma.user.create({ data: { email: 'd.foster@lincolnhs.edu', username: 'dfoster', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.PLATFORM_ADMIN, firstName: 'David', lastName: 'Foster' } }),
+    
+    // Principal
+    prisma.user.create({ data: { email: 'r.martinez@lincolnhs.edu', username: 'rmartinez', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.PRINCIPAL, firstName: 'Robert', lastName: 'Martinez' } }),
     
     // Counselors
     prisma.user.create({ data: { email: 'p.lee@lincolnhs.edu', username: 'plee', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.COUNSELOR, firstName: 'Patricia', lastName: 'Lee' } }),
@@ -301,34 +326,34 @@ async function main() {
 
   console.log('👥 Created users with usernames');
 
-  // Create Teachers (25 total)
+  // Create Teachers (25 total) with teacherId for CSV import
   const teachers = await Promise.all([
-    prisma.teacher.create({ data: { userId: users[8].id, departmentId: departments[0].id, email: 's.johnson@lincolnhs.edu', name: `${users[8].firstName} ${users[8].lastName}` } }), // Sarah Johnson - Math
-    prisma.teacher.create({ data: { userId: users[9].id, departmentId: departments[0].id, email: 'j.miller@lincolnhs.edu', name: `${users[9].firstName} ${users[9].lastName}` } }), // James Miller - Math
-    prisma.teacher.create({ data: { userId: users[10].id, departmentId: departments[0].id, email: 'r.green@lincolnhs.edu', name: `${users[10].firstName} ${users[10].lastName}` } }), // Rachel Green - Math
-    prisma.teacher.create({ data: { userId: users[11].id, departmentId: departments[0].id, email: 'k.park@lincolnhs.edu', name: `${users[11].firstName} ${users[11].lastName}` } }), // Kevin Park - Math
-    prisma.teacher.create({ data: { userId: users[12].id, departmentId: departments[0].id, email: 's.white@lincolnhs.edu', name: `${users[12].firstName} ${users[12].lastName}` } }), // Susan White - Math
-    prisma.teacher.create({ data: { userId: users[13].id, departmentId: departments[0].id, email: 'd.kim@lincolnhs.edu', name: `${users[13].firstName} ${users[13].lastName}` } }), // Daniel Kim - Math
-    prisma.teacher.create({ data: { userId: users[14].id, departmentId: departments[0].id, email: 'l.martinez@lincolnhs.edu', name: `${users[14].firstName} ${users[14].lastName}` } }), // Laura Martinez - Math
-    prisma.teacher.create({ data: { userId: users[15].id, departmentId: departments[0].id, email: 't.anderson@lincolnhs.edu', name: `${users[15].firstName} ${users[15].lastName}` } }), // Thomas Anderson - Math
-    prisma.teacher.create({ data: { userId: users[16].id, departmentId: departments[1].id, email: 'e.rodriguez@lincolnhs.edu', name: `${users[16].firstName} ${users[16].lastName}` } }), // Emily Rodriguez - English
-    prisma.teacher.create({ data: { userId: users[17].id, departmentId: departments[1].id, email: 'c.taylor@lincolnhs.edu', name: `${users[17].firstName} ${users[17].lastName}` } }), // Christopher Taylor - English
-    prisma.teacher.create({ data: { userId: users[18].id, departmentId: departments[0].id, email: 'a.brown@lincolnhs.edu', name: `${users[18].firstName} ${users[18].lastName}` } }), // Amanda Brown - Math
-    prisma.teacher.create({ data: { userId: users[19].id, departmentId: departments[0].id, email: 'm.davis@lincolnhs.edu', name: `${users[19].firstName} ${users[19].lastName}` } }), // Michael Davis - Math
-    prisma.teacher.create({ data: { userId: users[20].id, departmentId: departments[1].id, email: 'j.wilson@lincolnhs.edu', name: `${users[20].firstName} ${users[20].lastName}` } }), // Jessica Wilson - English
-    prisma.teacher.create({ data: { userId: users[21].id, departmentId: departments[1].id, email: 'r.moore@lincolnhs.edu', name: `${users[21].firstName} ${users[21].lastName}` } }), // Robert Moore - English
-    prisma.teacher.create({ data: { userId: users[22].id, departmentId: departments[1].id, email: 's.jackson@lincolnhs.edu', name: `${users[22].firstName} ${users[22].lastName}` } }), // Stephanie Jackson - English
-    prisma.teacher.create({ data: { userId: users[23].id, departmentId: departments[2].id, email: 'b.thompson@lincolnhs.edu', name: `${users[23].firstName} ${users[23].lastName}` } }), // Brian Thompson - Science
-    prisma.teacher.create({ data: { userId: users[24].id, departmentId: departments[2].id, email: 'n.garcia@lincolnhs.edu', name: `${users[24].firstName} ${users[24].lastName}` } }), // Nicole Garcia - Science
-    prisma.teacher.create({ data: { userId: users[25].id, departmentId: departments[2].id, email: 'h.martinez@lincolnhs.edu', name: `${users[25].firstName} ${users[25].lastName}` } }), // Heather Martinez - Science
-    prisma.teacher.create({ data: { userId: users[26].id, departmentId: departments[2].id, email: 'j.robinson@lincolnhs.edu', name: `${users[26].firstName} ${users[26].lastName}` } }), // Jason Robinson - Science
-    prisma.teacher.create({ data: { userId: users[27].id, departmentId: departments[2].id, email: 'k.clark@lincolnhs.edu', name: `${users[27].firstName} ${users[27].lastName}` } }), // Katherine Clark - Science
-    prisma.teacher.create({ data: { userId: users[28].id, departmentId: departments[3].id, email: 'd.rodriguez@lincolnhs.edu', name: `${users[28].firstName} ${users[28].lastName}` } }), // Derek Rodriguez - Social Studies
-    prisma.teacher.create({ data: { userId: users[29].id, departmentId: departments[3].id, email: 'l.lewis@lincolnhs.edu', name: `${users[29].firstName} ${users[29].lastName}` } }), // Lisa Lewis - Social Studies
-    prisma.teacher.create({ data: { userId: users[30].id, departmentId: departments[3].id, email: 'm.walker@lincolnhs.edu', name: `${users[30].firstName} ${users[30].lastName}` } }), // Matthew Walker - Social Studies
-    prisma.teacher.create({ data: { userId: users[31].id, departmentId: departments[4].id, email: 'a.hall@lincolnhs.edu', name: `${users[31].firstName} ${users[31].lastName}` } }), // Ashley Hall - Foreign Language
-    prisma.teacher.create({ data: { userId: users[32].id, departmentId: departments[4].id, email: 'j.allen@lincolnhs.edu', name: `${users[32].firstName} ${users[32].lastName}` } }), // Justin Allen - Foreign Language
-    prisma.teacher.create({ data: { userId: users[33].id, departmentId: departments[5].id, email: 'r.young@lincolnhs.edu', name: `${users[33].firstName} ${users[33].lastName}` } })  // Rachel Young - Physical Education
+    prisma.teacher.create({ data: { teacherId: 'TCH001', userId: users[11].id, departmentId: departments[0].id, email: 's.johnson@lincolnhs.edu', name: `${users[11].firstName} ${users[11].lastName}` } }), // Sarah Johnson - Math
+    prisma.teacher.create({ data: { teacherId: 'TCH002', userId: users[12].id, departmentId: departments[0].id, email: 'j.miller@lincolnhs.edu', name: `${users[12].firstName} ${users[12].lastName}` } }), // James Miller - Math
+    prisma.teacher.create({ data: { teacherId: 'TCH003', userId: users[13].id, departmentId: departments[0].id, email: 'r.green@lincolnhs.edu', name: `${users[13].firstName} ${users[13].lastName}` } }), // Rachel Green - Math
+    prisma.teacher.create({ data: { teacherId: 'TCH004', userId: users[14].id, departmentId: departments[0].id, email: 'k.park@lincolnhs.edu', name: `${users[14].firstName} ${users[14].lastName}` } }), // Kevin Park - Math
+    prisma.teacher.create({ data: { teacherId: 'TCH005', userId: users[15].id, departmentId: departments[0].id, email: 's.white@lincolnhs.edu', name: `${users[15].firstName} ${users[15].lastName}` } }), // Susan White - Math
+    prisma.teacher.create({ data: { teacherId: 'TCH006', userId: users[16].id, departmentId: departments[0].id, email: 'd.kim@lincolnhs.edu', name: `${users[16].firstName} ${users[16].lastName}` } }), // Daniel Kim - Math
+    prisma.teacher.create({ data: { teacherId: 'TCH007', userId: users[17].id, departmentId: departments[0].id, email: 'l.martinez@lincolnhs.edu', name: `${users[17].firstName} ${users[17].lastName}` } }), // Laura Martinez - Math
+    prisma.teacher.create({ data: { teacherId: 'TCH008', userId: users[18].id, departmentId: departments[0].id, email: 't.anderson@lincolnhs.edu', name: `${users[18].firstName} ${users[18].lastName}` } }), // Thomas Anderson - Math
+    prisma.teacher.create({ data: { teacherId: 'TCH009', userId: users[19].id, departmentId: departments[1].id, email: 'e.rodriguez@lincolnhs.edu', name: `${users[19].firstName} ${users[19].lastName}` } }), // Emily Rodriguez - English
+    prisma.teacher.create({ data: { teacherId: 'TCH010', userId: users[20].id, departmentId: departments[1].id, email: 'c.taylor@lincolnhs.edu', name: `${users[20].firstName} ${users[20].lastName}` } }), // Christopher Taylor - English
+    prisma.teacher.create({ data: { teacherId: 'TCH011', userId: users[21].id, departmentId: departments[0].id, email: 'a.brown@lincolnhs.edu', name: `${users[21].firstName} ${users[21].lastName}` } }), // Amanda Brown - Math
+    prisma.teacher.create({ data: { teacherId: 'TCH012', userId: users[22].id, departmentId: departments[0].id, email: 'm.davis@lincolnhs.edu', name: `${users[22].firstName} ${users[22].lastName}` } }), // Michael Davis - Math
+    prisma.teacher.create({ data: { teacherId: 'TCH013', userId: users[23].id, departmentId: departments[1].id, email: 'j.wilson@lincolnhs.edu', name: `${users[23].firstName} ${users[23].lastName}` } }), // Jessica Wilson - English
+    prisma.teacher.create({ data: { teacherId: 'TCH014', userId: users[24].id, departmentId: departments[1].id, email: 'r.moore@lincolnhs.edu', name: `${users[24].firstName} ${users[24].lastName}` } }), // Robert Moore - English
+    prisma.teacher.create({ data: { teacherId: 'TCH015', userId: users[25].id, departmentId: departments[1].id, email: 's.jackson@lincolnhs.edu', name: `${users[25].firstName} ${users[25].lastName}` } }), // Stephanie Jackson - English
+    prisma.teacher.create({ data: { teacherId: 'TCH016', userId: users[26].id, departmentId: departments[2].id, email: 'b.thompson@lincolnhs.edu', name: `${users[26].firstName} ${users[26].lastName}` } }), // Brian Thompson - Science
+    prisma.teacher.create({ data: { teacherId: 'TCH017', userId: users[27].id, departmentId: departments[2].id, email: 'n.garcia@lincolnhs.edu', name: `${users[27].firstName} ${users[27].lastName}` } }), // Nicole Garcia - Science
+    prisma.teacher.create({ data: { teacherId: 'TCH018', userId: users[28].id, departmentId: departments[2].id, email: 'h.martinez@lincolnhs.edu', name: `${users[28].firstName} ${users[28].lastName}` } }), // Heather Martinez - Science
+    prisma.teacher.create({ data: { teacherId: 'TCH019', userId: users[29].id, departmentId: departments[2].id, email: 'j.robinson@lincolnhs.edu', name: `${users[29].firstName} ${users[29].lastName}` } }), // Jason Robinson - Science
+    prisma.teacher.create({ data: { teacherId: 'TCH020', userId: users[30].id, departmentId: departments[2].id, email: 'k.clark@lincolnhs.edu', name: `${users[30].firstName} ${users[30].lastName}` } }), // Katherine Clark - Science
+    prisma.teacher.create({ data: { teacherId: 'TCH021', userId: users[31].id, departmentId: departments[3].id, email: 'd.rodriguez@lincolnhs.edu', name: `${users[31].firstName} ${users[31].lastName}` } }), // Derek Rodriguez - Social Studies
+    prisma.teacher.create({ data: { teacherId: 'TCH022', userId: users[32].id, departmentId: departments[3].id, email: 'l.lewis@lincolnhs.edu', name: `${users[32].firstName} ${users[32].lastName}` } }), // Lisa Lewis - Social Studies
+    prisma.teacher.create({ data: { teacherId: 'TCH023', userId: users[33].id, departmentId: departments[3].id, email: 'm.walker@lincolnhs.edu', name: `${users[33].firstName} ${users[33].lastName}` } }), // Matthew Walker - Social Studies
+    prisma.teacher.create({ data: { teacherId: 'TCH024', userId: users[34].id, departmentId: departments[4].id, email: 'a.hall@lincolnhs.edu', name: `${users[34].firstName} ${users[34].lastName}` } }), // Ashley Hall - Foreign Language
+    prisma.teacher.create({ data: { teacherId: 'TCH025', userId: users[35].id, departmentId: departments[4].id, email: 'j.allen@lincolnhs.edu', name: `${users[35].firstName} ${users[35].lastName}` } }), // Justin Allen - Foreign Language
+    prisma.teacher.create({ data: { teacherId: 'TCH026', userId: users[36].id, departmentId: departments[5].id, email: 'r.young@lincolnhs.edu', name: `${users[36].firstName} ${users[36].lastName}` } })  // Rachel Young - Physical Education
   ]);
 
   console.log('👨‍🏫 Created teachers');
@@ -585,22 +610,22 @@ async function main() {
   // First, create the School Year (no parent)
   const schoolYearCycle = await prisma.academicCycle.create({
     data: {
-      name: '2025-2026',
+      name: '2024-2025',
       cycleType: 'SCHOOL_YEAR',
       cycleNumber: null,
-      startDate: new Date('2025-08-15'),
-      endDate: new Date('2026-06-15'),
-      openingDate: new Date('2025-08-01'), // Opening day (preparation starts)
-      closingDate: new Date('2026-06-15'), // Closing day (last day of school)
-      isCurrent: true,
-      isActive: true,
+      startDate: new Date('2024-08-15'),
+      endDate: new Date('2025-06-15'),
+      openingDate: new Date('2024-08-01'), // Opening day (preparation starts)
+      closingDate: new Date('2025-06-15'), // Closing day (last day of school)
+      isCurrent: false,
+      isActive: false,
       isValidated: true,
       validatedBy: users[0].id, // Admin user
-      description: '2025-2026 Academic Year',
+      description: '2024-2025 Academic Year',
       scheduleChangeConfig: {
-        enabled: true,
+        enabled: false,
         deadlineDays: 14,
-        studentCanRequest: true,
+        studentCanRequest: false,
         allowChangesAfterDeadline: false
       }
     }
@@ -613,17 +638,17 @@ async function main() {
       cycleType: 'SEMESTER',
       cycleNumber: 1,
       parentId: schoolYearCycle.id, // Parent: School Year
-      startDate: new Date('2025-08-15'),
-      endDate: new Date('2025-12-20'),
-      isCurrent: true,
-      isActive: true,
+      startDate: new Date('2024-08-15'),
+      endDate: new Date('2024-12-20'),
+      isCurrent: false,
+      isActive: false,
       isValidated: true,
       validatedBy: users[0].id,
-      description: 'Fall semester of the 2025-2026 academic year',
+      description: 'Fall semester of the 2024-2025 academic year',
       scheduleChangeConfig: {
-        enabled: true,
+        enabled: false,
         deadlineDays: 14,
-        studentCanRequest: true,
+        studentCanRequest: false,
         allowChangesAfterDeadline: false
       }
     }
@@ -635,12 +660,12 @@ async function main() {
       cycleType: 'SEMESTER',
       cycleNumber: 2,
       parentId: schoolYearCycle.id, // Parent: School Year
-      startDate: new Date('2026-01-15'),
-      endDate: new Date('2026-06-15'),
+      startDate: new Date('2025-01-15'),
+      endDate: new Date('2025-06-15'),
       isCurrent: false,
-      isActive: true,
+      isActive: false,
       isValidated: false,
-      description: 'Spring semester of the 2025-2026 academic year',
+      description: 'Spring semester of the 2024-2025 academic year',
       scheduleChangeConfig: {
         enabled: true,
         deadlineDays: 14,
@@ -659,17 +684,17 @@ async function main() {
         cycleType: 'QUARTER',
         cycleNumber: 1,
         parentId: fallSemester.id, // Parent: Fall Semester
-        startDate: new Date('2025-08-15'),
+        startDate: new Date('2024-08-15'),
         endDate: new Date('2025-10-18'),
-        isCurrent: true,
-        isActive: true,
+        isCurrent: false,
+        isActive: false,
         isValidated: true,
         validatedBy: users[0].id,
         description: 'First quarter of the fall semester',
         scheduleChangeConfig: {
-          enabled: true,
+          enabled: false,
           deadlineDays: 14,
-          studentCanRequest: true,
+          studentCanRequest: false,
           allowChangesAfterDeadline: false
         }
       }
@@ -682,7 +707,7 @@ async function main() {
         cycleType: 'QUARTER',
         cycleNumber: 2,
         parentId: fallSemester.id, // Parent: Fall Semester
-        startDate: new Date('2025-10-21'),
+        startDate: new Date('2024-10-21'),
         endDate: new Date('2025-12-20'),
         isCurrent: false,
         isActive: true,
@@ -704,8 +729,8 @@ async function main() {
         cycleType: 'QUARTER',
         cycleNumber: 3,
         parentId: springSemester.id, // Parent: Spring Semester
-        startDate: new Date('2026-01-15'),
-        endDate: new Date('2026-03-20'),
+          startDate: new Date('2025-01-15'),
+        endDate: new Date('2025-03-20'),
         isCurrent: false,
         isActive: true,
         isValidated: false,
@@ -726,8 +751,8 @@ async function main() {
         cycleType: 'QUARTER',
         cycleNumber: 4,
         parentId: springSemester.id, // Parent: Spring Semester
-        startDate: new Date('2026-03-23'),
-        endDate: new Date('2026-06-15'),
+        startDate: new Date('2025-03-23'),
+        endDate: new Date('2025-06-15'),
         isCurrent: false,
         isActive: true,
         isValidated: false,
@@ -758,10 +783,10 @@ async function main() {
     prisma.academicPeriod.create({
       data: {
         cycleId: schoolYearCycle.id,
-        name: '2025-2026 Preparation',
+        name: '2024-2025 Preparation',
         periodType: 'PREPARATION',
         status: 'PLANNED',
-        startDate: new Date('2025-08-01'),
+        startDate: new Date('2024-08-01'),
         endDate: new Date('2025-08-14'),
         description: 'Pre-cycle setup, teacher preparation, and room assignment',
         isInstructional: false,
@@ -778,10 +803,10 @@ async function main() {
     prisma.academicPeriod.create({
       data: {
         cycleId: schoolYearCycle.id,
-        name: '2025-2026 Registration',
+        name: '2024-2025 Registration',
         periodType: 'REGISTRATION',
         status: 'PLANNED',
-        startDate: new Date('2025-08-01'),
+        startDate: new Date('2024-08-01'),
         endDate: new Date('2025-08-15'),
         description: 'Student enrollment period for the entire academic year',
         isInstructional: false,
@@ -804,7 +829,7 @@ async function main() {
         name: 'Fall Semester Instruction',
         periodType: 'INSTRUCTION',
         status: 'PLANNED',
-        startDate: new Date('2025-08-20'),
+        startDate: new Date('2024-08-20'),
         endDate: new Date('2025-12-10'),
         description: 'Main instruction period for fall semester',
         isInstructional: true,
@@ -824,7 +849,7 @@ async function main() {
         name: 'Thanksgiving Break',
         periodType: 'BREAK',
         status: 'PLANNED',
-        startDate: new Date('2025-11-24'),
+        startDate: new Date('2024-11-24'),
         endDate: new Date('2025-11-28'),
         description: 'Thanksgiving holiday break',
         isInstructional: false,
@@ -844,7 +869,7 @@ async function main() {
         name: 'Fall Final Exams',
         periodType: 'EXAM',
         status: 'PLANNED',
-        startDate: new Date('2025-12-11'),
+        startDate: new Date('2024-12-11'),
         endDate: new Date('2025-12-15'),
         description: 'Final examination period for fall semester',
         isInstructional: false,
@@ -864,7 +889,7 @@ async function main() {
         name: 'Fall Grade Submission',
         periodType: 'GRADING',
         status: 'PLANNED',
-        startDate: new Date('2025-12-16'),
+        startDate: new Date('2024-12-16'),
         endDate: new Date('2025-12-20'),
         description: 'Grade submission period for fall semester',
         isInstructional: false,
@@ -887,8 +912,8 @@ async function main() {
         name: 'Spring Semester Instruction',
         periodType: 'INSTRUCTION',
         status: 'PLANNED',
-        startDate: new Date('2026-01-15'),
-        endDate: new Date('2026-05-15'),
+          startDate: new Date('2025-01-15'),
+        endDate: new Date('2025-05-15'),
         description: 'Main instruction period for spring semester',
         isInstructional: true,
         allowsEnrollment: false,
@@ -907,8 +932,8 @@ async function main() {
         name: 'Spring Break',
         periodType: 'BREAK',
         status: 'PLANNED',
-        startDate: new Date('2026-03-10'),
-        endDate: new Date('2026-03-14'),
+        startDate: new Date('2025-03-10'),
+        endDate: new Date('2025-03-14'),
         description: 'Spring break holiday',
         isInstructional: false,
         allowsEnrollment: false,
@@ -927,8 +952,8 @@ async function main() {
         name: 'Spring Review Week',
         periodType: 'REVIEW',
         status: 'PLANNED',
-        startDate: new Date('2026-05-16'),
-        endDate: new Date('2026-05-20'),
+        startDate: new Date('2025-05-16'),
+        endDate: new Date('2025-05-20'),
         description: 'Review week before final exams',
         isInstructional: true,
         allowsEnrollment: false,
@@ -947,8 +972,8 @@ async function main() {
         name: 'Spring Final Exams',
         periodType: 'EXAM',
         status: 'PLANNED',
-        startDate: new Date('2026-05-21'),
-        endDate: new Date('2026-05-25'),
+        startDate: new Date('2025-05-21'),
+        endDate: new Date('2025-05-25'),
         description: 'Final examination period for spring semester',
         isInstructional: false,
         allowsEnrollment: false,
@@ -967,8 +992,8 @@ async function main() {
         name: 'Spring Grade Submission',
         periodType: 'GRADING',
         status: 'PLANNED',
-        startDate: new Date('2026-05-26'),
-        endDate: new Date('2026-05-30'),
+        startDate: new Date('2025-05-26'),
+        endDate: new Date('2025-05-30'),
         description: 'Grade submission period for spring semester',
         isInstructional: false,
         allowsEnrollment: false,
@@ -988,8 +1013,8 @@ async function main() {
       name: 'Winter Break',
       periodType: 'BREAK',
       status: 'PLANNED',
-      startDate: new Date('2025-12-21'),
-      endDate: new Date('2026-01-05'),
+      startDate: new Date('2024-12-21'),
+      endDate: new Date('2024-01-05'),
       description: 'Winter holiday break between semesters',
       isInstructional: false,
       allowsEnrollment: false,
@@ -1005,11 +1030,11 @@ async function main() {
   const closingPeriod = await prisma.academicPeriod.create({
     data: {
       cycleId: schoolYearCycle.id,
-      name: '2025-2026 Closing',
+      name: '2024-2025 Closing',
       periodType: 'TRANSITION',
       status: 'PLANNED',
-      startDate: new Date('2026-06-01'),
-      endDate: new Date('2026-06-15'),
+      startDate: new Date('2024-06-01'),
+      endDate: new Date('2024-06-15'),
       description: 'End of year transition and closing activities',
       isInstructional: false,
       allowsEnrollment: false,

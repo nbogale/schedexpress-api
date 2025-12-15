@@ -7,9 +7,10 @@ import { ErrorCode } from 'src/common/error-codes';
 import { ApiErrorResponseBuilder } from 'src/common/api-error-builder';
 import { NotificationsService } from 'src/notifications/notifications.service';
 import { NotificationType } from 'src/schedule-change-requests/enums/request-enums';
-import { AcademicPeriodStatus } from '@prisma/client';
+import { AcademicPeriodStatus, CycleType } from '@prisma/client';
 import { AcademicPeriodBusinessRulesService } from '../academic-cycles/academic-period-business-rules.service';
 import { EnrollmentRuleConfig } from '../academic-cycles/interfaces/academic-period-business-rules.interface';
+import { AcademicCyclesService } from '../academic-cycles/academic-cycles.service';
 
 @Injectable()
 export class SchedulesService {
@@ -19,6 +20,7 @@ export class SchedulesService {
     private readonly prisma: PrismaService,
     private readonly notificationsService: NotificationsService,
     private readonly businessRulesService: AcademicPeriodBusinessRulesService,
+    private readonly academicCyclesService: AcademicCyclesService,
   ) {}
 
   async create(createScheduleDto: CreateScheduleDto) {
@@ -27,7 +29,6 @@ export class SchedulesService {
     // Check if student exists
     const student = await this.prisma.student.findUnique({
       where: { id: studentId },
-      include: { schedule: true },
     });
 
     if (!student) {
@@ -40,11 +41,20 @@ export class SchedulesService {
       throw new NotFoundException(errorResponse);
     }
 
-    // Check if student already has a schedule
-    if (student.schedule) {
+    // Check if student already has a schedule for this academic cycle
+    const existingSchedule = await this.prisma.schedule.findUnique({
+      where: {
+        studentId_academicCycleId: {
+          studentId,
+          academicCycleId,
+        },
+      },
+    });
+
+    if (existingSchedule) {
       const errorResponse = ApiErrorResponseBuilder.create(
         ErrorCode.SCHC,
-        `Student already has a schedule`
+        `Student already has a schedule for this academic cycle`
       )
         .withLogger(this.logger)
         .build();
@@ -268,7 +278,114 @@ export class SchedulesService {
     return schedule;
   }
 
-  async findByStudent(studentId: string) {
+  async findByStudent(studentId: string, academicCycleId?: string) {
+    const student = await this.prisma.student.findUnique({
+      where: { userId: studentId },
+    });
+
+    if (!student) {
+      throw new NotFoundException(`Student with ID ${studentId} not found`);
+    }
+
+    // If academicCycleId is provided, find schedule for that cycle
+    // Otherwise, find the most recent schedule
+    const schedule = academicCycleId
+      ? await this.prisma.schedule.findUnique({
+          where: {
+            studentId_academicCycleId: {
+              studentId: student.id,
+              academicCycleId,
+            },
+          },
+          include: {
+            student: {
+              include: {
+                user: {
+                  select: {
+                    firstName: true,
+                    lastName: true,
+                    email: true,
+                  },
+                },
+              },
+            },
+            academicCycle: true,
+            scheduleCourseSections: {
+              include: {
+                courseSection: {
+                  include: {
+                    course: true,
+                    timeBlock: true,
+                    room: true,
+                    teacher: true,
+                  }
+                }
+              },
+              orderBy: {
+                courseSection: {
+                  timeBlock: {
+                    startTime: 'asc',
+                  },
+                },
+              },
+            },
+          },
+        })
+      : await this.prisma.schedule.findFirst({
+          where: { studentId: student.id },
+          orderBy: { createdAt: 'desc' },
+          include: {
+            student: {
+              include: {
+                user: {
+                  select: {
+                    firstName: true,
+                    lastName: true,
+                    email: true,
+                  },
+                },
+              },
+            },
+            academicCycle: true,
+            scheduleCourseSections: {
+              include: {
+                courseSection: {
+                  include: {
+                    course: true,
+                    timeBlock: true,
+                    room: true,
+                    teacher: true,
+                  }
+                }
+              },
+              orderBy: {
+                courseSection: {
+                  timeBlock: {
+                    startTime: 'asc',
+                  },
+                },
+              },
+            },
+          },
+        });
+
+    if (!schedule) {
+      throw new NotFoundException(`Schedule not found for student ID ${studentId}`);
+    }
+
+    return schedule;
+  }
+
+
+  async findStudentScheduleForCurrentAcademicYear(studentId: string) {
+
+    const currentAcademicCycle = await this.academicCyclesService.findCurrentCycle(CycleType.SCHOOL_YEAR);
+
+    console.log('Current academic cycle:', JSON.stringify(currentAcademicCycle, null, 2));
+
+    if(!currentAcademicCycle) {
+      throw new NotFoundException(`Current academic cycle not found`);
+    }
     const student = await this.prisma.student.findUnique({
       where: { userId: studentId },
     });
@@ -278,7 +395,12 @@ export class SchedulesService {
     }
 
     const schedule = await this.prisma.schedule.findUnique({
-      where: { studentId: student.id },
+      where: {
+        studentId_academicCycleId: {
+          studentId: student.id,
+          academicCycleId: currentAcademicCycle.id,
+        },
+      },
       include: {
         student: {
           include: {
@@ -315,11 +437,14 @@ export class SchedulesService {
     });
 
     if (!schedule) {
-      throw new NotFoundException(`Schedule not found for student ID ${studentId}`);
+      throw new NotFoundException(`Schedule not found for student ID ${studentId} for the academic year ${currentAcademicCycle.name}`);
     }
+
+    console.log('Current year Schedule:', JSON.stringify(schedule, null, 2));
 
     return schedule;
   }
+
 
   async update(id: string, updateScheduleDto: UpdateScheduleDto) {
     const { addCourseSectionIds, removeCourseSectionIds, ...scheduleData } = updateScheduleDto;

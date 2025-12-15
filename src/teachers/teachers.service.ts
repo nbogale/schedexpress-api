@@ -245,16 +245,73 @@ export class TeachersService {
     }
   }
 
-  async getCoursesByTeacher(teacherId: string) {
-    return this.prisma.courseSection.findMany({
-      where: { teacherId },
+  async getCoursesByTeacher(teacherId: string, academicCycleId?: string) {
+    const where: any = { teacherId };
+    
+    // If academic cycle is provided, filter by it; otherwise return all
+    if (academicCycleId) {
+      where.academicCycleId = academicCycleId;
+    }
+    
+    const sections = await this.prisma.courseSection.findMany({
+      where,
       include: {
-        course: true,
+        course: {
+          select: {
+            id: true,
+            code: true,
+            name: true,
+            description: true,
+          },
+        },
         timeBlock: true,
         academicCycle: true,
         room: true,
       },
+      orderBy: [
+        { timeBlock: { startTime: 'asc' } },
+        { sectionNumber: 'asc' },
+      ],
     });
+    
+    // Ensure Planning course sections are included (workaround for potential query issues)
+    const planningCourse = await this.prisma.course.findUnique({
+      where: { code: 'Planning' },
+      select: { id: true },
+    });
+    
+    if (planningCourse) {
+      const directPlanningSections = await this.prisma.courseSection.findMany({
+        where: {
+          teacherId,
+          courseId: planningCourse.id,
+        },
+        include: {
+          course: {
+            select: {
+              id: true,
+              code: true,
+              name: true,
+              description: true,
+            },
+          },
+          timeBlock: true,
+          academicCycle: true,
+          room: true,
+        },
+      });
+      
+      // Add any Planning sections that are missing from main results
+      const missingFromMain = directPlanningSections.filter(
+        direct => !sections.find(s => s.id === direct.id)
+      );
+      
+      if (missingFromMain.length > 0) {
+        sections.push(...missingFromMain);
+      }
+    }
+
+    return sections;
   }
 
   async getStudentsPerCourse(teacherId: string) {

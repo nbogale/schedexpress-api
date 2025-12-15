@@ -419,7 +419,7 @@ export class StudentsService {
             email: true,
           },
         },
-        schedule: {
+        schedules: {
           include: {
             scheduleCourseSections: {
               include: {

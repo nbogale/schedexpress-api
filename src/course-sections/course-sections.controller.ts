@@ -131,4 +131,12 @@ export class CourseSectionsController {
   checkConflictForAcademicCycle(@Param('academicCycleId') academicCycleId: string) {
     return this.courseSectionsService.checkConflictForAcademicCycle(academicCycleId);
   }
+
+  @Get(':id/students')
+  @ApiOperation({ summary: 'Get all students enrolled in a course section' })
+  @ApiResponse({ status: 200, description: 'Return all enrolled students for the course section.' })
+  @ApiResponse({ status: 404, description: 'Course section not found.' })
+  getStudentsForCourseSection(@Param('id') id: string) {
+    return this.courseSectionsService.getStudentsForCourseSection(id);
+  }
 } 

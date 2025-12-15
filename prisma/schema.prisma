@@ -34,6 +34,8 @@ model User {
   accountActionsPerformed UserAccountHistory[]    @relation("AccountActionPerformer")
   statusChangesPerformed  UserStatusHistory[]     @relation("StatusChangePerformer")
   statusHistory           UserStatusHistory[]
+  scheduleImportFiles     ScheduleImportFile[]    @relation("ScheduleImportUploader")
+  submittedGrades         StudentCourseHistory[]  @relation("GradeSubmitter")
 
   @@map("user")
 }
@@ -54,57 +56,71 @@ model UserStatusHistory {
 }
 
 model Student {
-  id                String                  @id @default(cuid())
-  userId            String                  @unique @map("user_id")
-  studentId         String                  @unique @map("student_id") @db.VarChar(20)
-  gradeLevelId      String                  @map("grade_level_id")
-  graduationYear    Int?                    @map("graduation_year")
-  hasIep            Boolean                 @default(false) @map("has_iep")
-  isDualEnrollment  Boolean                 @default(false) @map("is_dual_enrollment")
-  isCollegeBound    Boolean                 @default(false) @map("is_college_bound")
-  isCreditRecovery  Boolean                 @default(false) @map("is_credit_recovery")
-  maxCreditsPerTerm Decimal                 @default(8.0) @map("max_credits_per_term") @db.Decimal(3, 1)
-  createdAt         DateTime                @default(now()) @map("created_at")
-  updatedAt         DateTime                @updatedAt @map("updated_at")
-  
+  id                String   @id @default(cuid())
+  userId            String   @unique @map("user_id")
+  studentId         String   @unique @map("student_id") @db.VarChar(20)
+  gradeLevelId      String   @map("grade_level_id")
+  graduationYear    Int?     @map("graduation_year")
+  hasIep            Boolean  @default(false) @map("has_iep")
+  isDualEnrollment  Boolean  @default(false) @map("is_dual_enrollment")
+  isCollegeBound    Boolean  @default(false) @map("is_college_bound")
+  isCreditRecovery  Boolean  @default(false) @map("is_credit_recovery")
+  maxCreditsPerTerm Decimal  @default(8.0) @map("max_credits_per_term") @db.Decimal(3, 1)
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
   // Parent/Guardian References (Direct)
-  primaryParentId   String?                 @map("primary_parent_id")
-  secondaryParentId String?                 @map("secondary_parent_id")
-  emergencyContactId String?                @map("emergency_contact_id")
-  
+  primaryParentId    String? @map("primary_parent_id")
+  secondaryParentId  String? @map("secondary_parent_id")
+  emergencyContactId String? @map("emergency_contact_id")
+
   // Existing relationships
-  waitlist          CourseWaitlist[]
-  notifications     Notification[]
-  schedule          Schedule?
-  changeRequests    ScheduleChangeRequest[]
-  gradeLevel        GradeLevel              @relation(fields: [gradeLevelId], references: [id])
-  user              User                    @relation(fields: [userId], references: [id])
-  courseHistory     StudentCourseHistory[]
-  grades            StudentGrade[]
-  
+  waitlist       CourseWaitlist[]
+  notifications  Notification[]
+  schedules      Schedule[]
+  changeRequests ScheduleChangeRequest[]
+  gradeLevel     GradeLevel              @relation(fields: [gradeLevelId], references: [id])
+  user           User                    @relation(fields: [userId], references: [id])
+  courseHistory  StudentCourseHistory[]
+  grades         StudentGrade[]
+
   // Parent relationships
-  primaryParent     ParentGuardian?         @relation("PrimaryParent", fields: [primaryParentId], references: [id])
-  secondaryParent   ParentGuardian?         @relation("SecondaryParent", fields: [secondaryParentId], references: [id])
-  emergencyContact  ParentGuardian?         @relation("EmergencyContact", fields: [emergencyContactId], references: [id])
+  primaryParent    ParentGuardian? @relation("PrimaryParent", fields: [primaryParentId], references: [id])
+  secondaryParent  ParentGuardian? @relation("SecondaryParent", fields: [secondaryParentId], references: [id])
+  emergencyContact ParentGuardian? @relation("EmergencyContact", fields: [emergencyContactId], references: [id])
 
   @@map("student")
 }
 
 model StudentCourseHistory {
-  id              String        @id @default(cuid())
-  studentId       String        @map("student_id")
-  courseId        String        @map("course_id")
-  academicCycleId String        @map("academic_cycle_id")
-  grade           String?       @db.VarChar(2)
-  isPassed        Boolean       @default(true) @map("is_passed")
-  creditEarned    Decimal       @map("credit_earned") @db.Decimal(3, 1)
-  createdAt       DateTime      @default(now()) @map("created_at")
-  updatedAt       DateTime      @updatedAt @map("updated_at")
+  id              String  @id @default(cuid())
+  studentId       String  @map("student_id")
+  courseId        String  @map("course_id")
+  academicCycleId String  @map("academic_cycle_id")
+  grade           String? @db.VarChar(2)
+  isPassed        Boolean @default(true) @map("is_passed")
+  creditEarned    Decimal @map("credit_earned") @db.Decimal(3, 1)
+
+  // New fields for multiple submissions
+  gradeType         GradeType @default(INTERIM) @map("grade_type")
+  isFinal           Boolean   @default(false) @map("is_final")
+  submissionDate    DateTime  @default(now()) @map("submission_date")
+  submittedBy       String?   @map("submitted_by")
+  notes             String?   @db.Text
+  calculatedFrom    String?   @map("calculated_from") // JSON array of grade IDs
+  calculationMethod String?   @map("calculation_method") @db.VarChar(50) // e.g., AVERAGE, LATEST, MANUAL
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
   course          Course        @relation(fields: [courseId], references: [id])
   academicCycle   AcademicCycle @relation(fields: [academicCycleId], references: [id])
   student         Student       @relation(fields: [studentId], references: [id])
+  submittedByUser User?         @relation("GradeSubmitter", fields: [submittedBy], references: [id]) // New relation
 
   @@index([academicCycleId])
+  @@index([studentId, courseId, academicCycleId, gradeType]) // New composite index
+  @@index([submittedBy]) // New index
   @@map("student_course_history")
 }
 
@@ -135,6 +151,7 @@ model CourseSection {
   courseId                  String                  @map("course_id")
   sectionNumber             String                  @map("section_number") @db.VarChar(10)
   timeBlockId               String                  @map("time_block_id")
+  endTimeBlockId            String?                 @map("end_time_block_id")
   roomId                    String                  @map("room_id")
   teacherId                 String                  @map("teacher_id")
   maxEnrollment             Int                     @map("max_enrollment")
@@ -150,31 +167,37 @@ model CourseSection {
   course                    Course                  @relation(fields: [courseId], references: [id])
   room                      Room                    @relation(fields: [roomId], references: [id])
   teacher                   Teacher                 @relation(fields: [teacherId], references: [id])
-  timeBlock                 TimeBlock               @relation(fields: [timeBlockId], references: [id])
+  timeBlock                 TimeBlock               @relation("StartTimeBlock", fields: [timeBlockId], references: [id])
+  endTimeBlock              TimeBlock?              @relation("EndTimeBlock", fields: [endTimeBlockId], references: [id])
   waitlist                  CourseWaitlist[]
   addedInActions            ScheduleChangeAction[]  @relation("AddedSection")
   removedInActions          ScheduleChangeAction[]  @relation("RemovedSection")
   currentChangeRequests     ScheduleChangeRequest[] @relation("CurrentSection")
   requestedInChangeRequests ScheduleChangeRequest[] @relation("RequestedSection")
   scheduleCourseSections    ScheduleCourseSection[]
+  importDetails             ScheduleImportDetail[]
 
   @@index([courseId])
   @@index([academicCycleId])
   @@index([teacherId])
+  @@index([endTimeBlockId])
   @@map("course_section")
 }
 
 model Schedule {
   id                     String                  @id @default(cuid())
-  studentId              String                  @unique @map("student_id")
+  studentId              String                  @map("student_id")
   createdAt              DateTime                @default(now()) @map("created_at")
   updatedAt              DateTime                @updatedAt @map("updated_at")
   academicCycleId        String                  @map("academic_cycle_id")
   student                Student                 @relation(fields: [studentId], references: [id])
   academicCycle          AcademicCycle           @relation(fields: [academicCycleId], references: [id])
   scheduleCourseSections ScheduleCourseSection[]
+  importDetails          ScheduleImportDetail[]
 
+  @@unique([studentId, academicCycleId])
   @@index([academicCycleId])
+  @@index([studentId])
   @@map("schedule")
 }
 
@@ -194,132 +217,132 @@ model ScheduleCourseSection {
 }
 
 model Notification {
-  id                String           @id @default(cuid())
-  studentId         String?          @map("student_id")
-  userId            String?          @map("user_id")
-  parentGuardianId  String?          @map("parent_guardian_id")
-  message           String
-  read              Boolean          @default(false)
-  createdAt         DateTime         @default(now()) @map("created_at")
-  updatedAt         DateTime         @updatedAt @map("updated_at")
-  type              NotificationType
-  student           Student?         @relation(fields: [studentId], references: [id])
-  user              User?            @relation(fields: [userId], references: [id])
-  parentGuardian    ParentGuardian?  @relation(fields: [parentGuardianId], references: [id])
+  id               String           @id @default(cuid())
+  studentId        String?          @map("student_id")
+  userId           String?          @map("user_id")
+  parentGuardianId String?          @map("parent_guardian_id")
+  message          String
+  read             Boolean          @default(false)
+  createdAt        DateTime         @default(now()) @map("created_at")
+  updatedAt        DateTime         @updatedAt @map("updated_at")
+  type             NotificationType
+  student          Student?         @relation(fields: [studentId], references: [id])
+  user             User?            @relation(fields: [userId], references: [id])
+  parentGuardian   ParentGuardian?  @relation(fields: [parentGuardianId], references: [id])
 
   @@map("notification")
 }
 
 model ParentGuardian {
-  id                String   @id @default(cuid())
-  userId            String?  @unique @map("user_id")
-  firstName         String   @map("first_name") @db.VarChar(100)
-  lastName          String   @map("last_name") @db.VarChar(100)
-  email             String?  @unique @db.VarChar(255)
-  primaryPhone      String?  @map("primary_phone") @db.VarChar(20)
-  secondaryPhone    String?  @map("secondary_phone") @db.VarChar(20)
-  relationship      RelationshipType
-  isPrimaryContact  Boolean  @default(false) @map("is_primary_contact")
-  isEmergencyContact Boolean @default(false) @map("is_emergency_contact")
-  preferredContactMethod ContactMethod @default(EMAIL) @map("preferred_contact_method")
+  id                      String                   @id @default(cuid())
+  userId                  String?                  @unique @map("user_id")
+  firstName               String                   @map("first_name") @db.VarChar(100)
+  lastName                String                   @map("last_name") @db.VarChar(100)
+  email                   String?                  @unique @db.VarChar(255)
+  primaryPhone            String?                  @map("primary_phone") @db.VarChar(20)
+  secondaryPhone          String?                  @map("secondary_phone") @db.VarChar(20)
+  relationship            RelationshipType
+  isPrimaryContact        Boolean                  @default(false) @map("is_primary_contact")
+  isEmergencyContact      Boolean                  @default(false) @map("is_emergency_contact")
+  preferredContactMethod  ContactMethod            @default(EMAIL) @map("preferred_contact_method")
   notificationPreferences NotificationPreferences?
-  createdAt         DateTime @default(now()) @map("created_at")
-  updatedAt         DateTime @updatedAt @map("updated_at")
-  
+  createdAt               DateTime                 @default(now()) @map("created_at")
+  updatedAt               DateTime                 @updatedAt @map("updated_at")
+
   // User relationship
-  user              User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
-  
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
   // Direct relationships
-  notifications     Notification[]
-  
+  notifications Notification[]
+
   // Reverse relationships to students
-  primaryStudents   Student[]               @relation("PrimaryParent")
-  secondaryStudents Student[]               @relation("SecondaryParent")
-  emergencyStudents Student[]               @relation("EmergencyContact")
-  
+  primaryStudents   Student[] @relation("PrimaryParent")
+  secondaryStudents Student[] @relation("SecondaryParent")
+  emergencyStudents Student[] @relation("EmergencyContact")
+
   @@map("parent_guardian")
 }
 
 model NotificationPreferences {
-  id                    String   @id @default(cuid())
-  parentGuardianId      String   @unique @map("parent_guardian_id")
-  
+  id               String @id @default(cuid())
+  parentGuardianId String @unique @map("parent_guardian_id")
+
   // Notification Types
-  scheduleChanges       Boolean  @default(true) @map("schedule_changes")
-  gradeUpdates          Boolean  @default(true) @map("grade_updates")
-  attendanceAlerts      Boolean  @default(true) @map("attendance_alerts")
-  counselorMeetings     Boolean  @default(true) @map("counselor_meetings")
-  emergencyAlerts       Boolean  @default(true) @map("emergency_alerts")
-  generalAnnouncements  Boolean  @default(false) @map("general_announcements")
-  
+  scheduleChanges      Boolean @default(true) @map("schedule_changes")
+  gradeUpdates         Boolean @default(true) @map("grade_updates")
+  attendanceAlerts     Boolean @default(true) @map("attendance_alerts")
+  counselorMeetings    Boolean @default(true) @map("counselor_meetings")
+  emergencyAlerts      Boolean @default(true) @map("emergency_alerts")
+  generalAnnouncements Boolean @default(false) @map("general_announcements")
+
   // Delivery Preferences
-  emailEnabled          Boolean  @default(true) @map("email_enabled")
-  smsEnabled            Boolean  @default(false) @map("sms_enabled")
-  phoneCallEnabled      Boolean  @default(false) @map("phone_call_enabled")
-  
+  emailEnabled     Boolean @default(true) @map("email_enabled")
+  smsEnabled       Boolean @default(false) @map("sms_enabled")
+  phoneCallEnabled Boolean @default(false) @map("phone_call_enabled")
+
   // Frequency
-  digestFrequency       DigestFrequency @default(DAILY) @map("digest_frequency")
-  
-  createdAt             DateTime @default(now()) @map("created_at")
-  updatedAt             DateTime @updatedAt @map("updated_at")
-  
+  digestFrequency DigestFrequency @default(DAILY) @map("digest_frequency")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
   // Relationships
-  parentGuardian        ParentGuardian @relation(fields: [parentGuardianId], references: [id])
-  
+  parentGuardian ParentGuardian @relation(fields: [parentGuardianId], references: [id])
+
   @@map("notification_preferences")
 }
 
 model Settings {
-  id                     String           @id @default(cuid())
-  schoolName             String           @map("school_name")
-  maxCourseLoad          Int              @default(8) @map("max_course_load")
-  allowConflicts         Boolean          @default(false) @map("allow_conflicts")
-  
+  id             String  @id @default(cuid())
+  schoolName     String  @map("school_name")
+  maxCourseLoad  Int     @default(8) @map("max_course_load")
+  allowConflicts Boolean @default(false) @map("allow_conflicts")
+
   // Schedule Configuration
-  scheduleType           ScheduleType     @default(STANDARD) @map("schedule_type")
-  hasRotationDays        Boolean          @default(false) @map("has_rotation_days")
-  rotationDayType        RotationDayType? @map("rotation_day_type")
-  
+  scheduleType    ScheduleType     @default(STANDARD) @map("schedule_type")
+  hasRotationDays Boolean          @default(false) @map("has_rotation_days")
+  rotationDayType RotationDayType? @map("rotation_day_type")
+
   // Time Block Rules
-  minBlockDuration       Int              @default(45) @map("min_block_duration") // in minutes
-  maxBlockDuration       Int              @default(120) @map("max_block_duration") // in minutes
-  allowOverlappingBlocks Boolean          @default(false) @map("allow_overlapping_blocks")
-  
+  minBlockDuration       Int     @default(45) @map("min_block_duration") // in minutes
+  maxBlockDuration       Int     @default(120) @map("max_block_duration") // in minutes
+  allowOverlappingBlocks Boolean @default(false) @map("allow_overlapping_blocks")
+
   // Schedule Change Request Configuration (Global Defaults)
-  scheduleChangeConfig   Json?            @map("schedule_change_config")
-  
+  scheduleChangeConfig Json? @map("schedule_change_config")
+
   // Relations
-  academicSettings       AcademicSettings?
-  
-  createdAt              DateTime         @default(now()) @map("created_at")
-  updatedAt              DateTime         @updatedAt @map("updated_at")
+  academicSettings AcademicSettings?
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   @@map("settings")
 }
 
 model AcademicSettings {
-  id                        String              @id @default(cuid())
-  settingsId                String              @unique @map("settings_id")
-  
+  id         String @id @default(cuid())
+  settingsId String @unique @map("settings_id")
+
   // Academic Structure Configuration
-  academicStructureType     String              @default("SEMESTER_QUARTERS") @map("academic_structure_type") @db.VarChar(50)
-  defaultSemesterCount      Int                 @default(2) @map("default_semester_count")
-  defaultQuarterCount       Int                 @default(4) @map("default_quarter_count")
-  defaultTrimesterCount     Int                 @default(3) @map("default_trimester_count")
-  semestersHaveQuarters     Boolean             @default(true) @map("semesters_have_quarters")
-  
+  academicStructureType String  @default("SEMESTER_QUARTERS") @map("academic_structure_type") @db.VarChar(50)
+  defaultSemesterCount  Int     @default(2) @map("default_semester_count")
+  defaultQuarterCount   Int     @default(4) @map("default_quarter_count")
+  defaultTrimesterCount Int     @default(3) @map("default_trimester_count")
+  semestersHaveQuarters Boolean @default(true) @map("semesters_have_quarters")
+
   // Academic Period Defaults Configuration (JSON for flexibility)
-  defaultPeriodConfiguration Json?              @map("default_period_configuration")
-  
+  defaultPeriodConfiguration Json? @map("default_period_configuration")
+
   // Academic Period Business Rules (JSON)
-  academicPeriodRules       Json?               @map("academic_period_rules")
-  
+  academicPeriodRules Json? @map("academic_period_rules")
+
   // Relations
-  settings                  Settings            @relation(fields: [settingsId], references: [id], onDelete: Cascade)
-  
-  createdAt                 DateTime            @default(now()) @map("created_at")
-  updatedAt                 DateTime            @updatedAt @map("updated_at")
-  
+  settings Settings @relation(fields: [settingsId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
   @@map("academic_settings")
 }
 
@@ -368,42 +391,43 @@ model AcademicCycleRule {
 }
 
 model AcademicCycle {
-  id               String               @id @default(cuid())
-  parentId         String?              @map("parent_id")
-  configId         String?              @map("config_id")
-  name             String               @db.VarChar(100)
-  cycleType        CycleType            @map("cycle_type")
-  cycleNumber      Int?                 @map("cycle_number")
-  startDate        DateTime             @map("start_date") @db.Date
-  endDate          DateTime             @map("end_date") @db.Date
-  
+  id          String    @id @default(cuid())
+  parentId    String?   @map("parent_id")
+  configId    String?   @map("config_id")
+  name        String    @db.VarChar(100)
+  cycleType   CycleType @map("cycle_type")
+  cycleNumber Int?      @map("cycle_number")
+  startDate   DateTime  @map("start_date") @db.Date
+  endDate     DateTime  @map("end_date") @db.Date
+
   // Opening/Closing dates (for school year)
-  openingDate      DateTime?            @map("opening_date") @db.Date
-  closingDate      DateTime?            @map("closing_date") @db.Date
-  
-  isCurrent        Boolean              @default(false) @map("is_current")
-  isActive         Boolean              @default(true) @map("is_active")
-  isValidated      Boolean              @default(false) @map("is_validated")
-  validatedBy      String?              @map("validated_by")
-  validatedAt      DateTime?            @map("validated_at")
-  validationNotes  String?              @map("validation_notes")
-  description      String?
-  
+  openingDate DateTime? @map("opening_date") @db.Date
+  closingDate DateTime? @map("closing_date") @db.Date
+
+  isCurrent       Boolean   @default(false) @map("is_current")
+  isActive        Boolean   @default(true) @map("is_active")
+  isValidated     Boolean   @default(false) @map("is_validated")
+  validatedBy     String?   @map("validated_by")
+  validatedAt     DateTime? @map("validated_at")
+  validationNotes String?   @map("validation_notes")
+  description     String?
+
   // Schedule Change Request Configuration (Cycle-Specific Overrides)
-  scheduleChangeConfig Json?            @map("schedule_change_config")
-  
-  createdAt        DateTime             @default(now()) @map("created_at")
-  updatedAt        DateTime             @updatedAt @map("updated_at")
-  config           AcademicCycleConfig? @relation(fields: [configId], references: [id])
-  parent           AcademicCycle?       @relation("CycleHierarchy", fields: [parentId], references: [id])
-  children         AcademicCycle[]      @relation("CycleHierarchy")
-  validator        User?                @relation("AcademicCycleValidator", fields: [validatedBy], references: [id])
-  periods          AcademicPeriod[]
-  courseSections   CourseSection[]
-  grades           StudentGrade[]
+  scheduleChangeConfig Json? @map("schedule_change_config")
+
+  createdAt              DateTime                @default(now()) @map("created_at")
+  updatedAt              DateTime                @updatedAt @map("updated_at")
+  config                 AcademicCycleConfig?    @relation(fields: [configId], references: [id])
+  parent                 AcademicCycle?          @relation("CycleHierarchy", fields: [parentId], references: [id])
+  children               AcademicCycle[]         @relation("CycleHierarchy")
+  validator              User?                   @relation("AcademicCycleValidator", fields: [validatedBy], references: [id])
+  periods                AcademicPeriod[]
+  courseSections         CourseSection[]
+  grades                 StudentGrade[]
   scheduleChangeRequests ScheduleChangeRequest[]
-  schedules        Schedule[]
-  studentCourseHistory StudentCourseHistory[]
+  schedules              Schedule[]
+  studentCourseHistory   StudentCourseHistory[]
+  scheduleImportFiles    ScheduleImportFile[]
 
   @@index([parentId])
   @@index([cycleType])
@@ -413,32 +437,32 @@ model AcademicCycle {
 }
 
 model AcademicPeriod {
-  id                    String                @id @default(cuid())
-  cycleId               String                @map("cycle_id")
-  name                  String                @db.VarChar(100)
-  periodType            AcademicPeriodType    @map("period_type")
-  status                AcademicPeriodStatus  @default(PLANNED)
-  startDate             DateTime              @map("start_date") @db.Date
-  endDate               DateTime              @map("end_date") @db.Date
-  description           String?
-  
+  id          String               @id @default(cuid())
+  cycleId     String               @map("cycle_id")
+  name        String               @db.VarChar(100)
+  periodType  AcademicPeriodType   @map("period_type")
+  status      AcademicPeriodStatus @default(PLANNED)
+  startDate   DateTime             @map("start_date") @db.Date
+  endDate     DateTime             @map("end_date") @db.Date
+  description String?
+
   // Configuration
-  isInstructional       Boolean               @default(false) @map("is_instructional")
-  allowsEnrollment      Boolean               @default(false) @map("allows_enrollment")
-  allowsGrading         Boolean               @default(false) @map("allows_grading")
-  allowsScheduleChanges Boolean               @default(false) @map("allows_schedule_changes")
-  isBreak               Boolean               @default(false) @map("is_break")
-  
+  isInstructional       Boolean @default(false) @map("is_instructional")
+  allowsEnrollment      Boolean @default(false) @map("allows_enrollment")
+  allowsGrading         Boolean @default(false) @map("allows_grading")
+  allowsScheduleChanges Boolean @default(false) @map("allows_schedule_changes")
+  isBreak               Boolean @default(false) @map("is_break")
+
   // Metadata
-  sortOrder             Int                   @default(0) @map("sort_order")
-  createdBy             String                @map("created_by")
-  createdAt             DateTime              @default(now()) @map("created_at")
-  updatedAt             DateTime              @updatedAt @map("updated_at")
-  
+  sortOrder Int      @default(0) @map("sort_order")
+  createdBy String   @map("created_by")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
   // Relations
-  cycle                 AcademicCycle         @relation(fields: [cycleId], references: [id], onDelete: Cascade)
-  creator               User                  @relation("AcademicPeriodCreator", fields: [createdBy], references: [id])
-  
+  cycle   AcademicCycle @relation(fields: [cycleId], references: [id], onDelete: Cascade)
+  creator User          @relation("AcademicPeriodCreator", fields: [createdBy], references: [id])
+
   @@index([cycleId])
   @@index([periodType])
   @@index([startDate, endDate])
@@ -446,55 +470,55 @@ model AcademicPeriod {
 }
 
 model AcademicYearTemplate {
-  id                String                    @id @default(cuid())
-  name              String                    @db.VarChar(100)
-  description       String?
-  schoolLevel       String                    @map("school_level") @db.VarChar(50)
-  
+  id          String  @id @default(cuid())
+  name        String  @db.VarChar(100)
+  description String?
+  schoolLevel String  @map("school_level") @db.VarChar(50)
+
   // Structure
-  hasSemesters      Boolean                   @default(true) @map("has_semesters")
-  hasQuarters       Boolean                   @default(true) @map("has_quarters")
-  hasTrimesters     Boolean                   @default(false) @map("has_trimesters")
-  
+  hasSemesters  Boolean @default(true) @map("has_semesters")
+  hasQuarters   Boolean @default(true) @map("has_quarters")
+  hasTrimesters Boolean @default(false) @map("has_trimesters")
+
   // Default periods configuration (JSON for flexibility)
-  defaultPeriods    Json?                     @map("default_periods")
-  
-  isActive          Boolean                   @default(false) @map("is_active")
-  isDefault         Boolean                   @default(false) @map("is_default")
-  
-  createdBy         String                    @map("created_by")
-  createdAt         DateTime                  @default(now()) @map("created_at")
-  updatedAt         DateTime                  @updatedAt @map("updated_at")
-  
-  creator           User                      @relation("AcademicYearTemplateCreator", fields: [createdBy], references: [id])
+  defaultPeriods Json? @map("default_periods")
+
+  isActive  Boolean @default(false) @map("is_active")
+  isDefault Boolean @default(false) @map("is_default")
+
+  createdBy String   @map("created_by")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  creator           User                       @relation("AcademicYearTemplateCreator", fields: [createdBy], references: [id])
   periodDefinitions TemplatePeriodDefinition[]
-  
+
   @@map("academic_year_template")
 }
 
 model TemplatePeriodDefinition {
-  id                    String                @id @default(cuid())
-  templateId            String                @map("template_id")
-  cycleType             CycleType             @map("cycle_type")
-  periodType            AcademicPeriodType    @map("period_type")
-  
+  id         String             @id @default(cuid())
+  templateId String             @map("template_id")
+  cycleType  CycleType          @map("cycle_type")
+  periodType AcademicPeriodType @map("period_type")
+
   // Timing configuration (relative to cycle start/end)
-  timingType            String                @map("timing_type") @db.VarChar(50)
-  timingValue           Int                   @map("timing_value")
-  duration              Int
-  
+  timingType  String @map("timing_type") @db.VarChar(50)
+  timingValue Int    @map("timing_value")
+  duration    Int
+
   // Configuration flags
-  isInstructional       Boolean               @default(false) @map("is_instructional")
-  allowsEnrollment      Boolean               @default(false) @map("allows_enrollment")
-  allowsGrading         Boolean               @default(false) @map("allows_grading")
-  allowsScheduleChanges Boolean               @default(false) @map("allows_schedule_changes")
-  isBreak               Boolean               @default(false) @map("is_break")
-  
-  sortOrder             Int                   @default(0) @map("sort_order")
-  name                  String?               @db.VarChar(100)
-  
-  template              AcademicYearTemplate   @relation(fields: [templateId], references: [id], onDelete: Cascade)
-  
+  isInstructional       Boolean @default(false) @map("is_instructional")
+  allowsEnrollment      Boolean @default(false) @map("allows_enrollment")
+  allowsGrading         Boolean @default(false) @map("allows_grading")
+  allowsScheduleChanges Boolean @default(false) @map("allows_schedule_changes")
+  isBreak               Boolean @default(false) @map("is_break")
+
+  sortOrder Int     @default(0) @map("sort_order")
+  name      String? @db.VarChar(100)
+
+  template AcademicYearTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
   @@index([templateId])
   @@map("template_period_definition")
 }
@@ -609,23 +633,25 @@ model Room {
 }
 
 model TimeBlock {
-  id                  String                  @id @default(cuid())
-  name                String                  @db.VarChar(50)
-  startTime           DateTime                @map("start_time") @db.Time(6)
-  endTime             DateTime                @map("end_time") @db.Time(6)
-  isActive            Boolean                 @default(true) @map("is_active")
-  createdAt           DateTime                @default(now()) @map("created_at")
-  updatedAt           DateTime                @updatedAt @map("updated_at")
-  blockNumber         Int?                    @map("block_number")
-  rotationDay         RotationDay?            @map("rotation_day")
-  sections            CourseSection[]
-  preferredInRequests ScheduleChangeRequest[]
+  id                   String                  @id @default(cuid())
+  name                 String                  @db.VarChar(50)
+  startTime            DateTime                @map("start_time") @db.Time(6)
+  endTime              DateTime                @map("end_time") @db.Time(6)
+  isActive             Boolean                 @default(true) @map("is_active")
+  createdAt            DateTime                @default(now()) @map("created_at")
+  updatedAt            DateTime                @updatedAt @map("updated_at")
+  blockNumber          Int?                    @map("block_number")
+  rotationDay          RotationDay?            @map("rotation_day")
+  sections             CourseSection[]         @relation("StartTimeBlock")
+  endTimeBlockSections CourseSection[]         @relation("EndTimeBlock")
+  preferredInRequests  ScheduleChangeRequest[]
 
   @@map("time_block")
 }
 
 model Teacher {
   id           String          @id @default(cuid())
+  teacherId    String          @unique @map("teacher_id") @db.VarChar(20)
   name         String?
   email        String          @unique
   password     String?
@@ -850,6 +876,75 @@ model UserAccountHistory {
   @@map("user_account_history")
 }
 
+model ScheduleImportFile {
+  id                String               @id @default(cuid())
+  fileName          String               @map("file_name") @db.VarChar(255)
+  originalFileName  String               @map("original_file_name") @db.VarChar(255)
+  filePath          String               @map("file_path") @db.VarChar(500)
+  fileSize          Int                  @map("file_size") // in bytes
+  mimeType          String               @map("mime_type") @db.VarChar(100)
+  academicCycleId   String               @map("academic_cycle_id")
+  academicCycleName String               @map("academic_cycle_name") @db.VarChar(100) // Store for reference
+  status            ScheduleImportStatus @default(PENDING)
+  uploadedBy        String               @map("uploaded_by")
+  totalRows         Int                  @default(0) @map("total_rows")
+  processedRows     Int                  @default(0) @map("processed_rows")
+  successfulRows    Int                  @default(0) @map("successful_rows")
+  failedRows        Int                  @default(0) @map("failed_rows")
+  skippedRows       Int                  @default(0) @map("skipped_rows")
+
+  // Processing results
+  errors                Json? // Array of error objects or path to error report
+  processingStartedAt   DateTime? @map("processing_started_at")
+  processingCompletedAt DateTime? @map("processing_completed_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  academicCycle  AcademicCycle          @relation(fields: [academicCycleId], references: [id])
+  uploadedByUser User                   @relation("ScheduleImportUploader", fields: [uploadedBy], references: [id])
+  importDetails  ScheduleImportDetail[]
+
+  @@index([academicCycleId])
+  @@index([uploadedBy])
+  @@index([status])
+  @@index([createdAt])
+  @@map("schedule_import_file")
+}
+
+model ScheduleImportDetail {
+  id             String                  @id @default(cuid())
+  importFileId   String                  @map("import_file_id")
+  rowNumber      Int                     @map("row_number")
+  studentId      String?                 @map("student_id")
+  courseCode     String?                 @map("course_code") @db.VarChar(20)
+  sectionNumber  String?                 @map("section_number") @db.VarChar(10)
+  status         ScheduleImportRowStatus @default(PENDING)
+  errorMessage   String?                 @map("error_message") @db.Text
+  warningMessage String?                 @map("warning_message") @db.Text
+
+  // Created/Updated entities
+  scheduleId              String? @map("schedule_id")
+  courseSectionId         String? @map("course_section_id")
+  scheduleCourseSectionId String? @map("schedule_course_section_id")
+
+  processedAt DateTime? @map("processed_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  // Relations
+  importFile    ScheduleImportFile @relation(fields: [importFileId], references: [id], onDelete: Cascade)
+  schedule      Schedule?          @relation(fields: [scheduleId], references: [id])
+  courseSection CourseSection?     @relation(fields: [courseSectionId], references: [id])
+
+  @@unique([importFileId, rowNumber])
+  @@index([importFileId])
+  @@index([rowNumber])
+  @@index([status])
+  @@map("schedule_import_detail")
+}
+
 enum NotificationType {
   CAPACITY_ALERT
   DEADLINE_REMINDER
@@ -879,6 +974,7 @@ enum UserRole {
   COUNSELOR
   PLATFORM_ADMIN
   PARENT_GUARDIAN
+  PRINCIPAL
 
   @@map("user_role")
 }
@@ -1014,6 +1110,14 @@ enum AcademicPeriodStatus {
   @@map("academic_period_status")
 }
 
+enum GradeType {
+  INTERIM
+  FINAL
+  CORRECTION
+
+  @@map("grade_type")
+}
+
 enum RelationshipType {
   PARENT
   GUARDIAN
@@ -1040,4 +1144,26 @@ enum DigestFrequency {
   NEVER
 
   @@map("digest_frequency")
+}
+
+enum ScheduleImportStatus {
+  PENDING
+  PROCESSING
+  COMPLETED_SUCCESS
+  COMPLETED_WITH_ERRORS
+  FAILED
+  CANCELLED
+  SUPERSEDED
+
+  @@map("schedule_import_status")
+}
+
+enum ScheduleImportRowStatus {
+  PENDING
+  SUCCESS
+  FAILED
+  SKIPPED
+  WARNING
+
+  @@map("schedule_import_row_status")
 }

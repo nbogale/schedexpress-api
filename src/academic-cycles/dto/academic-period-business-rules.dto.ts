@@ -187,6 +187,27 @@ export class GradingRuleConfigDto implements GradingRuleConfig {
     correctionRequiresApproval: boolean;
     finalGradeLock: boolean;
   };
+
+  @ApiProperty()
+  @ValidateNested()
+  @Type(() => Object)
+  multipleSubmissions: {
+    allowMultipleSubmissions: boolean;
+    maxSubmissionsPerCycle?: number;
+    submissionInterval?: number;
+    allowOverwriteInterim: boolean;
+    requireFinalGradeAtCycleEnd: boolean;
+  };
+
+  @ApiProperty()
+  @ValidateNested()
+  @Type(() => Object)
+  finalGradeCalculation: {
+    method: 'AVERAGE' | 'WEIGHTED' | 'LATEST' | 'MANUAL';
+    weights?: Record<string, number>;
+    includeAllInterim: boolean;
+    dropLowest?: number;
+  };
 }
 
 /**

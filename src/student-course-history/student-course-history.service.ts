@@ -8,6 +8,7 @@ import { NotificationsService } from '../notifications/notifications.service';
 import { AcademicPeriodBusinessRulesService } from '../academic-cycles/academic-period-business-rules.service';
 import { ErrorCode } from '../common/error-codes';
 import { ApiErrorResponseBuilder } from '../common/api-error-builder';
+import { GradeType, Prisma } from '@prisma/client';
 
 @Injectable()
 export class StudentCourseHistoryService {
@@ -71,6 +72,11 @@ export class StudentCourseHistoryService {
         grade: createStudentCourseHistoryDto.grade,
         isPassed,
         creditEarned: createStudentCourseHistoryDto.creditEarned ?? 1.0,
+        gradeType: createStudentCourseHistoryDto.gradeType ?? GradeType.INTERIM,
+        isFinal: createStudentCourseHistoryDto.gradeType === GradeType.FINAL,
+        submittedBy: createStudentCourseHistoryDto.submittedBy,
+        notes: createStudentCourseHistoryDto.notes,
+        submissionDate: new Date(),
       },
       include: {
         student: {
@@ -79,6 +85,14 @@ export class StudentCourseHistoryService {
           },
         },
         course: true,
+        submittedByUser: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+          },
+        },
       },
     });
 
@@ -114,27 +128,18 @@ export class StudentCourseHistoryService {
       },
     };
 
+    // Get teacher ID from course section if available (for submittedBy)
+    const courseSection = await this.prisma.courseSection.findFirst({
+      where: {
+        courseId,
+        academicCycleId,
+      },
+      select: { teacherId: true },
+    });
+
     // Process each student in parallel for better performance
     const promises = students.map(async (studentData: StudentGradeData) => {
       try {
-        // Check if record already exists
-        const existingRecord = await this.prisma.studentCourseHistory.findFirst({
-          where: {
-            studentId: studentData.studentId,
-            courseId,
-            academicCycleId,
-          },
-        });
-
-        if (existingRecord) {
-          results.errors.push({
-            studentId: studentData.studentId,
-            error: 'Record already exists for this student, course, school year, and term',
-          });
-          results.summary.failed++;
-          return;
-        }
-
         // Determine if it's passing based on grade lookup
         let isPassed = studentData.isPassed ?? true;
         if (studentData.grade) {
@@ -146,6 +151,7 @@ export class StudentCourseHistoryService {
           }
         }
 
+        // Allow multiple submissions - create new record as INTERIM grade
         const createdRecord = await this.prisma.studentCourseHistory.create({
           data: {
             studentId: studentData.studentId,
@@ -154,6 +160,10 @@ export class StudentCourseHistoryService {
             grade: studentData.grade,
             isPassed,
             creditEarned: studentData.creditEarned ?? 1.0,
+            gradeType: GradeType.INTERIM,
+            isFinal: false,
+            submittedBy: courseSection?.teacherId,
+            submissionDate: new Date(),
           },
           include: {
             student: {
@@ -162,6 +172,14 @@ export class StudentCourseHistoryService {
               },
             },
             course: true,
+            submittedByUser: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                email: true,
+              },
+            },
           },
         });
 
@@ -376,5 +394,340 @@ export class StudentCourseHistoryService {
     return records.reduce((total, record) => {
       return total + Number(record.creditEarned);
     }, 0);
+  }
+
+  /**
+   * Get all grade submissions (history) for a student/course/cycle
+   */
+  async getGradeHistory(
+    studentId: string,
+    courseId: string,
+    academicCycleId: string
+  ) {
+    return this.prisma.studentCourseHistory.findMany({
+      where: {
+        studentId,
+        courseId,
+        academicCycleId,
+      },
+      include: {
+        student: {
+          include: {
+            user: true,
+          },
+        },
+        course: true,
+        academicCycle: true,
+        submittedByUser: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+          },
+        },
+      },
+      orderBy: {
+        submissionDate: 'desc',
+      },
+    });
+  }
+
+  /**
+   * Get the current (latest) grade for a student/course/cycle
+   */
+  async getCurrentGrade(
+    studentId: string,
+    courseId: string,
+    academicCycleId: string
+  ) {
+    return this.prisma.studentCourseHistory.findFirst({
+      where: {
+        studentId,
+        courseId,
+        academicCycleId,
+      },
+      include: {
+        student: {
+          include: {
+            user: true,
+          },
+        },
+        course: true,
+        academicCycle: true,
+        submittedByUser: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+          },
+        },
+      },
+      orderBy: {
+        submissionDate: 'desc',
+      },
+    });
+  }
+
+  /**
+   * Create an interim grade submission
+   */
+  async createInterimGrade(
+    studentId: string,
+    courseId: string,
+    academicCycleId: string,
+    grade: string,
+    submittedBy: string,
+    notes?: string
+  ) {
+    // Validate grading is allowed
+    const courseSection = await this.prisma.courseSection.findFirst({
+      where: {
+        courseId,
+        academicCycleId,
+      },
+      select: { id: true, teacherId: true },
+    });
+
+    if (courseSection) {
+      const gradingValidation = await this.businessRulesService.canSubmitGrades(
+        courseSection.teacherId,
+        courseSection.id,
+      );
+
+      if (!gradingValidation.allowed) {
+        const errorCode = gradingValidation.errorCode || ErrorCode.SCHB;
+        const errorResponse = ApiErrorResponseBuilder.create(
+          errorCode,
+          gradingValidation.reason || 'Grading is not allowed at this time.'
+        )
+          .withLogger(this.logger)
+          .build();
+        throw new BadRequestException(errorResponse);
+      }
+    }
+
+    // Determine if it's passing
+    let isPassed = true;
+    try {
+      isPassed = await this.gradeLookupService.isPassingGrade(grade);
+    } catch (error) {
+      this.logger.warn(`Grade ${grade} not found in lookup, defaulting to passing`);
+    }
+
+    // Get course credits for creditEarned
+    const course = await this.prisma.course.findUnique({
+      where: { id: courseId },
+      select: { credits: true },
+    });
+
+    return this.prisma.studentCourseHistory.create({
+      data: {
+        studentId,
+        courseId,
+        academicCycleId,
+        grade,
+        isPassed,
+        creditEarned: course?.credits ? Number(course.credits) : 1.0,
+        gradeType: GradeType.INTERIM,
+        isFinal: false,
+        submittedBy,
+        notes,
+        submissionDate: new Date(),
+      },
+      include: {
+        student: {
+          include: {
+            user: true,
+          },
+        },
+        course: true,
+        submittedByUser: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+          },
+        },
+      },
+    });
+  }
+
+  /**
+   * Calculate and set final grade based on interim grades
+   */
+  async calculateFinalGrade(
+    studentId: string,
+    courseId: string,
+    academicCycleId: string,
+    calculationMethod: 'AVERAGE' | 'WEIGHTED' | 'LATEST' | 'MANUAL' = 'AVERAGE',
+    manualGrade?: string
+  ) {
+    // Check if final grade already exists
+    const existingFinal = await this.prisma.studentCourseHistory.findFirst({
+      where: {
+        studentId,
+        courseId,
+        academicCycleId,
+        gradeType: GradeType.FINAL,
+      },
+    });
+
+    if (existingFinal) {
+      throw new BadRequestException(
+        ApiErrorResponseBuilder.create(
+          ErrorCode.SCHB,
+          'Final grade already exists for this student/course/cycle.'
+        )
+          .withLogger(this.logger)
+          .build()
+      );
+    }
+
+    // Get all interim grades
+    const interimGrades = await this.prisma.studentCourseHistory.findMany({
+      where: {
+        studentId,
+        courseId,
+        academicCycleId,
+        gradeType: GradeType.INTERIM,
+      },
+      orderBy: {
+        submissionDate: 'asc',
+      },
+    });
+
+    if (interimGrades.length === 0) {
+      throw new BadRequestException(
+        ApiErrorResponseBuilder.create(
+          ErrorCode.SCHB,
+          'No interim grades found to calculate final grade from.'
+        )
+          .withLogger(this.logger)
+          .build()
+      );
+    }
+
+    let finalGrade: string;
+    const gradeIds = interimGrades.map(g => g.id);
+
+    if (calculationMethod === 'MANUAL' && manualGrade) {
+      finalGrade = manualGrade;
+    } else if (calculationMethod === 'LATEST') {
+      // Use the most recent interim grade
+      finalGrade = interimGrades[interimGrades.length - 1].grade || '';
+    } else {
+      // Calculate average - convert grades to points, then find closest grade
+      const gradePointsPromises = interimGrades.map(async (grade) => {
+        if (!grade.grade) return null;
+        try {
+          return {
+            grade: grade.grade,
+            points: await this.gradeLookupService.getGradePoints(grade.grade),
+          };
+        } catch {
+          return null;
+        }
+      });
+
+      const gradeData = (await Promise.all(gradePointsPromises)).filter(
+        (gd): gd is { grade: string; points: number } => gd !== null
+      );
+
+      if (gradeData.length === 0) {
+        throw new BadRequestException(
+          ApiErrorResponseBuilder.create(
+            ErrorCode.SCHB,
+            'Unable to calculate final grade - invalid grade values.'
+          )
+            .withLogger(this.logger)
+            .build()
+        );
+      }
+
+      const averagePoints = gradeData.reduce((sum, gd) => sum + gd.points, 0) / gradeData.length;
+      
+      // Get all grade lookups to find the closest match
+      const allGradeLookups = await this.prisma.gradeLookup.findMany({
+        where: { isActive: true },
+        orderBy: { gradePoints: 'asc' },
+      });
+
+      // Find the closest grade by points
+      let closestGrade = allGradeLookups[0]?.grade || gradeData[0].grade;
+      let minDifference = Math.abs(Number(allGradeLookups[0]?.gradePoints || 0) - averagePoints);
+
+      for (const lookup of allGradeLookups) {
+        const difference = Math.abs(Number(lookup.gradePoints) - averagePoints);
+        if (difference < minDifference) {
+          minDifference = difference;
+          closestGrade = lookup.grade;
+        }
+      }
+
+      finalGrade = closestGrade;
+    }
+
+    if (!finalGrade) {
+      throw new BadRequestException(
+        ApiErrorResponseBuilder.create(
+          ErrorCode.SCHB,
+          'Unable to determine final grade.'
+        )
+          .withLogger(this.logger)
+          .build()
+      );
+    }
+
+    // Determine if passing
+    let isPassed = true;
+    try {
+      isPassed = await this.gradeLookupService.isPassingGrade(finalGrade);
+    } catch (error) {
+      this.logger.warn(`Final grade ${finalGrade} not found in lookup, defaulting to passing`);
+    }
+
+    // Get course credits
+    const course = await this.prisma.course.findUnique({
+      where: { id: courseId },
+      select: { credits: true },
+    });
+
+    // Create final grade record
+    const finalRecord = await this.prisma.studentCourseHistory.create({
+      data: {
+        studentId,
+        courseId,
+        academicCycleId,
+        grade: finalGrade,
+        isPassed,
+        creditEarned: course?.credits ? Number(course.credits) : 1.0,
+        gradeType: GradeType.FINAL,
+        isFinal: true,
+        calculatedFrom: JSON.stringify(gradeIds),
+        calculationMethod,
+        submissionDate: new Date(),
+      },
+      include: {
+        student: {
+          include: {
+            user: true,
+          },
+        },
+        course: true,
+        submittedByUser: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+          },
+        },
+      },
+    });
+
+    return finalRecord;
   }
 } 
