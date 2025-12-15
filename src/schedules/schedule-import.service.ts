@@ -30,6 +30,7 @@ const ROW_STATUS = {
   WARNING: 'WARNING' as const,
 };
 import * as Papa from 'papaparse';
+import * as XLSX from 'xlsx';
 import * as path from 'path';
 import * as fs from 'fs/promises';
 
@@ -141,13 +142,19 @@ export class ScheduleImportService {
     console.log('overrideExisting:', overrideExisting);
 
     const fileExtension = path.extname(file.originalname).toLowerCase();
-    if (fileExtension !== '.csv') {
-      throw new BadRequestException('Only CSV files are supported');
+    if (fileExtension !== '.csv' && fileExtension !== '.xlsx' && fileExtension !== '.xls') {
+      throw new BadRequestException('Only CSV and Excel files (.xlsx, .xls) are supported');
     }
 
-    // Parse CSV (academic cycle is provided during upload, not required in CSV)
-    const fileContent = file.buffer.toString('utf-8');
-    const parsedRows = this.parseCSV(fileContent);
+    // Parse file based on extension (academic cycle is provided during upload, not required in file)
+    let parsedRows: ParsedScheduleRow[];
+    if (fileExtension === '.csv') {
+      const fileContent = file.buffer.toString('utf-8');
+      parsedRows = this.parseCSV(fileContent);
+    } else {
+      // Excel file (.xlsx or .xls)
+      parsedRows = this.parseExcel(file.buffer);
+    }
 
     if (parsedRows.length === 0) {
       throw new BadRequestException('No valid rows found in CSV file');
@@ -226,7 +233,20 @@ export class ScheduleImportService {
     academicCycleId: string,
     importFileId: string,
   ) {
-    // Mark previous imports as SUPERSEDED
+    // Mark previous imports as SUPERSEDED and clean up their files
+    const supersededImports = await this.prisma.scheduleImportFile.findMany({
+      where: {
+        academicCycleId,
+        status: {
+          in: [
+            IMPORT_STATUS.COMPLETED_SUCCESS,
+            IMPORT_STATUS.COMPLETED_WITH_ERRORS,
+          ],
+        },
+      },
+      select: { id: true, filePath: true },
+    });
+
     await this.prisma.scheduleImportFile.updateMany({
       where: {
         academicCycleId,
@@ -241,6 +261,18 @@ export class ScheduleImportService {
         status: IMPORT_STATUS.SUPERSEDED as any,
       },
     });
+
+    // Clean up files for superseded imports
+    for (const importFile of supersededImports) {
+      if (importFile.filePath) {
+        try {
+          await fs.unlink(importFile.filePath);
+          this.logger.log(`Cleaned up superseded file: ${importFile.filePath}`);
+        } catch (error) {
+          this.logger.warn(`Could not delete superseded file ${importFile.filePath}: ${error.message}`);
+        }
+      }
+    }
 
     // Delete existing schedules for this academic cycle
     const existingSchedules = await this.prisma.schedule.findMany({
@@ -385,6 +417,152 @@ export class ScheduleImportService {
   }
 
   /**
+   * Parse Excel file content (.xlsx or .xls)
+   */
+  private parseExcel(fileBuffer: Buffer): ParsedScheduleRow[] {
+    try {
+      // Read the Excel file
+      const workbook = XLSX.read(fileBuffer, { type: 'buffer' });
+      
+      // Get the first sheet
+      const sheetName = workbook.SheetNames[0];
+      if (!sheetName) {
+        throw new BadRequestException('Excel file must contain at least one sheet');
+      }
+
+      const worksheet = workbook.Sheets[sheetName];
+      
+      // Convert to JSON with header row
+      const jsonData = XLSX.utils.sheet_to_json(worksheet, {
+        header: 1, // Use array of arrays format
+        defval: '', // Default value for empty cells
+        raw: false, // Convert all values to strings
+      });
+
+      if (jsonData.length === 0) {
+        throw new BadRequestException('Excel file is empty');
+      }
+
+      // First row should be headers
+      const headers = (jsonData[0] as any[]).map((h: any) => 
+        String(h || '').trim().toLowerCase().replace(/\s+/g, '_')
+      );
+
+      const rows: ParsedScheduleRow[] = [];
+
+      // Process data rows (skip header row)
+      for (let i = 1; i < jsonData.length; i++) {
+        try {
+          const rowData = jsonData[i] as any[];
+          
+          // Convert array to object using headers
+          const row: any = {};
+          headers.forEach((header, index) => {
+            const value = rowData[index];
+            row[header] = value !== undefined && value !== null ? String(value).trim() : '';
+          });
+
+          // Helper to safely extract and trim string values
+          const getStringValue = (value: any): string => {
+            if (value === null || value === undefined || value === '') {
+              return '';
+            }
+            return String(value).trim();
+          };
+
+          // Check if row is completely empty
+          const hasAnyValue = Object.values(row).some((value: any) => {
+            const str = getStringValue(value);
+            return str.length > 0;
+          });
+
+          // Skip completely empty rows
+          if (!hasAnyValue) {
+            this.logger.debug(`Row ${i + 1}: Skipping empty row`);
+            continue;
+          }
+
+          const studentId = getStringValue(row.student_id);
+          const courseCode = getStringValue(row.course_code);
+          // Detect planning schedules: empty student_id and course_code is "Planning" (case-insensitive)
+          const isPlanning = !studentId && courseCode.toUpperCase() === 'PLANNING';
+
+          // Map Excel headers to internal field names (support both new and old header names)
+          const timeBlockName = getStringValue(row.period_start || row.time_block_name);
+          const endTimeBlockNameValue = getStringValue(row.period_end || row.end_time_block_name);
+          const endTimeBlockName = endTimeBlockNameValue || undefined;
+          const roomName = getStringValue(row.room_no || row.room_name);
+          const academicCycleName = getStringValue(row.academic_cycle_name);
+          const sectionNumber = getStringValue(row.section_number);
+
+          const parsedRow: ParsedScheduleRow = {
+            studentId: studentId || undefined,
+            academicCycleName: academicCycleName,
+            courseCode: courseCode,
+            sectionNumber: sectionNumber,
+            timeBlockName: timeBlockName,
+            endTimeBlockName: endTimeBlockName || undefined,
+            roomName: roomName,
+            teacherId: getStringValue(row.teacher_id) || undefined,
+            teacherEmail: getStringValue(row.teacher_email)
+              ? getStringValue(row.teacher_email).toLowerCase()
+              : undefined,
+            maxEnrollment: isPlanning 
+              ? 0
+              : parseInt(getStringValue(row.max_enrollment) || '30', 10),
+            rotationDay: getStringValue(row.rotation_day)
+              ? getStringValue(row.rotation_day).toUpperCase()
+              : undefined,
+            isPlanning: isPlanning,
+          };
+
+          // Validate required fields (same validation as CSV)
+          const missingFields: string[] = [];
+          
+          if (!parsedRow.studentId && !isPlanning) {
+            missingFields.push('student_id');
+          }
+          if (!parsedRow.courseCode) {
+            missingFields.push('course_code');
+          }
+          if (!parsedRow.sectionNumber) {
+            missingFields.push('section_number');
+          }
+          if (!parsedRow.timeBlockName) {
+            missingFields.push('period_start');
+          }
+          if (!parsedRow.roomName) {
+            missingFields.push('room_no');
+          }
+
+          if (missingFields.length > 0) {
+            throw new Error(`Missing required fields: ${missingFields.join(', ')}`);
+          }
+
+          // Validate teacher identification
+          if (!parsedRow.teacherId && !parsedRow.teacherEmail) {
+            throw new Error('Either teacher_id or teacher_email is required');
+          }
+
+          // Additional validation for planning schedules
+          if (isPlanning && parsedRow.courseCode.toUpperCase() !== 'PLANNING') {
+            throw new Error('Planning schedule must have course_code="Planning"');
+          }
+
+          rows.push(parsedRow);
+        } catch (error) {
+          this.logger.warn(`Row ${i + 1}: ${error.message}`);
+        }
+      }
+
+      return rows;
+    } catch (error) {
+      this.logger.error('Error parsing Excel file:', error);
+      throw new BadRequestException(`Failed to parse Excel file: ${error.message}`);
+    }
+  }
+
+  /**
    * Process rows asynchronously (runs in background)
    */
   private async processRowsAsync(
@@ -495,6 +673,9 @@ export class ScheduleImportService {
       this.logger.log(
         `Import ${importFileId} completed: ${successfulRows} successful, ${failedRows} failed, ${skippedRows} skipped`,
       );
+
+      // Clean up uploaded file after processing is complete
+      await this.cleanupImportFile(importFileId);
     } catch (error) {
       this.logger.error(`Import ${importFileId} failed:`, error);
       await this.prisma.scheduleImportFile.update({
@@ -505,6 +686,75 @@ export class ScheduleImportService {
           errors: [{ message: error.message }],
         },
       });
+
+      // Clean up uploaded file even if processing failed
+      await this.cleanupImportFile(importFileId);
+    }
+  }
+
+  /**
+   * Clean up uploaded file after processing is complete
+   */
+  private async cleanupImportFile(importFileId: string) {
+    try {
+      const importFile = await this.prisma.scheduleImportFile.findUnique({
+        where: { id: importFileId },
+        select: { filePath: true },
+      });
+
+      if (importFile?.filePath) {
+        try {
+          await fs.unlink(importFile.filePath);
+          this.logger.log(`Cleaned up file: ${importFile.filePath}`);
+        } catch (error) {
+          // File might not exist, log but don't fail
+          this.logger.warn(`Could not delete file ${importFile.filePath}: ${error.message}`);
+        }
+      }
+    } catch (error) {
+      // Don't fail the import if cleanup fails
+      this.logger.warn(`Error during file cleanup for import ${importFileId}: ${error.message}`);
+    }
+  }
+
+  /**
+   * Clean up orphaned files (files on disk not referenced in database)
+   * This can be called periodically or manually to clean up old files
+   */
+  async cleanupOrphanedFiles(): Promise<{ deleted: number; errors: number }> {
+    let deleted = 0;
+    let errors = 0;
+
+    try {
+      // Get all file paths from database
+      const importFiles = await this.prisma.scheduleImportFile.findMany({
+        select: { filePath: true },
+      });
+      const dbFilePaths = new Set(importFiles.map((f) => f.filePath));
+
+      // Get all files in upload directory
+      const files = await fs.readdir(this.UPLOAD_DIR);
+
+      // Delete files that are not in database
+      for (const file of files) {
+        const filePath = path.join(this.UPLOAD_DIR, file);
+        if (!dbFilePaths.has(filePath)) {
+          try {
+            await fs.unlink(filePath);
+            deleted++;
+            this.logger.log(`Deleted orphaned file: ${filePath}`);
+          } catch (error) {
+            errors++;
+            this.logger.warn(`Could not delete orphaned file ${filePath}: ${error.message}`);
+          }
+        }
+      }
+
+      this.logger.log(`Cleanup complete: ${deleted} files deleted, ${errors} errors`);
+      return { deleted, errors };
+    } catch (error) {
+      this.logger.error('Error during orphaned file cleanup:', error);
+      throw error;
     }
   }
 
@@ -1168,6 +1418,100 @@ export class ScheduleImportService {
     ];
 
     return Papa.unparse([headers, ...sampleRows]);
+  }
+
+  /**
+   * Generate Excel template file
+   */
+  generateExcelTemplate(): Buffer {
+    const headers = [
+      'student_id',
+      'academic_cycle_name', // Optional - provided during upload
+      'course_code',
+      'section_number',
+      'period_start',
+      'period_end',
+      'room_no',
+      'teacher_id',
+      'max_enrollment',
+      'rotation_day',
+    ];
+
+    const sampleRows = [
+      [
+        'STU001',
+        '', // academic_cycle_name is optional
+        'MATH101',
+        '001',
+        'Period 1',
+        '',
+        'Room 101',
+        'TCH001',
+        '30',
+        'A_DAY',
+      ],
+      [
+        'STU001',
+        '', // academic_cycle_name is optional
+        'ENG101',
+        '001',
+        'Period 2',
+        '',
+        'Room 205',
+        'TCH002',
+        '25',
+        'A_DAY',
+      ],
+      [
+        'STU001',
+        '', // academic_cycle_name is optional
+        'SCI101',
+        '001',
+        'Period 3',
+        'Period 4',
+        'Room 301',
+        'TCH003',
+        '28',
+        'B_DAY',
+      ],
+      [
+        '', // Empty for planning periods
+        '', // academic_cycle_name is optional
+        'Planning',
+        '001',
+        'Period 4',
+        '',
+        'Room 101',
+        'TCH001',
+        '0',
+        '',
+      ],
+    ];
+
+    // Create workbook
+    const workbook = XLSX.utils.book_new();
+    const worksheet = XLSX.utils.aoa_to_sheet([headers, ...sampleRows]);
+    
+    // Set column widths for better readability
+    const colWidths = [
+      { wch: 12 }, // student_id
+      { wch: 20 }, // academic_cycle_name
+      { wch: 12 }, // course_code
+      { wch: 12 }, // section_number
+      { wch: 15 }, // period_start
+      { wch: 15 }, // period_end
+      { wch: 12 }, // room_no
+      { wch: 12 }, // teacher_id
+      { wch: 15 }, // max_enrollment
+      { wch: 12 }, // rotation_day
+    ];
+    worksheet['!cols'] = colWidths;
+
+    // Add worksheet to workbook
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Schedule Import');
+
+    // Convert to buffer
+    return XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
   }
 }
 

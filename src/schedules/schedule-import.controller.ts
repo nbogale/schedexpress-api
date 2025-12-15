@@ -277,5 +277,49 @@ export class ScheduleImportController {
     );
     res.send(csvTemplate);
   }
+
+  @Get('template/excel')
+  @Roles(UserRole.ADMIN, UserRole.PRINCIPAL, UserRole.COUNSELOR)
+  @ApiOperation({ summary: 'Download Excel template for schedule import' })
+  @ApiResponse({
+    status: 200,
+    description: 'Return Excel template file',
+    content: {
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': {
+        schema: {
+          type: 'string',
+          format: 'binary',
+        },
+      },
+    },
+  })
+  async downloadExcelTemplate(@Res() res: Response) {
+    const excelTemplate = this.scheduleImportService.generateExcelTemplate();
+
+    res.setHeader(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    );
+    res.setHeader(
+      'Content-Disposition',
+      'attachment; filename="schedule_import_template.xlsx"',
+    );
+    res.send(excelTemplate);
+  }
+
+  @Post('cleanup-orphaned-files')
+  @Roles(UserRole.ADMIN)
+  @ApiOperation({ summary: 'Clean up orphaned import files (files not referenced in database)' })
+  @ApiResponse({
+    status: 200,
+    description: 'Cleanup completed successfully',
+  })
+  async cleanupOrphanedFiles() {
+    const result = await this.scheduleImportService.cleanupOrphanedFiles();
+    return {
+      success: true,
+      data: result,
+    };
+  }
 }
 
