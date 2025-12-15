@@ -264,6 +264,69 @@ export class AcademicCyclesService {
       }
     }
 
+    // Automatically mark as current if today's date falls between start and end dates
+    // This applies to SCHOOL_YEAR, SEMESTER, and QUARTER cycle types
+    // Get today's date as YYYY-MM-DD string for comparison (avoid timezone issues)
+    const today = new Date();
+    const todayStr = today.toISOString().split('T')[0]; // YYYY-MM-DD in UTC
+    
+    // Extract date part from startDate and endDate (they may be ISO strings or date strings)
+    let startDateStr: string;
+    let endDateStr: string;
+    
+    if (typeof cycleData.startDate === 'string') {
+      // Extract date part (YYYY-MM-DD) from ISO string or use as-is if already date-only
+      startDateStr = cycleData.startDate.split('T')[0];
+    } else {
+      startDateStr = new Date(cycleData.startDate).toISOString().split('T')[0];
+    }
+    
+    if (typeof cycleData.endDate === 'string') {
+      // Extract date part (YYYY-MM-DD) from ISO string or use as-is if already date-only
+      endDateStr = cycleData.endDate.split('T')[0];
+    } else {
+      endDateStr = new Date(cycleData.endDate).toISOString().split('T')[0];
+    }
+
+    // Compare dates as strings (YYYY-MM-DD format allows string comparison)
+    const isDateInRange = todayStr >= startDateStr && todayStr <= endDateStr;
+    const isApplicableCycleType = 
+      cycleData.cycleType === CycleType.SCHOOL_YEAR ||
+      cycleData.cycleType === CycleType.SEMESTER ||
+      cycleData.cycleType === CycleType.QUARTER;
+    
+    // Debug logging
+    this.logger.debug(
+      `Checking if cycle "${cycleData.name}" (${cycleData.cycleType}) should be current: ` +
+      `today=${todayStr}, ` +
+      `start=${startDateStr}, ` +
+      `end=${endDateStr}, ` +
+      `inRange=${isDateInRange}, ` +
+      `applicableType=${isApplicableCycleType}, ` +
+      `isCurrent=${cycleData.isCurrent}, ` +
+      `isCurrentType=${typeof cycleData.isCurrent}, ` +
+      `willSet=${(cycleData.isCurrent === undefined || cycleData.isCurrent === null || cycleData.isCurrent === true) && isDateInRange && isApplicableCycleType}`
+    );
+    
+    // Only auto-set isCurrent if:
+    // 1. isCurrent is undefined, null, or true (not explicitly set to false)
+    // 2. Today's date is within the cycle's date range
+    // 3. The cycle type is SCHOOL_YEAR, SEMESTER, or QUARTER
+    const shouldSetCurrent = (cycleData.isCurrent === undefined || cycleData.isCurrent === null || cycleData.isCurrent === true) 
+      && isDateInRange 
+      && isApplicableCycleType;
+    
+    if (shouldSetCurrent) {
+      cycleData.isCurrent = true;
+      this.logger.log(
+        `Automatically marking ${cycleData.cycleType} cycle "${cycleData.name}" as current (today's date ${todayStr} is within cycle range ${startDateStr} to ${endDateStr})`
+      );
+    } else if (isDateInRange && isApplicableCycleType && cycleData.isCurrent === false) {
+      this.logger.debug(
+        `Skipping auto-marking ${cycleData.cycleType} cycle "${cycleData.name}" as current because isCurrent is explicitly set to false`
+      );
+    }
+
     // If this is set as current, unset other current cycles of the same type
     if (cycleData.isCurrent) {
       await this.prisma.academicCycle.updateMany({
