@@ -1,8 +1,8 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, ParseUUIDPipe, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, ParseUUIDPipe, UseGuards, Query } from '@nestjs/common';
 import { TeachersService } from './teachers.service';
 import { CreateTeacherDto } from './dto/create-teacher.dto';
 import { UpdateTeacherDto } from './dto/update-teacher.dto';
-import { ApiBearerAuth, ApiOperation, ApiResponse } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiResponse, ApiQuery } from '@nestjs/swagger';
 import { Roles } from 'src/auth/decorators/roles.decorator';
 import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
 import { RolesGuard } from 'src/auth/guards/roles.guard';
@@ -27,6 +27,22 @@ export class TeachersController {
     return this.teachersService.findAll();
   }
 
+  @Get('workload')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.PLATFORM_ADMIN, UserRole.PRINCIPAL)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get teacher workload for an academic year' })
+  @ApiQuery({ name: 'academicYearId', required: true, description: 'Academic year ID' })
+  @ApiResponse({ status: 200, description: 'Return teacher workload' })
+  getTeacherWorkload(@Query('academicYearId') academicYearId: string) {
+    return this.teachersService.getTeacherWorkload(academicYearId);
+  }
+
+  @Get('user/:userId')
+  getByUserId(@Param('userId') userId: string) {
+    return this.teachersService.getByUserId(userId);
+  }
+
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.teachersService.findOne(id);
@@ -48,11 +64,6 @@ export class TeachersController {
     @Param('courseSectionId') courseSectionId: string
   ) {
     return this.teachersService.getStudentsForCourseSection(teacherId, courseSectionId);
-  }
-
-  @Get('user/:userId')
-  getByUserId(@Param('userId') userId: string) {
-    return this.teachersService.getByUserId(userId);
   }
 
   @Patch(':id')

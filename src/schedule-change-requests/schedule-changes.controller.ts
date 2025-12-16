@@ -44,7 +44,7 @@ export class ScheduleChangesController {
 
   @Get('pending')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.ADMIN, UserRole.COUNSELOR)
+  @Roles(UserRole.ADMIN, UserRole.COUNSELOR, UserRole.PRINCIPAL)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get pending schedule change requests' })
   @ApiResponse({ status: 200, description: 'Return pending requests' })
@@ -54,7 +54,7 @@ export class ScheduleChangesController {
 
   @Get('completed')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.ADMIN, UserRole.COUNSELOR)
+  @Roles(UserRole.ADMIN, UserRole.COUNSELOR, UserRole.PRINCIPAL)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get completed schedule change requests (approved and denied)' })
   @ApiResponse({ status: 200, description: 'Return completed requests' })
@@ -111,7 +111,7 @@ export class ScheduleChangesController {
 
   @Put(':id/process')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.ADMIN, UserRole.COUNSELOR)
+  @Roles(UserRole.ADMIN, UserRole.COUNSELOR, UserRole.PRINCIPAL)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Process a schedule change request' })
   @ApiResponse({ status: 200, description: 'The request has been successfully processed' })

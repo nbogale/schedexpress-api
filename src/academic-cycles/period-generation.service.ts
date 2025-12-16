@@ -105,6 +105,11 @@ export class PeriodGenerationService {
     const cycleEnd = new Date(cycle.endDate);
     let sortOrder = 1;
 
+    // Track the earliest possible start for the school-wide instruction period
+    let latestInstructionStart = new Date(cycleStart);
+    // Track closing start so we can end instruction just before it (if configured)
+    let closingStartForInstruction: Date | null = null;
+
     // Preparation Period
     if (schoolYearConfig.preparation) {
       const prepConfig = schoolYearConfig.preparation;
@@ -117,7 +122,8 @@ export class PeriodGenerationService {
         try {
           const period = await this.createPeriod({
             cycleId: cycle.id,
-            name: `${cycle.name.split(' ')[0]} ${cycle.name.split(' ')[1]} Preparation`,
+            // Use full cycle name to avoid undefined parts when name has a single token
+            name: `${cycle.name} Preparation`,
             periodType: AcademicPeriodType.PREPARATION,
             startDate: prepStart.toISOString().split('T')[0],
             endDate: prepEnd.toISOString().split('T')[0],
@@ -161,7 +167,7 @@ export class PeriodGenerationService {
         try {
           const period = await this.createPeriod({
             cycleId: cycle.id,
-            name: `${cycle.name.split(' ')[0]} ${cycle.name.split(' ')[1]} Registration`,
+            name: `${cycle.name} Registration`,
             periodType: AcademicPeriodType.REGISTRATION,
             startDate: regStart.toISOString().split('T')[0],
             endDate: regEnd.toISOString().split('T')[0],
@@ -173,6 +179,13 @@ export class PeriodGenerationService {
           periods.push(period);
         } catch (error) {
           warnings.push(`Failed to create Registration period: ${error.message}`);
+        }
+
+        // Instruction should start after registration ends
+        const afterRegistration = new Date(regEnd);
+        afterRegistration.setDate(afterRegistration.getDate() + 1);
+        if (afterRegistration > latestInstructionStart) {
+          latestInstructionStart = afterRegistration;
         }
       }
     }
@@ -188,7 +201,7 @@ export class PeriodGenerationService {
         try {
           const period = await this.createPeriod({
             cycleId: cycle.id,
-            name: `${cycle.name.split(' ')[0]} ${cycle.name.split(' ')[1]} Orientation`,
+            name: `${cycle.name} Orientation`,
             periodType: AcademicPeriodType.ORIENTATION,
             startDate: orientationStart.toISOString().split('T')[0],
             endDate: orientationEnd.toISOString().split('T')[0],
@@ -200,6 +213,13 @@ export class PeriodGenerationService {
         } catch (error) {
           warnings.push(`Failed to create Orientation period: ${error.message}`);
         }
+
+        // Instruction should start after orientation ends
+        const afterOrientation = new Date(orientationEnd);
+        afterOrientation.setDate(afterOrientation.getDate() + 1);
+        if (afterOrientation > latestInstructionStart) {
+          latestInstructionStart = afterOrientation;
+        }
       }
     }
 
@@ -210,11 +230,14 @@ export class PeriodGenerationService {
       closingStart.setDate(closingStart.getDate() - closingConfig.daysBeforeEnd);
       const closingEnd = new Date(cycleEnd);
 
+      // Track for instruction end calculation
+      closingStartForInstruction = new Date(closingStart);
+
       if (closingStart < closingEnd && closingStart >= cycleStart) {
         try {
           const period = await this.createPeriod({
             cycleId: cycle.id,
-            name: `${cycle.name.split(' ')[0]} ${cycle.name.split(' ')[1]} Closing`,
+            name: `${cycle.name} Closing`,
             periodType: AcademicPeriodType.TRANSITION,
             startDate: closingStart.toISOString().split('T')[0],
             endDate: closingEnd.toISOString().split('T')[0],
@@ -226,6 +249,35 @@ export class PeriodGenerationService {
         } catch (error) {
           warnings.push(`Failed to create Closing period: ${error.message}`);
         }
+      }
+    }
+
+    // Instruction Period (School Year level)
+    // Starts after the latest of registration/orientation (or school year start),
+    // and ends just before the closing period starts (if configured), otherwise at cycle end.
+    const instructionStart = latestInstructionStart;
+    let instructionEnd = new Date(cycleEnd);
+
+    if (closingStartForInstruction) {
+      instructionEnd = new Date(closingStartForInstruction);
+      instructionEnd.setDate(instructionEnd.getDate() - 1);
+    }
+
+    if (instructionStart <= instructionEnd) {
+      try {
+        const period = await this.createPeriod({
+          cycleId: cycle.id,
+          name: `${cycle.name} Instruction`,
+          periodType: AcademicPeriodType.INSTRUCTION,
+          startDate: instructionStart.toISOString().split('T')[0],
+          endDate: instructionEnd.toISOString().split('T')[0],
+          description: 'Primary instruction period for the school year',
+          sortOrder: sortOrder++,
+          createdBy: userId,
+        });
+        periods.push(period);
+      } catch (error) {
+        warnings.push(`Failed to create Instruction period: ${error.message}`);
       }
     }
 

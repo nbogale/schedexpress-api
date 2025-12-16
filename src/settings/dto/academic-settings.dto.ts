@@ -6,6 +6,11 @@ export enum AcademicStructureType {
   QUARTERS_ONLY = 'QUARTERS_ONLY',
   TRIMESTERS = 'TRIMESTERS',
   SEMESTERS_ONLY = 'SEMESTERS_ONLY',
+  /**
+   * Single school year only - no semesters or quarters are required.
+   * Periods can still be configured optionally at the school-year level.
+   */
+  SCHOOL_YEAR_ONLY = 'SCHOOL_YEAR_ONLY',
   CUSTOM = 'CUSTOM',
 }
 
@@ -86,33 +91,33 @@ export class UpdateAcademicSettingsDto {
 
   @ApiProperty({
     example: 2,
-    description: 'Default number of semesters per year',
+    description: 'Default number of semesters per year (0 allowed for SCHOOL_YEAR_ONLY)',
     required: false,
   })
   @IsInt()
-  @Min(1)
+  @Min(0)
   @Max(4)
   @IsOptional()
   defaultSemesterCount?: number;
 
   @ApiProperty({
     example: 4,
-    description: 'Default number of quarters per year',
+    description: 'Default number of quarters per year (0 allowed for SCHOOL_YEAR_ONLY)',
     required: false,
   })
   @IsInt()
-  @Min(2)
+  @Min(0)
   @Max(8)
   @IsOptional()
   defaultQuarterCount?: number;
 
   @ApiProperty({
     example: 3,
-    description: 'Default number of trimesters per year',
+    description: 'Default number of trimesters per year (0 allowed for SCHOOL_YEAR_ONLY)',
     required: false,
   })
   @IsInt()
-  @Min(2)
+  @Min(0)
   @Max(6)
   @IsOptional()
   defaultTrimesterCount?: number;

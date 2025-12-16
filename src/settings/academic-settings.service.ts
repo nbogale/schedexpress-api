@@ -29,11 +29,11 @@ export class AcademicSettingsService {
       academicSettings = await this.prisma.academicSettings.create({
         data: {
           settingsId: settings.id,
-          academicStructureType: AcademicStructureType.SEMESTER_QUARTERS,
-          defaultSemesterCount: 2,
-          defaultQuarterCount: 4,
-          defaultTrimesterCount: 3,
-          semestersHaveQuarters: true,
+          academicStructureType: AcademicStructureType.SCHOOL_YEAR_ONLY,
+          defaultSemesterCount: 0,
+          defaultQuarterCount: 0,
+          defaultTrimesterCount: 0,
+          semestersHaveQuarters: false,
         },
       });
     }

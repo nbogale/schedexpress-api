@@ -4,15 +4,17 @@ import { UpdateStudentDto } from './dto/update-student.dto';
 import { CreateStudentDto } from './dto/create-student.dto';
 import { CreateBulkStudentsDto } from './dto/create-bulk-students.dto';
 import { FileParserService, ParsedStudentData } from '../common/file-parser.service';
-import { UserRole } from '@prisma/client';
+import { CycleType, UserRole } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { ApiErrorResponse } from 'src/common/api-error';
+import { AcademicCyclesService } from 'src/academic-cycles/academic-cycles.service';
 
 @Injectable()
 export class StudentsService {
   constructor(
     private prisma: PrismaService,
     private fileParserService: FileParserService,
+    private academicCyclesService: AcademicCyclesService,
   ) {}
 
   async findAll() {
@@ -408,6 +410,11 @@ export class StudentsService {
   }
 
   async getStudentSchedule(id: string) {
+    const currentAcademicCycle = await this.academicCyclesService.findCurrentCycle(CycleType.SCHOOL_YEAR);
+    if(!currentAcademicCycle) {
+      throw new NotFoundException(`Current academic cycle not found`);
+    }
+
     const studentSchedule = await this.prisma.student.findUnique({
       where: { id },
       include: {
@@ -420,6 +427,9 @@ export class StudentsService {
           },
         },
         schedules: {
+          where: {
+            academicCycleId: currentAcademicCycle.id,
+          },
           include: {
             scheduleCourseSections: {
               include: {

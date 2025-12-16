@@ -440,8 +440,6 @@ export class SchedulesService {
       throw new NotFoundException(`Schedule not found for student ID ${studentId} for the academic year ${currentAcademicCycle.name}`);
     }
 
-    console.log('Current year Schedule:', JSON.stringify(schedule, null, 2));
-
     return schedule;
   }
 

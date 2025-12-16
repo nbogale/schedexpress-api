@@ -325,11 +325,11 @@ model AcademicSettings {
   settingsId String @unique @map("settings_id")
 
   // Academic Structure Configuration
-  academicStructureType String  @default("SEMESTER_QUARTERS") @map("academic_structure_type") @db.VarChar(50)
-  defaultSemesterCount  Int     @default(2) @map("default_semester_count")
-  defaultQuarterCount   Int     @default(4) @map("default_quarter_count")
-  defaultTrimesterCount Int     @default(3) @map("default_trimester_count")
-  semestersHaveQuarters Boolean @default(true) @map("semesters_have_quarters")
+  academicStructureType String  @default("SCHOOL_YEAR_ONLY") @map("academic_structure_type") @db.VarChar(50)
+  defaultSemesterCount  Int     @default(0) @map("default_semester_count")
+  defaultQuarterCount   Int     @default(0) @map("default_quarter_count")
+  defaultTrimesterCount Int     @default(0) @map("default_trimester_count")
+  semestersHaveQuarters Boolean @default(false) @map("semesters_have_quarters")
 
   // Academic Period Defaults Configuration (JSON for flexibility)
   defaultPeriodConfiguration Json? @map("default_period_configuration")

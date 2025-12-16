@@ -764,7 +764,7 @@ export class ScheduleChangesService {
     return this.prisma.scheduleChangeRequest.findMany({
       where: {
         status: {
-          in: [RequestStatus.APPROVED, RequestStatus.DENIED],
+          not: RequestStatus.PENDING,
         },
       },
       include: {

@@ -1030,6 +1030,28 @@ export class AcademicCyclesService {
   async updatePeriod(id: string, updatePeriodDto: UpdateAcademicPeriodDto) {
     const period = await this.findPeriodById(id);
 
+    // Check if period is in the past (endDate < today)
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const periodEndDate = new Date(period.endDate);
+    periodEndDate.setHours(0, 0, 0, 0);
+    const isPastPeriod = periodEndDate < today;
+
+    // Prevent capability updates for past periods
+    const capabilityFields = ['isInstructional', 'allowsEnrollment', 'allowsGrading', 'allowsScheduleChanges', 'isBreak'];
+    const hasCapabilityUpdates = capabilityFields.some(field => updatePeriodDto[field] !== undefined);
+    
+    if (isPastPeriod && hasCapabilityUpdates) {
+      const errorResponse = ApiErrorResponseBuilder.create(
+        ErrorCode.ACCA,
+        'Cannot update capabilities for past periods. Only current and future periods can have their capabilities modified.'
+      )
+        .withLogger(this.logger)
+        .build();
+
+      throw new BadRequestException(errorResponse);
+    }
+
     // If dates are being updated, validate them
     if (updatePeriodDto.startDate || updatePeriodDto.endDate) {
       const startDate = updatePeriodDto.startDate ? new Date(updatePeriodDto.startDate) : new Date(period.startDate);

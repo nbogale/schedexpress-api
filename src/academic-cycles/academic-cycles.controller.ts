@@ -236,7 +236,7 @@ export class AcademicCyclesController {
   }
 
   @Patch('periods/:id')
-  @Roles(UserRole.ADMIN, UserRole.PLATFORM_ADMIN)
+  @Roles(UserRole.ADMIN, UserRole.PLATFORM_ADMIN, UserRole.PRINCIPAL)
   @ApiOperation({ summary: 'Update a period' })
   @ApiResponse({ status: 200, description: 'Period updated successfully' })
   @ApiParam({ name: 'id', description: 'Period ID' })
