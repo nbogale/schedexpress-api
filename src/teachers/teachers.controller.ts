@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, ParseUUIDPipe, UseGuards, Query } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, ParseUUIDPipe, UseGuards, Query, Res, Header } from '@nestjs/common';
 import { TeachersService } from './teachers.service';
 import { CreateTeacherDto } from './dto/create-teacher.dto';
 import { UpdateTeacherDto } from './dto/update-teacher.dto';
@@ -7,6 +7,7 @@ import { Roles } from 'src/auth/decorators/roles.decorator';
 import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
 import { RolesGuard } from 'src/auth/guards/roles.guard';
 import { UserRole } from '@prisma/client';
+import { Response } from 'express';
 
 @Controller('teachers')
 export class TeachersController {
@@ -14,7 +15,7 @@ export class TeachersController {
 
   @Post()
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.ADMIN, UserRole.PLATFORM_ADMIN)
+  @Roles(UserRole.ADMIN, UserRole.PLATFORM_ADMIN, UserRole.PRINCIPAL, UserRole.COUNSELOR)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Create a new teacher' })
   @ApiResponse({ status: 201, description: 'The teacher has been successfully created' })
@@ -67,6 +68,11 @@ export class TeachersController {
   }
 
   @Patch(':id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.PLATFORM_ADMIN, UserRole.PRINCIPAL, UserRole.COUNSELOR)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Update a teacher' })
+  @ApiResponse({ status: 200, description: 'The teacher has been successfully updated' })
   update(
     @Param('id') id: string,
     @Body() updateTeacherDto: UpdateTeacherDto,
@@ -75,7 +81,40 @@ export class TeachersController {
   }
 
   @Delete(':id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.PLATFORM_ADMIN, UserRole.PRINCIPAL, UserRole.COUNSELOR)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Delete a teacher' })
+  @ApiResponse({ status: 200, description: 'The teacher has been successfully deleted' })
   remove(@Param('id') id: string) {
     return this.teachersService.remove(id);
+  }
+
+  @Get('export/csv')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.PLATFORM_ADMIN, UserRole.PRINCIPAL, UserRole.COUNSELOR)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Export teacher assignments to CSV' })
+  @ApiResponse({ status: 200, description: 'CSV file with teacher assignments' })
+  async exportCSV(@Res() res: Response) {
+    const csvContent = await this.teachersService.generateCSVExport();
+    
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', 'attachment; filename="teacher_assignments.csv"');
+    res.send(csvContent);
+  }
+
+  @Get('export/excel')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.PLATFORM_ADMIN, UserRole.PRINCIPAL, UserRole.COUNSELOR)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Export teacher assignments to Excel' })
+  @ApiResponse({ status: 200, description: 'Excel file with teacher assignments' })
+  async exportExcel(@Res() res: Response) {
+    const excelBuffer = await this.teachersService.generateExcelExport();
+    
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', 'attachment; filename="teacher_assignments.xlsx"');
+    res.send(excelBuffer);
   }
 } 

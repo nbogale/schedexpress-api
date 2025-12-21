@@ -10,8 +10,10 @@ import { UpdateTeacherDto } from "./dto/update-teacher.dto";
 import { ApiErrorResponseBuilder } from "src/common/api-error-builder";
 import { ErrorCode } from "src/common/error-codes";
 import { ApiErrorResponse } from "src/common/api-error";
-import { UserRole } from "@prisma/client";
+import { UserRole, Prisma, TeacherStatus } from "@prisma/client";
 import * as bcrypt from "bcrypt";
+import * as Papa from "papaparse";
+import * as XLSX from "xlsx";
 
 @Injectable()
 export class TeachersService {
@@ -66,16 +68,65 @@ export class TeachersService {
         },
       });
 
-      return prisma.teacher.create({
+      // Validate that all courses belong to the teacher's department
+      if (createTeacherDto.courseIds && createTeacherDto.courseIds.length > 0) {
+        const courses = await prisma.course.findMany({
+          where: {
+            id: { in: createTeacherDto.courseIds },
+          },
+          select: {
+            id: true,
+            departmentId: true,
+            code: true,
+          },
+        });
+
+        const invalidCourses = courses.filter(
+          course => course.departmentId !== createTeacherDto.departmentId
+        );
+
+        if (invalidCourses.length > 0) {
+          const errorResponse: ApiErrorResponse = {
+            errorCode: "TCHC",
+            errorMessage: `Courses must belong to the teacher's department. Invalid courses: ${invalidCourses.map(c => c.code).join(', ')}`,
+            timestamp: new Date().toISOString(),
+          };
+          throw new BadRequestException(errorResponse);
+        }
+      }
+
+      const teacher = await prisma.teacher.create({
         data: {
           name: createTeacherDto.firstName + " " + createTeacherDto.lastName,
           email: createTeacherDto.email,
           departmentId: createTeacherDto.departmentId,
+          roomId: createTeacherDto.roomId,
           maxCourses: createTeacherDto.maxCourses,
+          status: createTeacherDto.status || 'ACTIVE',
           userId: user.id,
-        },
+        } as Prisma.TeacherUncheckedCreateInput,
+      });
+
+      // Assign courses if provided
+      if (createTeacherDto.courseIds && createTeacherDto.courseIds.length > 0) {
+        await prisma.teacherCourse.createMany({
+          data: createTeacherDto.courseIds.map(courseId => ({
+            teacherId: teacher.id,
+            courseId: courseId,
+          })),
+        });
+      }
+
+      return prisma.teacher.findUnique({
+        where: { id: teacher.id },
         include: {
           department: true,
+          room: true,
+          teacherCourses: {
+            include: {
+              course: true,
+            },
+          },
           user: {
             select: {
               id: true,
@@ -93,6 +144,12 @@ export class TeachersService {
     return this.prisma.teacher.findMany({
       include: {
         department: true,
+        room: true,
+        teacherCourses: {
+          include: {
+            course: true,
+          },
+        },
         user: {
           select: {
             firstName: true,
@@ -123,6 +180,12 @@ export class TeachersService {
           },
         },
         department: true,
+        room: true,
+        teacherCourses: {
+          include: {
+            course: true,
+          },
+        },
         sections: {
           include: {
             course: true,
@@ -177,16 +240,90 @@ export class TeachersService {
           });
         }
 
+        const updateData: Prisma.TeacherUncheckedUpdateInput = {
+          name: updateTeacherDto.firstName + " " + updateTeacherDto.lastName,
+          email: updateTeacherDto.email,
+        };
+
+        if (updateTeacherDto.departmentId !== undefined) {
+          updateData.departmentId = updateTeacherDto.departmentId;
+        }
+
+        if (updateTeacherDto.roomId !== undefined) {
+          updateData.roomId = updateTeacherDto.roomId;
+        }
+
+        if (updateTeacherDto.maxCourses !== undefined) {
+          updateData.maxCourses = updateTeacherDto.maxCourses;
+        }
+
+        if (updateTeacherDto.status !== undefined) {
+          updateData.status = updateTeacherDto.status;
+        }
+
         const updatedTeacher = await prisma.teacher.update({
           where: { id },
-          data: {
-            name: updateTeacherDto.firstName + " " + updateTeacherDto.lastName,
-            email: updateTeacherDto.email,
-            departmentId: updateTeacherDto.departmentId,
-            maxCourses: updateTeacherDto.maxCourses,
-          },
+          data: updateData,
+        });
+
+        // Update course assignments if provided
+        if (updateTeacherDto.courseIds !== undefined) {
+          // Determine the department to validate against (use updated department or existing one)
+          const departmentId = updateTeacherDto.departmentId ?? teacher.departmentId;
+
+          // Validate that all courses belong to the teacher's department
+          if (updateTeacherDto.courseIds.length > 0) {
+            const courses = await prisma.course.findMany({
+              where: {
+                id: { in: updateTeacherDto.courseIds },
+              },
+              select: {
+                id: true,
+                departmentId: true,
+                code: true,
+              },
+            });
+
+            const invalidCourses = courses.filter(
+              course => course.departmentId !== departmentId
+            );
+
+            if (invalidCourses.length > 0) {
+              const errorResponse: ApiErrorResponse = {
+                errorCode: "TCHC",
+                errorMessage: `Courses must belong to the teacher's department. Invalid courses: ${invalidCourses.map(c => c.code).join(', ')}`,
+                timestamp: new Date().toISOString(),
+              };
+              throw new BadRequestException(errorResponse);
+            }
+          }
+
+          // Delete existing course assignments
+          await prisma.teacherCourse.deleteMany({
+            where: { teacherId: id },
+          });
+
+          // Create new course assignments
+          if (updateTeacherDto.courseIds.length > 0) {
+            await prisma.teacherCourse.createMany({
+              data: updateTeacherDto.courseIds.map(courseId => ({
+                teacherId: id,
+                courseId: courseId,
+              })),
+            });
+          }
+        }
+
+        return prisma.teacher.findUnique({
+          where: { id },
           include: {
             department: true,
+            room: true,
+            teacherCourses: {
+              include: {
+                course: true,
+              },
+            },
             sections: {
               include: {
                 course: true,
@@ -196,8 +333,6 @@ export class TeachersService {
             },
           },
         });
-
-        return updatedTeacher;
       });
 
       return updatedTeacher;
@@ -569,5 +704,180 @@ export class TeachersService {
     const username = email.split("@")[0];
     // Remove special characters and convert to lowercase
     return username.replace(/[^a-zA-Z0-9]/g, "").toLowerCase();
+  }
+
+  /**
+   * Get export data for teachers - returns one row per course assignment
+   * Only includes ACTIVE teachers who have at least one course assignment
+   */
+  async getExportData() {
+    const teachers = await this.prisma.teacher.findMany({
+      where: {
+        status: TeacherStatus.ACTIVE,
+        teacherCourses: {
+          some: {}, // Only include teachers with at least one course
+        },
+      },
+      include: {
+        department: true,
+        room: true,
+        teacherCourses: {
+          include: {
+            course: {
+              select: {
+                id: true,
+                code: true,
+                name: true,
+                credits: true,
+              },
+            },
+          },
+        },
+        user: {
+          select: {
+            firstName: true,
+            lastName: true,
+            email: true,
+          },
+        },
+      },
+      orderBy: {
+        name: "asc",
+      },
+    });
+
+    // Transform to export format: one row per course assignment
+    const exportRows: any[] = [];
+
+    for (const teacher of teachers) {
+      const teacherId = teacher.teacherId; // Use teacher_id column, not id
+      const firstName = teacher.user?.firstName || "";
+      const lastName = teacher.user?.lastName || "";
+      const email = teacher.user?.email || teacher.email;
+      const department = teacher.department?.name || "";
+      const roomName = teacher.room?.name || "";
+      const roomCapacity = teacher.room?.capacity ? teacher.room.capacity.toString() : "";
+
+      // Create one row per course assignment (we know teacher has courses due to the filter)
+      if (teacher.teacherCourses && teacher.teacherCourses.length > 0) {
+        for (const teacherCourse of teacher.teacherCourses) {
+          exportRows.push({
+            teacher_id: teacherId,
+            teacher_first_name: firstName,
+            teacher_last_name: lastName,
+            email: email,
+            course_id: teacherCourse.course.code, // Use course_code instead of course.id
+            course_name: teacherCourse.course.name,
+            course_credits: teacherCourse.course.credits.toString(),
+            department: department,
+            room_id: roomName, // Use room_name for room_id column
+            room_name: roomName,
+            room_capacity: roomCapacity,
+          });
+        }
+      }
+    }
+
+    return exportRows;
+  }
+
+  /**
+   * Generate CSV export for teacher assignments
+   */
+  async generateCSVExport(): Promise<string> {
+    const exportData = await this.getExportData();
+
+    const headers = [
+      "teacher_id",
+      "teacher_first_name",
+      "teacher_last_name",
+      "email",
+      "course_id",
+      "course_name",
+      "course_credits",
+      "department",
+      "room_id",
+      "room_name",
+      "room_capacity",
+    ];
+
+    // Convert to array of arrays for Papa.unparse
+    const rows = exportData.map((row) => [
+      row.teacher_id,
+      row.teacher_first_name,
+      row.teacher_last_name,
+      row.email,
+      row.course_id,
+      row.course_name,
+      row.course_credits,
+      row.department,
+      row.room_id,
+      row.room_name,
+      row.room_capacity,
+    ]);
+
+    return Papa.unparse([headers, ...rows]);
+  }
+
+  /**
+   * Generate Excel export for teacher assignments
+   */
+  async generateExcelExport(): Promise<Buffer> {
+    const exportData = await this.getExportData();
+
+    const headers = [
+      "teacher_id",
+      "teacher_first_name",
+      "teacher_last_name",
+      "email",
+      "course_id",
+      "course_name",
+      "course_credits",
+      "department",
+      "room_id",
+      "room_name",
+      "room_capacity",
+    ];
+
+    // Convert to array of arrays for XLSX
+    const rows = exportData.map((row) => [
+      row.teacher_id,
+      row.teacher_first_name,
+      row.teacher_last_name,
+      row.email,
+      row.course_id,
+      row.course_name,
+      row.course_credits,
+      row.department,
+      row.room_id,
+      row.room_name,
+      row.room_capacity,
+    ]);
+
+    // Create workbook
+    const workbook = XLSX.utils.book_new();
+    const worksheet = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+
+    // Set column widths for better readability
+    const colWidths = [
+      { wch: 15 }, // teacher_id
+      { wch: 18 }, // teacher_first_name
+      { wch: 18 }, // teacher_last_name
+      { wch: 25 }, // email
+      { wch: 15 }, // course_id
+      { wch: 30 }, // course_name
+      { wch: 12 }, // course_credits
+      { wch: 20 }, // department
+      { wch: 15 }, // room_id
+      { wch: 20 }, // room_name
+      { wch: 12 }, // room_capacity
+    ];
+    worksheet["!cols"] = colWidths;
+
+    // Add worksheet to workbook
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Teacher Assignments");
+
+    // Convert to buffer
+    return XLSX.write(workbook, { type: "buffer", bookType: "xlsx" });
   }
 }

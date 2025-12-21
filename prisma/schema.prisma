@@ -586,6 +586,7 @@ model Course {
   sequences        CourseSequence[]
   courseHistory    StudentCourseHistory[]
   grades           StudentGrade[]
+  teacherCourses   TeacherCourse[]
 
   @@map("course")
 }
@@ -617,6 +618,19 @@ model CourseSequence {
   @@map("course_sequence")
 }
 
+model TeacherCourse {
+  id        String   @id @default(cuid())
+  teacherId String   @map("teacher_id")
+  courseId  String   @map("course_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  teacher   Teacher  @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  course    Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@unique([teacherId, courseId])
+  @@map("teacher_course")
+}
+
 model Room {
   id          String          @id @default(cuid())
   name        String          @db.VarChar(50)
@@ -628,6 +642,7 @@ model Room {
   location    String?         @db.VarChar(100)
   roomType    String          @default("classroom") @map("room_type")
   sections    CourseSection[]
+  teachers    Teacher[]
 
   @@map("room")
 }
@@ -656,14 +671,18 @@ model Teacher {
   email        String          @unique
   password     String?
   departmentId String          @map("department_id")
+  roomId       String          @map("room_id")
   maxCourses   Int             @default(6) @map("max_courses")
   isActive     Boolean         @default(true) @map("is_active")
+  status       TeacherStatus   @default(ACTIVE)
   createdAt    DateTime        @default(now()) @map("created_at")
   updatedAt    DateTime        @updatedAt @map("updated_at")
   userId       String          @unique @map("user_id")
   sections     CourseSection[]
   department   Department      @relation(fields: [departmentId], references: [id])
+  room         Room            @relation(fields: [roomId], references: [id])
   user         User            @relation(fields: [userId], references: [id])
+  teacherCourses TeacherCourse[]
 
   @@map("teacher")
 }
@@ -1166,4 +1185,14 @@ enum ScheduleImportRowStatus {
   WARNING
 
   @@map("schedule_import_row_status")
+}
+
+enum TeacherStatus {
+  ACTIVE
+  SUSPENDED
+  ON_LEAVE
+  TERMINATED
+  INACTIVE
+
+  @@map("teacher_status")
 }

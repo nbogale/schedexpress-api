@@ -29,6 +29,7 @@ async function main() {
     () => prisma.courseSequence.deleteMany().catch(() => {}),
     () => prisma.courseRule.deleteMany().catch(() => {}),
     () => prisma.academicCycleRule.deleteMany().catch(() => {}),
+    () => prisma.teacherCourse.deleteMany().catch(() => {}),
     
     // Level 3: Tables that depend on Level 2
     () => prisma.academicCycle.deleteMany().catch(() => {}),
@@ -326,34 +327,35 @@ async function main() {
 
   console.log('👥 Created users with usernames');
 
-  // Create Teachers (25 total) with teacherId for CSV import
+  // Create Teachers (26 total) with teacherId, roomId, and departmentId
+  // Assign rooms to teachers (cycling through available rooms)
   const teachers = await Promise.all([
-    prisma.teacher.create({ data: { teacherId: 'TCH001', userId: users[11].id, departmentId: departments[0].id, email: 's.johnson@lincolnhs.edu', name: `${users[11].firstName} ${users[11].lastName}` } }), // Sarah Johnson - Math
-    prisma.teacher.create({ data: { teacherId: 'TCH002', userId: users[12].id, departmentId: departments[0].id, email: 'j.miller@lincolnhs.edu', name: `${users[12].firstName} ${users[12].lastName}` } }), // James Miller - Math
-    prisma.teacher.create({ data: { teacherId: 'TCH003', userId: users[13].id, departmentId: departments[0].id, email: 'r.green@lincolnhs.edu', name: `${users[13].firstName} ${users[13].lastName}` } }), // Rachel Green - Math
-    prisma.teacher.create({ data: { teacherId: 'TCH004', userId: users[14].id, departmentId: departments[0].id, email: 'k.park@lincolnhs.edu', name: `${users[14].firstName} ${users[14].lastName}` } }), // Kevin Park - Math
-    prisma.teacher.create({ data: { teacherId: 'TCH005', userId: users[15].id, departmentId: departments[0].id, email: 's.white@lincolnhs.edu', name: `${users[15].firstName} ${users[15].lastName}` } }), // Susan White - Math
-    prisma.teacher.create({ data: { teacherId: 'TCH006', userId: users[16].id, departmentId: departments[0].id, email: 'd.kim@lincolnhs.edu', name: `${users[16].firstName} ${users[16].lastName}` } }), // Daniel Kim - Math
-    prisma.teacher.create({ data: { teacherId: 'TCH007', userId: users[17].id, departmentId: departments[0].id, email: 'l.martinez@lincolnhs.edu', name: `${users[17].firstName} ${users[17].lastName}` } }), // Laura Martinez - Math
-    prisma.teacher.create({ data: { teacherId: 'TCH008', userId: users[18].id, departmentId: departments[0].id, email: 't.anderson@lincolnhs.edu', name: `${users[18].firstName} ${users[18].lastName}` } }), // Thomas Anderson - Math
-    prisma.teacher.create({ data: { teacherId: 'TCH009', userId: users[19].id, departmentId: departments[1].id, email: 'e.rodriguez@lincolnhs.edu', name: `${users[19].firstName} ${users[19].lastName}` } }), // Emily Rodriguez - English
-    prisma.teacher.create({ data: { teacherId: 'TCH010', userId: users[20].id, departmentId: departments[1].id, email: 'c.taylor@lincolnhs.edu', name: `${users[20].firstName} ${users[20].lastName}` } }), // Christopher Taylor - English
-    prisma.teacher.create({ data: { teacherId: 'TCH011', userId: users[21].id, departmentId: departments[0].id, email: 'a.brown@lincolnhs.edu', name: `${users[21].firstName} ${users[21].lastName}` } }), // Amanda Brown - Math
-    prisma.teacher.create({ data: { teacherId: 'TCH012', userId: users[22].id, departmentId: departments[0].id, email: 'm.davis@lincolnhs.edu', name: `${users[22].firstName} ${users[22].lastName}` } }), // Michael Davis - Math
-    prisma.teacher.create({ data: { teacherId: 'TCH013', userId: users[23].id, departmentId: departments[1].id, email: 'j.wilson@lincolnhs.edu', name: `${users[23].firstName} ${users[23].lastName}` } }), // Jessica Wilson - English
-    prisma.teacher.create({ data: { teacherId: 'TCH014', userId: users[24].id, departmentId: departments[1].id, email: 'r.moore@lincolnhs.edu', name: `${users[24].firstName} ${users[24].lastName}` } }), // Robert Moore - English
-    prisma.teacher.create({ data: { teacherId: 'TCH015', userId: users[25].id, departmentId: departments[1].id, email: 's.jackson@lincolnhs.edu', name: `${users[25].firstName} ${users[25].lastName}` } }), // Stephanie Jackson - English
-    prisma.teacher.create({ data: { teacherId: 'TCH016', userId: users[26].id, departmentId: departments[2].id, email: 'b.thompson@lincolnhs.edu', name: `${users[26].firstName} ${users[26].lastName}` } }), // Brian Thompson - Science
-    prisma.teacher.create({ data: { teacherId: 'TCH017', userId: users[27].id, departmentId: departments[2].id, email: 'n.garcia@lincolnhs.edu', name: `${users[27].firstName} ${users[27].lastName}` } }), // Nicole Garcia - Science
-    prisma.teacher.create({ data: { teacherId: 'TCH018', userId: users[28].id, departmentId: departments[2].id, email: 'h.martinez@lincolnhs.edu', name: `${users[28].firstName} ${users[28].lastName}` } }), // Heather Martinez - Science
-    prisma.teacher.create({ data: { teacherId: 'TCH019', userId: users[29].id, departmentId: departments[2].id, email: 'j.robinson@lincolnhs.edu', name: `${users[29].firstName} ${users[29].lastName}` } }), // Jason Robinson - Science
-    prisma.teacher.create({ data: { teacherId: 'TCH020', userId: users[30].id, departmentId: departments[2].id, email: 'k.clark@lincolnhs.edu', name: `${users[30].firstName} ${users[30].lastName}` } }), // Katherine Clark - Science
-    prisma.teacher.create({ data: { teacherId: 'TCH021', userId: users[31].id, departmentId: departments[3].id, email: 'd.rodriguez@lincolnhs.edu', name: `${users[31].firstName} ${users[31].lastName}` } }), // Derek Rodriguez - Social Studies
-    prisma.teacher.create({ data: { teacherId: 'TCH022', userId: users[32].id, departmentId: departments[3].id, email: 'l.lewis@lincolnhs.edu', name: `${users[32].firstName} ${users[32].lastName}` } }), // Lisa Lewis - Social Studies
-    prisma.teacher.create({ data: { teacherId: 'TCH023', userId: users[33].id, departmentId: departments[3].id, email: 'm.walker@lincolnhs.edu', name: `${users[33].firstName} ${users[33].lastName}` } }), // Matthew Walker - Social Studies
-    prisma.teacher.create({ data: { teacherId: 'TCH024', userId: users[34].id, departmentId: departments[4].id, email: 'a.hall@lincolnhs.edu', name: `${users[34].firstName} ${users[34].lastName}` } }), // Ashley Hall - Foreign Language
-    prisma.teacher.create({ data: { teacherId: 'TCH025', userId: users[35].id, departmentId: departments[4].id, email: 'j.allen@lincolnhs.edu', name: `${users[35].firstName} ${users[35].lastName}` } }), // Justin Allen - Foreign Language
-    prisma.teacher.create({ data: { teacherId: 'TCH026', userId: users[36].id, departmentId: departments[5].id, email: 'r.young@lincolnhs.edu', name: `${users[36].firstName} ${users[36].lastName}` } })  // Rachel Young - Physical Education
+    prisma.teacher.create({ data: { teacherId: 'TCH001', userId: users[11].id, departmentId: departments[0].id, roomId: rooms[0].id, email: 's.johnson@lincolnhs.edu', name: `${users[11].firstName} ${users[11].lastName}` } }), // Sarah Johnson - Math
+    prisma.teacher.create({ data: { teacherId: 'TCH002', userId: users[12].id, departmentId: departments[0].id, roomId: rooms[1].id, email: 'j.miller@lincolnhs.edu', name: `${users[12].firstName} ${users[12].lastName}` } }), // James Miller - Math
+    prisma.teacher.create({ data: { teacherId: 'TCH003', userId: users[13].id, departmentId: departments[0].id, roomId: rooms[2].id, email: 'r.green@lincolnhs.edu', name: `${users[13].firstName} ${users[13].lastName}` } }), // Rachel Green - Math
+    prisma.teacher.create({ data: { teacherId: 'TCH004', userId: users[14].id, departmentId: departments[0].id, roomId: rooms[3].id, email: 'k.park@lincolnhs.edu', name: `${users[14].firstName} ${users[14].lastName}` } }), // Kevin Park - Math
+    prisma.teacher.create({ data: { teacherId: 'TCH005', userId: users[15].id, departmentId: departments[0].id, roomId: rooms[4].id, email: 's.white@lincolnhs.edu', name: `${users[15].firstName} ${users[15].lastName}` } }), // Susan White - Math
+    prisma.teacher.create({ data: { teacherId: 'TCH006', userId: users[16].id, departmentId: departments[0].id, roomId: rooms[5].id, email: 'd.kim@lincolnhs.edu', name: `${users[16].firstName} ${users[16].lastName}` } }), // Daniel Kim - Math
+    prisma.teacher.create({ data: { teacherId: 'TCH007', userId: users[17].id, departmentId: departments[0].id, roomId: rooms[6].id, email: 'l.martinez@lincolnhs.edu', name: `${users[17].firstName} ${users[17].lastName}` } }), // Laura Martinez - Math
+    prisma.teacher.create({ data: { teacherId: 'TCH008', userId: users[18].id, departmentId: departments[0].id, roomId: rooms[7].id, email: 't.anderson@lincolnhs.edu', name: `${users[18].firstName} ${users[18].lastName}` } }), // Thomas Anderson - Math
+    prisma.teacher.create({ data: { teacherId: 'TCH009', userId: users[19].id, departmentId: departments[1].id, roomId: rooms[10].id, email: 'e.rodriguez@lincolnhs.edu', name: `${users[19].firstName} ${users[19].lastName}` } }), // Emily Rodriguez - English
+    prisma.teacher.create({ data: { teacherId: 'TCH010', userId: users[20].id, departmentId: departments[1].id, roomId: rooms[11].id, email: 'c.taylor@lincolnhs.edu', name: `${users[20].firstName} ${users[20].lastName}` } }), // Christopher Taylor - English
+    prisma.teacher.create({ data: { teacherId: 'TCH011', userId: users[21].id, departmentId: departments[0].id, roomId: rooms[8].id, email: 'a.brown@lincolnhs.edu', name: `${users[21].firstName} ${users[21].lastName}` } }), // Amanda Brown - Math
+    prisma.teacher.create({ data: { teacherId: 'TCH012', userId: users[22].id, departmentId: departments[0].id, roomId: rooms[9].id, email: 'm.davis@lincolnhs.edu', name: `${users[22].firstName} ${users[22].lastName}` } }), // Michael Davis - Math
+    prisma.teacher.create({ data: { teacherId: 'TCH013', userId: users[23].id, departmentId: departments[1].id, roomId: rooms[12].id, email: 'j.wilson@lincolnhs.edu', name: `${users[23].firstName} ${users[23].lastName}` } }), // Jessica Wilson - English
+    prisma.teacher.create({ data: { teacherId: 'TCH014', userId: users[24].id, departmentId: departments[1].id, roomId: rooms[13].id, email: 'r.moore@lincolnhs.edu', name: `${users[24].firstName} ${users[24].lastName}` } }), // Robert Moore - English
+    prisma.teacher.create({ data: { teacherId: 'TCH015', userId: users[25].id, departmentId: departments[1].id, roomId: rooms[14].id, email: 's.jackson@lincolnhs.edu', name: `${users[25].firstName} ${users[25].lastName}` } }), // Stephanie Jackson - English
+    prisma.teacher.create({ data: { teacherId: 'TCH016', userId: users[26].id, departmentId: departments[2].id, roomId: rooms[20].id, email: 'b.thompson@lincolnhs.edu', name: `${users[26].firstName} ${users[26].lastName}` } }), // Brian Thompson - Science (Science Lab 1)
+    prisma.teacher.create({ data: { teacherId: 'TCH017', userId: users[27].id, departmentId: departments[2].id, roomId: rooms[21].id, email: 'n.garcia@lincolnhs.edu', name: `${users[27].firstName} ${users[27].lastName}` } }), // Nicole Garcia - Science (Science Lab 2)
+    prisma.teacher.create({ data: { teacherId: 'TCH018', userId: users[28].id, departmentId: departments[2].id, roomId: rooms[22].id, email: 'h.martinez@lincolnhs.edu', name: `${users[28].firstName} ${users[28].lastName}` } }), // Heather Martinez - Science (Science Lab 3)
+    prisma.teacher.create({ data: { teacherId: 'TCH019', userId: users[29].id, departmentId: departments[2].id, roomId: rooms[23].id, email: 'j.robinson@lincolnhs.edu', name: `${users[29].firstName} ${users[29].lastName}` } }), // Jason Robinson - Science (Science Lab 4)
+    prisma.teacher.create({ data: { teacherId: 'TCH020', userId: users[30].id, departmentId: departments[2].id, roomId: rooms[15].id, email: 'k.clark@lincolnhs.edu', name: `${users[30].firstName} ${users[30].lastName}` } }), // Katherine Clark - Science
+    prisma.teacher.create({ data: { teacherId: 'TCH021', userId: users[31].id, departmentId: departments[3].id, roomId: rooms[16].id, email: 'd.rodriguez@lincolnhs.edu', name: `${users[31].firstName} ${users[31].lastName}` } }), // Derek Rodriguez - Social Studies
+    prisma.teacher.create({ data: { teacherId: 'TCH022', userId: users[32].id, departmentId: departments[3].id, roomId: rooms[17].id, email: 'l.lewis@lincolnhs.edu', name: `${users[32].firstName} ${users[32].lastName}` } }), // Lisa Lewis - Social Studies
+    prisma.teacher.create({ data: { teacherId: 'TCH023', userId: users[33].id, departmentId: departments[3].id, roomId: rooms[18].id, email: 'm.walker@lincolnhs.edu', name: `${users[33].firstName} ${users[33].lastName}` } }), // Matthew Walker - Social Studies
+    prisma.teacher.create({ data: { teacherId: 'TCH024', userId: users[34].id, departmentId: departments[4].id, roomId: rooms[19].id, email: 'a.hall@lincolnhs.edu', name: `${users[34].firstName} ${users[34].lastName}` } }), // Ashley Hall - Foreign Language
+    prisma.teacher.create({ data: { teacherId: 'TCH025', userId: users[35].id, departmentId: departments[4].id, roomId: rooms[24].id, email: 'j.allen@lincolnhs.edu', name: `${users[35].firstName} ${users[35].lastName}` } }), // Justin Allen - Foreign Language
+    prisma.teacher.create({ data: { teacherId: 'TCH026', userId: users[36].id, departmentId: departments[5].id, roomId: rooms[14].id, email: 'r.young@lincolnhs.edu', name: `${users[36].firstName} ${users[36].lastName}` } })  // Rachel Young - Physical Education (Gym)
   ]);
 
   console.log('👨‍🏫 Created teachers');
@@ -448,6 +450,120 @@ async function main() {
   ]);
 
   console.log('📖 Created courses');
+
+  // Assign courses to teachers based on their departments
+  // Math teachers (8 teachers) - assign Math courses
+  const mathCourses = courses.filter(c => c.departmentId === departments[0].id);
+  const mathTeachers = teachers.filter(t => t.departmentId === departments[0].id);
+  for (let i = 0; i < mathTeachers.length; i++) {
+    const teacher = mathTeachers[i];
+    // Assign 2-3 courses per math teacher
+    const coursesToAssign = mathCourses.slice(i * 2, (i + 1) * 2 + (i < 3 ? 1 : 0));
+    await Promise.all(
+      coursesToAssign.map(course =>
+        prisma.teacherCourse.create({
+          data: {
+            teacherId: teacher.id,
+            courseId: course.id,
+          },
+        })
+      )
+    );
+  }
+
+  // English teachers (5 teachers) - assign English courses
+  const englishCourses = courses.filter(c => c.departmentId === departments[1].id);
+  const englishTeachers = teachers.filter(t => t.departmentId === departments[1].id);
+  for (let i = 0; i < englishTeachers.length; i++) {
+    const teacher = englishTeachers[i];
+    // Assign 1-2 courses per English teacher
+    const coursesToAssign = englishCourses.slice(i, i + (i < 2 ? 2 : 1));
+    await Promise.all(
+      coursesToAssign.map(course =>
+        prisma.teacherCourse.create({
+          data: {
+            teacherId: teacher.id,
+            courseId: course.id,
+          },
+        })
+      )
+    );
+  }
+
+  // Science teachers (5 teachers) - assign Science courses
+  const scienceCourses = courses.filter(c => c.departmentId === departments[2].id);
+  const scienceTeachers = teachers.filter(t => t.departmentId === departments[2].id);
+  for (let i = 0; i < scienceTeachers.length; i++) {
+    const teacher = scienceTeachers[i];
+    // Assign 1-2 courses per Science teacher
+    const coursesToAssign = scienceCourses.slice(i, i + (i < 2 ? 2 : 1));
+    await Promise.all(
+      coursesToAssign.map(course =>
+        prisma.teacherCourse.create({
+          data: {
+            teacherId: teacher.id,
+            courseId: course.id,
+          },
+        })
+      )
+    );
+  }
+
+  // Social Studies teachers (3 teachers) - assign Social Studies courses
+  const socialStudiesCourses = courses.filter(c => c.departmentId === departments[3].id);
+  const socialStudiesTeachers = teachers.filter(t => t.departmentId === departments[3].id);
+  for (let i = 0; i < socialStudiesTeachers.length; i++) {
+    const teacher = socialStudiesTeachers[i];
+    // Assign 2 courses per Social Studies teacher
+    const coursesToAssign = socialStudiesCourses.slice(i * 2, (i + 1) * 2);
+    await Promise.all(
+      coursesToAssign.map(course =>
+        prisma.teacherCourse.create({
+          data: {
+            teacherId: teacher.id,
+            courseId: course.id,
+          },
+        })
+      )
+    );
+  }
+
+  // Foreign Language teachers (2 teachers) - assign Foreign Language courses
+  const foreignLanguageCourses = courses.filter(c => c.departmentId === departments[4].id);
+  const foreignLanguageTeachers = teachers.filter(t => t.departmentId === departments[4].id);
+  for (let i = 0; i < foreignLanguageTeachers.length; i++) {
+    const teacher = foreignLanguageTeachers[i];
+    // Assign 2-3 courses per Foreign Language teacher
+    const coursesToAssign = foreignLanguageCourses.slice(i * 2, (i + 1) * 2 + (i < 1 ? 1 : 0));
+    await Promise.all(
+      coursesToAssign.map(course =>
+        prisma.teacherCourse.create({
+          data: {
+            teacherId: teacher.id,
+            courseId: course.id,
+          },
+        })
+      )
+    );
+  }
+
+  // Physical Education teacher (1 teacher) - assign PE courses
+  const peCourses = courses.filter(c => c.departmentId === departments[5].id);
+  const peTeacher = teachers.find(t => t.departmentId === departments[5].id);
+  if (peTeacher) {
+    await Promise.all(
+      peCourses.map(course =>
+        prisma.teacherCourse.create({
+          data: {
+            teacherId: peTeacher.id,
+            courseId: course.id,
+          },
+        })
+      )
+    );
+  }
+
+  console.log('📚 Assigned courses to teachers');
 
 // Create Academic Cycle Config
   const academicCycleConfig = await prisma.academicCycleConfig.create({

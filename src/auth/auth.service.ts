@@ -8,7 +8,7 @@ import { ApiErrorResponse } from 'src/common/api-error';
 import { ErrorCode } from 'src/common/error-codes';
 import { ApiErrorResponseBuilder } from 'src/common/api-error-builder';
 import { EmailService } from 'src/notifications/email.service';
-import { UserRole } from '@prisma/client';
+import { UserRole, Prisma } from '@prisma/client';
 
 @Injectable()
 export class AuthService {
@@ -340,7 +340,7 @@ export class AuthService {
             userId: user.id,
             email: registerDto.email,
             departmentId: department.id,
-          },
+          } as Prisma.TeacherUncheckedCreateInput,
         });
       }
 
