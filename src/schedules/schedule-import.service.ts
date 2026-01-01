@@ -42,7 +42,8 @@ export interface ParsedScheduleRow {
   sectionNumber: string;
   timeBlockName: string;
   endTimeBlockName?: string;
-  roomName: string;
+  roomName: string; // Keep for backward compatibility
+  roomNo?: string; // New field for room number lookup
   teacherId?: string;
   teacherEmail?: string;
   maxEnrollment: number;
@@ -62,10 +63,19 @@ export interface ScheduleImportResult {
   warnings?: any[];
 }
 
+export interface ScheduleImportConfig {
+  createMissingSections: boolean; // Default: true (fallback behavior)
+  strictMode: boolean; // Default: false (if true, error on missing section)
+}
+
 @Injectable()
 export class ScheduleImportService {
   private readonly logger = new Logger(ScheduleImportService.name);
   private readonly UPLOAD_DIR = path.join(process.cwd(), 'uploads', 'schedule-imports');
+  private readonly DEFAULT_CONFIG: ScheduleImportConfig = {
+    createMissingSections: true, // Default: create sections if not found (fallback)
+    strictMode: false, // Default: allow fallback creation
+  };
 
   constructor(private readonly prisma: PrismaService) {
     // Ensure upload directory exists
@@ -346,7 +356,9 @@ export class ScheduleImportService {
         const timeBlockName = getStringValue(row.period_start || row.time_block_name);
         const endTimeBlockNameValue = getStringValue(row.period_end || row.end_time_block_name);
         const endTimeBlockName = endTimeBlockNameValue || undefined;
-        const roomName = getStringValue(row.room_no || row.room_name);
+        const roomNo = getStringValue(row.room_no);
+        const roomName = getStringValue(row.room_name);
+        const roomIdentifier = roomNo || roomName; // Prefer roomNo, fallback to roomName
         const academicCycleName = getStringValue(row.academic_cycle_name);
         const sectionNumber = getStringValue(row.section_number);
 
@@ -358,7 +370,8 @@ export class ScheduleImportService {
           // Map new CSV headers to internal field names
           timeBlockName: timeBlockName,
           endTimeBlockName: endTimeBlockName || undefined,
-          roomName: roomName,
+          roomName: roomIdentifier, // Keep for backward compatibility
+          roomNo: roomNo || undefined, // New field for room number lookup
           teacherId: getStringValue(row.teacher_id) || undefined,
           teacherEmail: getStringValue(row.teacher_email)
             ? getStringValue(row.teacher_email).toLowerCase()
@@ -564,6 +577,7 @@ export class ScheduleImportService {
 
   /**
    * Process rows asynchronously (runs in background)
+   * Optimized version with batch processing and pre-loaded lookups
    */
   private async processRowsAsync(
     importFileId: string,
@@ -579,7 +593,13 @@ export class ScheduleImportService {
       },
     });
 
-    const batchSize = 100;
+    // Pre-load all lookup data to avoid repeated queries
+    this.logger.log('Pre-loading lookup data for optimization...');
+    const lookupData = await this.preloadLookupData(academicCycleId);
+    this.logger.log('Lookup data pre-loaded successfully');
+
+    const transactionBatchSize = 50; // Process 50 rows per transaction
+    const progressUpdateInterval = 50; // Update progress every 50 rows
     let processedRows = 0;
     let successfulRows = 0;
     let failedRows = 0;
@@ -587,51 +607,77 @@ export class ScheduleImportService {
     const errors: any[] = [];
 
     try {
-      // Process rows individually (each in its own transaction)
-      // This prevents one failed row from aborting the entire batch
-      for (let i = 0; i < rows.length; i++) {
-        const row = rows[i];
-        const rowNumber = i + 2; // +2 for header row and 0-based index
+      // Process rows in batches
+      for (let batchStart = 0; batchStart < rows.length; batchStart += transactionBatchSize) {
+        const batchEnd = Math.min(batchStart + transactionBatchSize, rows.length);
+        const batch = rows.slice(batchStart, batchEnd);
 
         try {
-          // Process each row in its own transaction
-          const result = await this.prisma.$transaction(async (tx) => {
-            return await this.processRow(
-              row,
-              academicCycleId,
-              importFileId,
-              rowNumber,
-              tx,
-            );
+          // Process batch in a single transaction
+          const batchResults = await this.prisma.$transaction(async (tx) => {
+            const results = [];
+            for (let i = 0; i < batch.length; i++) {
+              const row = batch[i];
+              const rowNumber = batchStart + i + 2; // +2 for header row and 0-based index
+
+              try {
+                const result = await this.processRowOptimized(
+                  row,
+                  academicCycleId,
+                  importFileId,
+                  rowNumber,
+                  lookupData,
+                  tx,
+                );
+                results.push({ rowNumber, result, row });
+              } catch (error) {
+                results.push({
+                  rowNumber,
+                  result: {
+                    status: ROW_STATUS.FAILED,
+                    errorMessage: error.message || 'Unknown error',
+                  },
+                  row,
+                });
+              }
+            }
+            return results;
           });
 
-          if (result.status === ROW_STATUS.SUCCESS) {
-            successfulRows++;
-          } else if (result.status === ROW_STATUS.SKIPPED) {
-            skippedRows++;
-          } else {
-            failedRows++;
-            errors.push({
-              row: rowNumber,
-              studentId: row.studentId || 'N/A (Planning)',
-              courseCode: row.courseCode,
-              error: (result as any).errorMessage || 'Unknown error',
-            });
+          // Process batch results
+          for (const { rowNumber, result, row } of batchResults) {
+            processedRows++;
+
+            if (result.status === ROW_STATUS.SUCCESS) {
+              successfulRows++;
+            } else if (result.status === ROW_STATUS.SKIPPED) {
+              skippedRows++;
+            } else {
+              failedRows++;
+              errors.push({
+                row: rowNumber,
+                studentId: row.studentId || 'N/A (Planning)',
+                courseCode: row.courseCode,
+                error: (result as any).errorMessage || 'Unknown error',
+              });
+            }
           }
         } catch (error) {
-          failedRows++;
-          errors.push({
-            row: rowNumber,
-            studentId: row.studentId,
-            courseCode: row.courseCode,
-            error: error.message || 'Unknown error',
-          });
+          // If entire batch fails, mark all rows as failed
+          for (let i = 0; i < batch.length; i++) {
+            processedRows++;
+            failedRows++;
+            errors.push({
+              row: batchStart + i + 2,
+              studentId: batch[i].studentId || 'N/A (Planning)',
+              courseCode: batch[i].courseCode,
+              error: error.message || 'Batch processing failed',
+            });
+          }
         }
 
-        processedRows++;
-
-        // Update progress every 10 rows to avoid too many writes
-        if (processedRows % 10 === 0) {
+        // Update progress less frequently to reduce database writes
+        if (processedRows % progressUpdateInterval === 0 || batchEnd === rows.length) {
           await this.prisma.scheduleImportFile.update({
             where: { id: importFileId },
             data: {
@@ -809,7 +855,343 @@ export class ScheduleImportService {
   }
 
   /**
-   * Process a single row
+   * Pre-load all lookup data to avoid repeated database queries
+   * Now includes course sections for faster teacher assignment matching
+   */
+  private async preloadLookupData(academicCycleId: string) {
+    const [students, courses, timeBlocks, rooms, teachers, courseSections] = await Promise.all([
+      this.prisma.student.findMany({
+        select: { id: true, studentId: true },
+      }),
+      this.prisma.course.findMany({
+        select: { id: true, code: true },
+      }),
+      this.prisma.timeBlock.findMany({
+        select: { id: true, name: true },
+      }),
+      this.prisma.room.findMany({
+        select: { id: true, name: true, roomNo: true },
+      }),
+      this.prisma.teacher.findMany({
+        select: { id: true, teacherId: true, user: { select: { email: true } } },
+      }),
+      this.prisma.courseSection.findMany({
+        where: { academicCycleId },
+        select: {
+          id: true,
+          courseId: true,
+          sectionNumber: true,
+          teacherId: true,
+          timeBlockId: true,
+          endTimeBlockId: true,
+          roomId: true,
+          rotationDay: true,
+          maxEnrollment: true,
+          currentEnrollment: true,
+        },
+      }),
+    ]);
+
+    // Create lookup maps for O(1) access
+    const studentMap = new Map(students.map(s => [s.studentId, s]));
+    const courseMap = new Map(courses.map(c => [c.code, c]));
+    const timeBlockMap = new Map(timeBlocks.map(tb => [tb.name, tb]));
+    // Create room maps: by roomNo (preferred) and by name (fallback)
+    const roomByNoMap = new Map(rooms.map(r => [r.roomNo, r]));
+    const roomByNameMap = new Map(rooms.map(r => [r.name, r]));
+    const teacherByIdMap = new Map(teachers.map(t => [t.teacherId, t]));
+    const teacherByEmailMap = new Map(
+      teachers
+        .filter(t => t.user?.email)
+        .map(t => [t.user.email, t]),
+    );
+
+    // Create course section lookup map
+    // Key format: `${courseId}-${sectionNumber}-${teacherId}-${timeBlockId}-${roomId}-${rotationDay || 'null'}`
+    const courseSectionMap = new Map<string, typeof courseSections[0]>();
+    courseSections.forEach(section => {
+      const key = this.createCourseSectionKey({
+        courseId: section.courseId,
+        sectionNumber: section.sectionNumber,
+        teacherId: section.teacherId,
+        timeBlockId: section.timeBlockId,
+        endTimeBlockId: section.endTimeBlockId,
+        roomId: section.roomId,
+        rotationDay: section.rotationDay,
+      });
+      // If multiple sections match, keep the first one (log warning later if needed)
+      if (!courseSectionMap.has(key)) {
+        courseSectionMap.set(key, section);
+      }
+    });
+
+    return {
+      students: studentMap,
+      courses: courseMap,
+      timeBlocks: timeBlockMap,
+      roomsByNo: roomByNoMap,
+      roomsByName: roomByNameMap,
+      teachersById: teacherByIdMap,
+      teachersByEmail: teacherByEmailMap,
+      courseSections: courseSectionMap,
+    };
+  }
+
+  /**
+   * Create a lookup key for course section matching
+   */
+  private createCourseSectionKey(data: {
+    courseId: string;
+    sectionNumber: string;
+    teacherId: string;
+    timeBlockId: string;
+    endTimeBlockId?: string | null;
+    roomId: string;
+    rotationDay?: RotationDay | null;
+  }): string {
+    return `${data.courseId}-${data.sectionNumber}-${data.teacherId}-${data.timeBlockId}-${data.endTimeBlockId || 'null'}-${data.roomId}-${data.rotationDay || 'null'}`;
+  }
+
+  /**
+   * Optimized version of processRow that uses pre-loaded lookup data
+   */
+  private async processRowOptimized(
+    row: ParsedScheduleRow,
+    academicCycleId: string,
+    importFileId: string,
+    rowNumber: number,
+    lookupData: any,
+    tx: any,
+  ) {
+    let importDetail;
+    
+    try {
+      // Create import detail record
+      importDetail = await tx.scheduleImportDetail.create({
+        data: {
+          importFileId,
+          rowNumber,
+          studentId: row.studentId,
+          courseCode: row.courseCode,
+          sectionNumber: row.sectionNumber,
+          status: ROW_STATUS.PENDING as any,
+        },
+      });
+    } catch (createError) {
+      this.logger.error(`Failed to create import detail for row ${rowNumber}:`, createError);
+      return {
+        status: ROW_STATUS.FAILED as any,
+        errorMessage: `Failed to create import detail: ${createError.message}`,
+      };
+    }
+
+    try {
+      // Handle planning schedules (no student enrollment)
+      if (row.isPlanning) {
+        return await this.processPlanningRow(
+          row,
+          academicCycleId,
+          importFileId,
+          rowNumber,
+          importDetail,
+          tx,
+        );
+      }
+
+      // Regular student schedule processing using pre-loaded data
+      if (!row.studentId) {
+        throw new Error('Student ID is required for non-planning schedules');
+      }
+
+      const student = lookupData.students.get(row.studentId);
+      if (!student) {
+        throw new Error(`Student with ID ${row.studentId} not found`);
+      }
+
+      const course = lookupData.courses.get(row.courseCode);
+      if (!course) {
+        throw new Error(`Course with code ${row.courseCode} not found`);
+      }
+
+      const timeBlock = lookupData.timeBlocks.get(row.timeBlockName);
+      if (!timeBlock) {
+        throw new Error(`Time block "${row.timeBlockName}" not found`);
+      }
+
+      let endTimeBlock = null;
+      if (row.endTimeBlockName) {
+        endTimeBlock = lookupData.timeBlocks.get(row.endTimeBlockName);
+        if (!endTimeBlock) {
+          throw new Error(`End time block "${row.endTimeBlockName}" not found`);
+        }
+      }
+
+      // Lookup room by roomNo first (preferred), then fallback to name
+      let room = null;
+      if (row.roomNo) {
+        room = lookupData.roomsByNo.get(row.roomNo);
+      }
+      if (!room && row.roomName) {
+        room = lookupData.roomsByName.get(row.roomName);
+      }
+      if (!room) {
+        const identifier = row.roomNo || row.roomName;
+        throw new Error(`Room "${identifier}" not found (roomNo: ${row.roomNo || 'N/A'}, name: ${row.roomName || 'N/A'})`);
+      }
+
+      // Lookup teacher using pre-loaded data
+      let teacher = null;
+      if (row.teacherId) {
+        teacher = lookupData.teachersById.get(row.teacherId);
+      } else if (row.teacherEmail) {
+        teacher = lookupData.teachersByEmail.get(row.teacherEmail);
+      }
+
+      if (!teacher) {
+        throw new Error(
+          `Teacher not found (ID: ${row.teacherId || 'N/A'}, Email: ${row.teacherEmail || 'N/A'})`,
+        );
+      }
+
+      // Rest of the processing logic (same as original processRow)
+      // ... (continue with course section and schedule creation)
+      // For now, delegate to original processRow for the complex logic
+      // but with lookups already done
+      return await this.processRowWithLookups(
+        row,
+        academicCycleId,
+        importFileId,
+        rowNumber,
+        importDetail,
+        {
+          student,
+          course,
+          timeBlock,
+          endTimeBlock,
+          room,
+          teacher,
+        },
+        lookupData,
+        tx,
+      );
+    } catch (error) {
+      await tx.scheduleImportDetail.update({
+        where: { id: importDetail.id },
+        data: {
+          status: ROW_STATUS.FAILED as any,
+          errorMessage: error.message,
+        },
+      });
+
+      return {
+        status: ROW_STATUS.FAILED as any,
+        errorMessage: error.message,
+      };
+    }
+  }
+
+  /**
+   * Process row with pre-loaded lookup data
+   * Updated to use teacher assignment matching
+   */
+  private async processRowWithLookups(
+    row: ParsedScheduleRow,
+    academicCycleId: string,
+    importFileId: string,
+    rowNumber: number,
+    importDetail: any,
+    lookups: {
+      student: any;
+      course: any;
+      timeBlock: any;
+      endTimeBlock: any;
+      room: any;
+      teacher: any;
+    },
+    lookupData: any,
+    tx: any,
+  ) {
+    // Use the new lookup strategy that prioritizes teacher assignment matching
+    const courseSection = await this.lookupOrCreateCourseSection(
+      {
+        courseId: lookups.course.id,
+        sectionNumber: row.sectionNumber,
+        timeBlockId: lookups.timeBlock.id,
+        endTimeBlockId: lookups.endTimeBlock?.id,
+        roomId: lookups.room.id,
+        teacherId: lookups.teacher.id,
+        maxEnrollment: row.maxEnrollment,
+        academicCycleId,
+        rotationDay: row.rotationDay ? (row.rotationDay as RotationDay) : null,
+      },
+      tx,
+      lookupData,
+      this.DEFAULT_CONFIG,
+    );
+
+    // Find or create schedule
+    let schedule = await tx.schedule.findFirst({
+      where: {
+        studentId: lookups.student.id,
+        academicCycleId,
+      },
+    });
+
+    if (!schedule) {
+      schedule = await tx.schedule.create({
+        data: {
+          studentId: lookups.student.id,
+          academicCycleId,
+        },
+      });
+    }
+
+    // Check if schedule-course-section relationship already exists
+    const existingRelation = await tx.scheduleCourseSection.findFirst({
+      where: {
+        scheduleId: schedule.id,
+        courseSectionId: courseSection.id,
+      },
+    });
+
+    if (existingRelation) {
+      await tx.scheduleImportDetail.update({
+        where: { id: importDetail.id },
+        data: {
+          status: ROW_STATUS.SKIPPED as any,
+          errorMessage: 'Schedule-course-section relationship already exists',
+        },
+      });
+
+      return {
+        status: ROW_STATUS.SKIPPED as any,
+        errorMessage: 'Schedule-course-section relationship already exists',
+      };
+    }
+
+    // Create schedule-course-section relationship
+    await tx.scheduleCourseSection.create({
+      data: {
+        scheduleId: schedule.id,
+        courseSectionId: courseSection.id,
+      },
+    });
+
+    // Update import detail as successful
+    await tx.scheduleImportDetail.update({
+      where: { id: importDetail.id },
+      data: {
+        status: ROW_STATUS.SUCCESS as any,
+      },
+    });
+
+    return {
+      status: ROW_STATUS.SUCCESS as any,
+    };
+  }
+
+  /**
+   * Process a single row (original method - kept for compatibility)
    */
   private async processRow(
     row: ParsedScheduleRow,
@@ -898,13 +1280,21 @@ export class ScheduleImportService {
         }
       }
 
-      // Lookup room
-      const room = await tx.room.findFirst({
-        where: { name: row.roomName },
-      });
-
+      // Lookup room by roomNo first (preferred), then fallback to name
+      let room = null;
+      if (row.roomNo) {
+        room = await tx.room.findUnique({
+          where: { roomNo: row.roomNo },
+        });
+      }
+      if (!room && row.roomName) {
+        room = await tx.room.findFirst({
+          where: { name: row.roomName },
+        });
+      }
       if (!room) {
-        throw new Error(`Room "${row.roomName}" not found`);
+        const identifier = row.roomNo || row.roomName;
+        throw new Error(`Room "${identifier}" not found (roomNo: ${row.roomNo || 'N/A'}, name: ${row.roomName || 'N/A'})`);
       }
 
       // Lookup teacher
@@ -927,7 +1317,8 @@ export class ScheduleImportService {
         );
       }
 
-      // Lookup or create course section
+      // Lookup or create course section (using new teacher assignment matching)
+      // Note: This method doesn't have pre-loaded lookup data, so it will use database queries
       const courseSection = await this.lookupOrCreateCourseSection(
         {
           courseId: course.id,
@@ -943,6 +1334,8 @@ export class ScheduleImportService {
             : null,
         },
         tx,
+        undefined, // No pre-loaded lookup data for this path
+        this.DEFAULT_CONFIG,
       );
 
       // Lookup or create schedule
@@ -1084,12 +1477,21 @@ export class ScheduleImportService {
     }
 
     // Lookup room
-    const room = await tx.room.findFirst({
-      where: { name: row.roomName },
-    });
-
+    // Lookup room by roomNo first (preferred), then fallback to name
+    let room = null;
+    if (row.roomNo) {
+      room = await tx.room.findUnique({
+        where: { roomNo: row.roomNo },
+      });
+    }
+    if (!room && row.roomName) {
+      room = await tx.room.findFirst({
+        where: { name: row.roomName },
+      });
+    }
     if (!room) {
-      throw new Error(`Room "${row.roomName}" not found`);
+      const identifier = row.roomNo || row.roomName;
+      throw new Error(`Room "${identifier}" not found (roomNo: ${row.roomNo || 'N/A'}, name: ${row.roomName || 'N/A'})`);
     }
 
     // Lookup teacher
@@ -1147,7 +1549,28 @@ export class ScheduleImportService {
   }
 
   /**
+   * Lookup course section by teacher assignment criteria
+   * Matches: courseId, sectionNumber, teacherId, timeBlockId, roomId, rotationDay
+   */
+  private lookupCourseSectionByAssignment(
+    data: {
+      courseId: string;
+      sectionNumber: string;
+      teacherId: string;
+      timeBlockId: string;
+      endTimeBlockId?: string | null;
+      roomId: string;
+      rotationDay?: RotationDay | null;
+    },
+    lookupData: any,
+  ): any {
+    const key = this.createCourseSectionKey(data);
+    return lookupData.courseSections.get(key) || null;
+  }
+
+  /**
    * Lookup or create course section
+   * Updated to prioritize teacher assignment matching
    */
   private async lookupOrCreateCourseSection(
     data: {
@@ -1162,8 +1585,38 @@ export class ScheduleImportService {
       rotationDay: RotationDay | null;
     },
     tx: any,
+    lookupData?: any,
+    config: ScheduleImportConfig = this.DEFAULT_CONFIG,
   ) {
-    // Try to find existing course section
+    // First, try to find by teacher assignment criteria (if lookup data provided)
+    if (lookupData?.courseSections) {
+      const matchedSection = this.lookupCourseSectionByAssignment(
+        {
+          courseId: data.courseId,
+          sectionNumber: data.sectionNumber,
+          teacherId: data.teacherId,
+          timeBlockId: data.timeBlockId,
+          endTimeBlockId: data.endTimeBlockId,
+          roomId: data.roomId,
+          rotationDay: data.rotationDay,
+        },
+        lookupData,
+      );
+
+      if (matchedSection) {
+        // Verify teacher matches (should always match if found via lookup)
+        if (matchedSection.teacherId === data.teacherId) {
+          return matchedSection;
+        } else {
+          // This shouldn't happen, but log warning if it does
+          this.logger.warn(
+            `Course section found but teacher mismatch: section ${matchedSection.id}, expected teacher ${data.teacherId}, found ${matchedSection.teacherId}`,
+          );
+        }
+      }
+    }
+
+    // Fallback: Try to find existing course section by basic criteria
     const existingSection = await tx.courseSection.findFirst({
       where: {
         courseId: data.courseId,
@@ -1171,6 +1624,9 @@ export class ScheduleImportService {
         academicCycleId: data.academicCycleId,
         timeBlockId: data.timeBlockId,
         endTimeBlockId: data.endTimeBlockId || null,
+        teacherId: data.teacherId, // Include teacher in lookup
+        roomId: data.roomId, // Include room in lookup
+        rotationDay: data.rotationDay || null,
       },
     });
 
@@ -1178,7 +1634,24 @@ export class ScheduleImportService {
       return existingSection;
     }
 
-    // Create new course section
+    // Section not found - handle based on configuration
+    if (config.strictMode) {
+      throw new Error(
+        `Course section not found for teacher assignment. Please create the teacher assignment first. Course: ${data.courseId}, Section: ${data.sectionNumber}, Teacher: ${data.teacherId}`,
+      );
+    }
+
+    // Create new course section (fallback behavior)
+    if (!config.createMissingSections) {
+      throw new Error(
+        `Course section not found and creation is disabled. Please create the teacher assignment first.`,
+      );
+    }
+
+    this.logger.log(
+      `Creating course section as fallback: Course ${data.courseId}, Section ${data.sectionNumber}, Teacher ${data.teacherId}`,
+    );
+
     return tx.courseSection.create({
       data: {
         courseId: data.courseId,

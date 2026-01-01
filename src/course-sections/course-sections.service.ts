@@ -85,12 +85,13 @@ export class CourseSectionsService {
       throw new NotFoundException(errorResponse);
     }
 
-    // Check room conflict for academicCycleId, timeblock and roomId
+    // Check room conflict for academicCycleId, timeblock, roomId, and rotationDay
     const existingRoomSection = await this.prisma.courseSection.findFirst({
       where: {
         academicCycleId: createCourseSectionDto.academicCycleId,
         timeBlockId: createCourseSectionDto.timeBlockId,
         roomId: createCourseSectionDto.roomId,
+        rotationDay: createCourseSectionDto.rotationDay || null,
       },
     });
     if (existingRoomSection) {
@@ -109,6 +110,7 @@ export class CourseSectionsService {
         academicCycleId: createCourseSectionDto.academicCycleId,
         timeBlockId: createCourseSectionDto.timeBlockId,
         teacherId: createCourseSectionDto.teacherId,
+        rotationDay: createCourseSectionDto.rotationDay || null,
       },
     });
     if (existingTeacherSection) {
@@ -121,8 +123,58 @@ export class CourseSectionsService {
       throw new BadRequestException(errorResponse);
     }
 
+    // Auto-generate section number if not provided
+    let sectionNumber = createCourseSectionDto.sectionNumber;
+    if (!sectionNumber) {
+      // Find all existing sections for this course and academic cycle
+      const existingSections = await this.prisma.courseSection.findMany({
+        where: {
+          courseId: createCourseSectionDto.courseId,
+          academicCycleId: createCourseSectionDto.academicCycleId,
+        },
+        select: {
+          sectionNumber: true,
+        },
+        orderBy: {
+          sectionNumber: 'asc',
+        },
+      });
+
+      // Section letters: A through Z
+      const sectionLetters = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z'];
+
+      if (existingSections.length > 0) {
+        // Get existing section numbers (as letters)
+        const existingSectionNumbers = existingSections.map(s => s.sectionNumber.toUpperCase());
+        
+        // Find the highest letter used
+        let highestIndex = -1;
+        existingSectionNumbers.forEach(sectionNum => {
+          const index = sectionLetters.indexOf(sectionNum);
+          if (index > highestIndex) {
+            highestIndex = index;
+          }
+        });
+        
+        // Generate next letter
+        const nextIndex = highestIndex + 1;
+        if (nextIndex < sectionLetters.length) {
+          sectionNumber = sectionLetters[nextIndex];
+        } else {
+          // If we've used all letters, use the last one with a number (e.g., Z1, Z2)
+          sectionNumber = `Z${existingSections.length - sectionLetters.length + 1}`;
+        }
+      } else {
+        // No existing sections, start with 'A'
+        sectionNumber = 'A';
+      }
+    }
+
     return this.prisma.courseSection.create({
-      data: createCourseSectionDto,
+      data: {
+        ...createCourseSectionDto,
+        sectionNumber,
+      },
       include: {
         course: true,
         academicCycle: true,
@@ -156,7 +208,18 @@ export class CourseSectionsService {
         },
         timeBlock: true,
         room: true,
-        teacher: true,
+        teacher: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                email: true,
+              },
+            },
+          },
+        },
       },
     });
   }
@@ -169,7 +232,18 @@ export class CourseSectionsService {
         academicCycle: true,
         timeBlock: true,
         room: true,
-        teacher: true,
+        teacher: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                email: true
+              },
+            },
+          },
+        },
       },
     });
 

@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsString, IsNumber, IsOptional, Min, Max, IsEnum } from 'class-validator';
+import { IsString, IsNumber, IsOptional, Min, Max, IsEnum, ValidateIf } from 'class-validator';
 import { RotationDay } from '@prisma/client';
 
 export class CreateCourseSectionDto {
@@ -7,9 +7,11 @@ export class CreateCourseSectionDto {
   @IsString()
   courseId: string;
 
-  @ApiProperty({ description: 'The section number (e.g., A, B, C)' })
+  @ApiProperty({ description: 'The section number (e.g., A, B, C). If not provided, will be auto-generated.', required: false })
+  @ValidateIf((o) => o.sectionNumber !== undefined && o.sectionNumber !== null)
   @IsString()
-  sectionNumber: string;
+  @IsOptional()
+  sectionNumber?: string;
 
   @ApiProperty({ description: 'The academic cycle ID' })
   @IsString()

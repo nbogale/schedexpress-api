@@ -16,7 +16,7 @@ export class DepartmentsController {
 
   @Post()
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.ADMIN, UserRole.PLATFORM_ADMIN)
+  @Roles(UserRole.ADMIN, UserRole.PLATFORM_ADMIN, UserRole.COUNSELOR)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Create a new department' })
   @ApiResponse({ status: 201, description: 'Department created successfully' })
@@ -47,7 +47,7 @@ export class DepartmentsController {
 
   @Patch(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.ADMIN, UserRole.PLATFORM_ADMIN)
+  @Roles(UserRole.ADMIN, UserRole.PLATFORM_ADMIN, UserRole.COUNSELOR)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Update a department' })
   @ApiResponse({ status: 200, description: 'Department updated successfully' })
@@ -57,7 +57,7 @@ export class DepartmentsController {
 
   @Delete(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.ADMIN, UserRole.PLATFORM_ADMIN)
+  @Roles(UserRole.ADMIN, UserRole.PLATFORM_ADMIN, UserRole.COUNSELOR)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Delete a department' })
   @ApiResponse({ status: 200, description: 'Department deleted successfully' })

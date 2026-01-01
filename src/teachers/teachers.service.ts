@@ -10,7 +10,7 @@ import { UpdateTeacherDto } from "./dto/update-teacher.dto";
 import { ApiErrorResponseBuilder } from "src/common/api-error-builder";
 import { ErrorCode } from "src/common/error-codes";
 import { ApiErrorResponse } from "src/common/api-error";
-import { UserRole, Prisma, TeacherStatus } from "@prisma/client";
+import { UserRole, Prisma, TeacherStatus, CycleType } from "@prisma/client";
 import * as bcrypt from "bcrypt";
 import * as Papa from "papaparse";
 import * as XLSX from "xlsx";
@@ -707,78 +707,148 @@ export class TeachersService {
   }
 
   /**
-   * Get export data for teachers - returns one row per course assignment
-   * Only includes ACTIVE teachers who have at least one course assignment
+   * Get export data for teachers - returns one row per course section (assignment)
+   * Only includes ACTIVE teachers who have at least one course section assignment
    */
   async getExportData() {
-    const teachers = await this.prisma.teacher.findMany({
+    // Get current academic year (SCHOOL_YEAR type)
+    const currentAcademicYear = await this.prisma.academicCycle.findFirst({
       where: {
-        status: TeacherStatus.ACTIVE,
-        teacherCourses: {
-          some: {}, // Only include teachers with at least one course
+        cycleType: CycleType.SCHOOL_YEAR,
+        isCurrent: true,
+      },
+    });
+
+    // If no current academic year, get the most recent one
+    const academicYear = currentAcademicYear || await this.prisma.academicCycle.findFirst({
+      where: {
+        cycleType: CycleType.SCHOOL_YEAR,
+      },
+      orderBy: {
+        startDate: 'desc',
+      },
+    });
+
+    if (!academicYear) {
+      return [];
+    }
+
+    // Query course sections for active teachers in the current academic year
+    const courseSections = await this.prisma.courseSection.findMany({
+      where: {
+        teacher: {
+          status: TeacherStatus.ACTIVE,
         },
+        academicCycleId: academicYear.id,
       },
       include: {
-        department: true,
-        room: true,
-        teacherCourses: {
+        teacher: {
           include: {
-            course: {
+            department: true,
+            room: true,
+            user: {
               select: {
-                id: true,
-                code: true,
-                name: true,
-                credits: true,
+                firstName: true,
+                lastName: true,
+                email: true,
               },
             },
           },
         },
-        user: {
+        course: {
           select: {
-            firstName: true,
-            lastName: true,
-            email: true,
+            id: true,
+            code: true,
+            name: true,
+            credits: true,
+          },
+        },
+        timeBlock: {
+          select: {
+            name: true,
+            startTime: true,
+            endTime: true,
+          },
+        },
+        room: {
+          select: {
+            name: true,
+            roomNo: true,
+            capacity: true,
           },
         },
       },
-      orderBy: {
-        name: "asc",
-      },
+      orderBy: [
+        { teacher: { name: 'asc' } },
+        { course: { code: 'asc' } },
+        { sectionNumber: 'asc' },
+      ],
     });
 
-    // Transform to export format: one row per course assignment
+    // Transform to export format: one row per course section
     const exportRows: any[] = [];
 
-    for (const teacher of teachers) {
-      const teacherId = teacher.teacherId; // Use teacher_id column, not id
+    for (const section of courseSections) {
+      const teacher = section.teacher;
+      const teacherId = teacher.teacherId;
       const firstName = teacher.user?.firstName || "";
       const lastName = teacher.user?.lastName || "";
       const email = teacher.user?.email || teacher.email;
       const department = teacher.department?.name || "";
-      const roomName = teacher.room?.name || "";
-      const roomCapacity = teacher.room?.capacity ? teacher.room.capacity.toString() : "";
+      const roomName = section.room?.name || teacher.room?.name || "";
+      const roomNo = section.room?.roomNo || "";
+      // Use maxEnrollment from course section for room_capacity
+      const roomCapacity = section.maxEnrollment ? section.maxEnrollment.toString() : "";
 
-      // Create one row per course assignment (we know teacher has courses due to the filter)
-      if (teacher.teacherCourses && teacher.teacherCourses.length > 0) {
-        for (const teacherCourse of teacher.teacherCourses) {
-          exportRows.push({
-            teacher_id: teacherId,
-            teacher_first_name: firstName,
-            teacher_last_name: lastName,
-            email: email,
-            course_id: teacherCourse.course.code, // Use course_code instead of course.id
-            course_name: teacherCourse.course.name,
-            course_credits: teacherCourse.course.credits.toString(),
-            department: department,
-            room_id: roomName, // Use room_name for room_id column
-            room_name: roomName,
-            room_capacity: roomCapacity,
-          });
-        }
-      }
+      // Determine if this is a Planning course
+      const isPlanning = section.course.code.toUpperCase() === 'PLANNING';
+
+      // Format time block times
+      const timeBlockName = section.timeBlock?.name || "";
+      const startTime = section.timeBlock?.startTime 
+        ? this.formatTimeForExport(section.timeBlock.startTime)
+        : "";
+      const endTime = section.timeBlock?.endTime
+        ? this.formatTimeForExport(section.timeBlock.endTime)
+        : "";
+
+      // Format rotation day (extract letter, e.g., "A_DAY" -> "A", "B_DAY" -> "B")
+      const rotationDay = section.rotationDay 
+        ? section.rotationDay.split('_')[0]
+        : "";
+
+      exportRows.push({
+        teacher_id: teacherId,
+        teacher_first_name: firstName,
+        teacher_last_name: lastName,
+        email: email,
+        course_id: section.course.code,
+        course_name: section.course.name,
+        course_credits: section.course.credits.toString(),
+        department: department,
+        room_id: roomNo,
+        room_name: roomName,
+        room_capacity: roomCapacity,
+        time_block_name: timeBlockName,
+        start_time: startTime,
+        end_time: endTime,
+        schedule_type: "Block",
+        rotation_day: rotationDay,
+        available: isPlanning ? "FALSE" : "TRUE",
+        school_level: "HS",
+      });
     }
 
     return exportRows;
+  }
+
+  /**
+   * Format time for export (HH:mm format)
+   */
+  private formatTimeForExport(dateTime: Date): string {
+    const hours = dateTime.getUTCHours().toString().padStart(2, '0');
+    const minutes = dateTime.getUTCMinutes().toString().padStart(2, '0');
+    return `${hours}:${minutes}`;
   }
 
   /**
@@ -799,6 +869,13 @@ export class TeachersService {
       "room_id",
       "room_name",
       "room_capacity",
+      "time_block_name",
+      "start_time",
+      "end_time",
+      "schedule_type",
+      "rotation_day",
+      "available",
+      "school_level",
     ];
 
     // Convert to array of arrays for Papa.unparse
@@ -814,6 +891,13 @@ export class TeachersService {
       row.room_id,
       row.room_name,
       row.room_capacity,
+      row.time_block_name,
+      row.start_time,
+      row.end_time,
+      row.schedule_type,
+      row.rotation_day,
+      row.available,
+      row.school_level,
     ]);
 
     return Papa.unparse([headers, ...rows]);
@@ -837,6 +921,13 @@ export class TeachersService {
       "room_id",
       "room_name",
       "room_capacity",
+      "time_block_name",
+      "start_time",
+      "end_time",
+      "schedule_type",
+      "rotation_day",
+      "available",
+      "school_level",
     ];
 
     // Convert to array of arrays for XLSX
@@ -852,6 +943,13 @@ export class TeachersService {
       row.room_id,
       row.room_name,
       row.room_capacity,
+      row.time_block_name,
+      row.start_time,
+      row.end_time,
+      row.schedule_type,
+      row.rotation_day,
+      row.available,
+      row.school_level,
     ]);
 
     // Create workbook
@@ -871,6 +969,13 @@ export class TeachersService {
       { wch: 15 }, // room_id
       { wch: 20 }, // room_name
       { wch: 12 }, // room_capacity
+      { wch: 18 }, // time_block_name
+      { wch: 10 }, // start_time
+      { wch: 10 }, // end_time
+      { wch: 12 }, // schedule_type
+      { wch: 12 }, // rotation_day
+      { wch: 10 }, // available
+      { wch: 12 }, // school_level
     ];
     worksheet["!cols"] = colWidths;
 
@@ -881,3 +986,4 @@ export class TeachersService {
     return XLSX.write(workbook, { type: "buffer", bookType: "xlsx" });
   }
 }
+

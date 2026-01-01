@@ -194,14 +194,22 @@ function generateCSV(rows) {
       row.academicCycleName,
       row.courseCode,
       row.sectionNumber,
-      row.timeBlockName,
-      row.endTimeBlockName,
-      row.roomName,
+      row.timeBlockName,      // Maps to period_start
+      row.endTimeBlockName || '', // Maps to period_end
+      row.roomName,           // Maps to room_no (service also accepts room_name)
       row.teacherId,
       row.maxEnrollment,
-      row.rotationDay
+      row.rotationDay || ''
     ];
-    csvRows.push(values.join(','));
+    // Escape values that contain commas
+    const escapedValues = values.map(v => {
+      const str = String(v || '');
+      if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+        return `"${str.replace(/"/g, '""')}"`;
+      }
+      return str;
+    });
+    csvRows.push(escapedValues.join(','));
   }
 
   return csvRows.join('\n');

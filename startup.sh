@@ -28,12 +28,18 @@ if [ -n "$DATABASE_URL" ] && [ -z "$PGHOST" ]; then
 fi
 
 # Wait for database to be ready
+# For Cloud SQL Unix socket connections, skip pg_isready check
+if echo "$DATABASE_URL" | grep -q "/cloudsql/"; then
+  echo "Cloud SQL Unix socket connection detected, skipping pg_isready check"
+  echo "Database connection will be validated by Prisma"
+else
 echo "Waiting for database at $PGHOST:$PGPORT…"
-until pg_isready --host="$PGHOST" --port="$PGPORT" --username="$PGUSER" --dbname="$PGDATABASE"; do
+  until pg_isready --host="$PGHOST" --port="$PGPORT" --username="$PGUSER" --dbname="$PGDATABASE" 2>/dev/null; do
   echo "  › Database not ready, retrying in 2s…"
   sleep 2
 done
 echo "✅ Database is ready!"
+fi
 
 # Generate Prisma client
 echo "Generating Prisma client…"
@@ -43,10 +49,12 @@ npx prisma generate
 echo "Running Prisma migrations…"
 npx prisma migrate deploy
 
-# Seed if needed
-if [ -f "prisma/seed.ts" ]; then
+# Seed if needed (skip in production)
+if [ "$NODE_ENV" != "production" ] && [ -f "prisma/seed.ts" ]; then
   echo "Seeding database…"
   npx prisma db seed
+else
+  echo "Skipping database seeding in production environment"
 fi
 
 # Start the application - always try to run main.js regardless of NODE_ENV

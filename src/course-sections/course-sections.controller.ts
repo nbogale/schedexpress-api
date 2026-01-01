@@ -1,9 +1,13 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, Query, ParseIntPipe, DefaultValuePipe } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, Query, ParseIntPipe, DefaultValuePipe, UseGuards } from '@nestjs/common';
 import { CourseSectionsService } from './course-sections.service';
 import { CreateCourseSectionDto } from './dto/create-course-section.dto';
 import { UpdateCourseSectionDto } from './dto/update-course-section.dto';
-import { ApiTags, ApiOperation, ApiResponse, ApiQuery } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiQuery, ApiBearerAuth } from '@nestjs/swagger';
 import { Prisma } from '@prisma/client';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../auth/guards/roles.guard';
+import { Roles } from '../auth/decorators/roles.decorator';
+import { UserRole } from '@prisma/client';
 
 @ApiTags('course-sections')
 @Controller('course-sections')
@@ -11,6 +15,9 @@ export class CourseSectionsController {
   constructor(private readonly courseSectionsService: CourseSectionsService) {}
 
   @Post()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.PLATFORM_ADMIN, UserRole.COUNSELOR, UserRole.PRINCIPAL)
+  @ApiBearerAuth()
   @ApiOperation({ summary: 'Create a new course section' })
   @ApiResponse({ status: 201, description: 'The course section has been successfully created.' })
   @ApiResponse({ status: 400, description: 'Invalid input or time block conflict.' })
@@ -20,6 +27,9 @@ export class CourseSectionsController {
   }
 
   @Get()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.PLATFORM_ADMIN, UserRole.COUNSELOR, UserRole.PRINCIPAL, UserRole.TEACHER)
+  @ApiBearerAuth()
   @ApiOperation({ summary: 'Get all course sections with optional filtering' })
   @ApiQuery({ name: 'skip', required: false, type: Number })
   @ApiQuery({ name: 'take', required: false, type: Number })
@@ -58,6 +68,9 @@ export class CourseSectionsController {
   }
 
   @Patch(':id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.PLATFORM_ADMIN, UserRole.COUNSELOR, UserRole.PRINCIPAL)
+  @ApiBearerAuth()
   @ApiOperation({ summary: 'Update a course section' })
   @ApiResponse({ status: 200, description: 'The course section has been successfully updated.' })
   @ApiResponse({ status: 400, description: 'Invalid input or time block conflict.' })
@@ -67,6 +80,9 @@ export class CourseSectionsController {
   }
 
   @Delete(':id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.PLATFORM_ADMIN, UserRole.COUNSELOR, UserRole.PRINCIPAL)
+  @ApiBearerAuth()
   @ApiOperation({ summary: 'Delete a course section' })
   @ApiResponse({ status: 200, description: 'The course section has been successfully deleted.' })
   @ApiResponse({ status: 400, description: 'Cannot delete section with enrolled students.' })

@@ -174,4 +174,31 @@ export class StudentsController {
     res.setHeader('Content-Disposition', 'attachment; filename="students-template.xlsx"');
     res.status(HttpStatus.OK).send(excelBuffer);
   }
+
+  @Get('export/csv')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.COUNSELOR)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Export students to CSV' })
+  @ApiResponse({ status: 200, description: 'CSV file with student data' })
+  async exportCSV(@Res() res: Response) {
+    const csvContent = await this.studentsService.generateCSVExport();
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', 'attachment; filename="Student Roster.csv"');
+    res.send(csvContent);
+  }
+
+  @Get('export/excel')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.COUNSELOR)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Export students to Excel' })
+  @ApiResponse({ status: 200, description: 'Excel file with student data' })
+  async exportExcel(@Res() res: Response) {
+    const excelBuffer = await this.studentsService.generateExcelExport();
+    
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', 'attachment; filename="Student Roster.xlsx"');
+    res.send(excelBuffer);
+  }
 }

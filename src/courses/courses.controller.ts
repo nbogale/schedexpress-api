@@ -15,7 +15,7 @@ export class CoursesController {
 
   @Post()
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.ADMIN, UserRole.PLATFORM_ADMIN)
+  @Roles(UserRole.ADMIN, UserRole.PLATFORM_ADMIN, UserRole.COUNSELOR)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Create a new course' })
   @ApiResponse({ 
@@ -70,7 +70,7 @@ export class CoursesController {
 
   @Put(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.ADMIN, UserRole.PLATFORM_ADMIN)
+  @Roles(UserRole.ADMIN, UserRole.PLATFORM_ADMIN, UserRole.COUNSELOR)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Update a course' })
   @ApiResponse({ status: 200, description: 'The course has been successfully updated' })
@@ -82,7 +82,7 @@ export class CoursesController {
 
   @Delete(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.ADMIN, UserRole.PLATFORM_ADMIN)
+  @Roles(UserRole.ADMIN, UserRole.PLATFORM_ADMIN, UserRole.COUNSELOR)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Delete a course' })
   @ApiResponse({ status: 200, description: 'The course has been successfully deleted' })

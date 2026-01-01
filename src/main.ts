@@ -34,9 +34,14 @@ async function bootstrap() {
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api/docs', app, document);
   
-  // Initialize email templates
-  const emailService = app.get(EmailService);
-  await emailService.initializeTemplates();
+  // Initialize email templates (only if SMTP is configured)
+  try {
+    const emailService = app.get(EmailService);
+    await emailService.initializeTemplates();
+  } catch (error) {
+    console.warn('Email service initialization skipped:', error.message);
+    console.warn('Email functionality will be disabled. Set SMTP credentials to enable.');
+  }
   
   await app.listen(process.env.PORT || 3001);
   console.log(`Application is running on: ${await app.getUrl()}`);

@@ -26,6 +26,8 @@ model User {
   notifications           Notification[]
   performedActions        ScheduleChangeAction[]  @relation("ActionPerformer")
   reviewedRequests        ScheduleChangeRequest[] @relation("RequestReviewer")
+  reviewedPreferences     CoursePreference[]      @relation("PreferenceReviewer")
+  createdPreferences      CoursePreference[]      @relation("PreferenceCreator")
   student                 Student?
   gradesGiven             StudentGrade[]          @relation("GradeTeacher")
   teacher                 Teacher?
@@ -75,14 +77,15 @@ model Student {
   emergencyContactId String? @map("emergency_contact_id")
 
   // Existing relationships
-  waitlist       CourseWaitlist[]
-  notifications  Notification[]
-  schedules      Schedule[]
-  changeRequests ScheduleChangeRequest[]
-  gradeLevel     GradeLevel              @relation(fields: [gradeLevelId], references: [id])
-  user           User                    @relation(fields: [userId], references: [id])
-  courseHistory  StudentCourseHistory[]
-  grades         StudentGrade[]
+  waitlist          CourseWaitlist[]
+  notifications     Notification[]
+  schedules         Schedule[]
+  changeRequests    ScheduleChangeRequest[]
+  coursePreferences CoursePreference[]
+  gradeLevel        GradeLevel              @relation(fields: [gradeLevelId], references: [id])
+  user              User                    @relation(fields: [userId], references: [id])
+  courseHistory     StudentCourseHistory[]
+  grades            StudentGrade[]
 
   // Parent relationships
   primaryParent    ParentGuardian? @relation("PrimaryParent", fields: [primaryParentId], references: [id])
@@ -428,6 +431,7 @@ model AcademicCycle {
   schedules              Schedule[]
   studentCourseHistory   StudentCourseHistory[]
   scheduleImportFiles    ScheduleImportFile[]
+  coursePreferences      CoursePreference[]
 
   @@index([parentId])
   @@index([cycleType])
@@ -586,6 +590,7 @@ model Course {
   sequences        CourseSequence[]
   courseHistory    StudentCourseHistory[]
   grades           StudentGrade[]
+  preferences      CoursePreference[]
   teacherCourses   TeacherCourse[]
 
   @@map("course")
@@ -633,6 +638,7 @@ model TeacherCourse {
 
 model Room {
   id          String          @id @default(cuid())
+  roomNo      String          @unique @map("room_no") @db.VarChar(50)
   name        String          @db.VarChar(50)
   capacity    Int
   isActive    Boolean         @default(true) @map("is_active")
@@ -716,6 +722,41 @@ model ScheduleChangeRequest {
   @@index([status])
   @@index([academicCycleId])
   @@map("schedule_change_request")
+}
+
+model CoursePreference {
+  id            String                  @id @default(cuid())
+  studentId     String                  @map("student_id")
+  courseId      String                  @map("course_id")
+  academicCycleId String                @map("academic_cycle_id")
+  reason        String?
+  priority      Int?                    // 1st choice, 2nd choice, 3rd choice, etc.
+  status        CoursePreferenceStatus  @default(DRAFT)
+  counselorNotes String?                @map("counselor_notes") @db.Text
+  submittedAt   DateTime?               @map("submitted_at")
+  reviewedAt    DateTime?               @map("reviewed_at")
+  reviewedById  String?                 @map("reviewed_by_id")
+  createdBy     String?                 @map("created_by") // userId who created (null = student)
+  source        PreferenceSource        @default(STUDENT_INITIATED)
+  autoApproved  Boolean                 @default(false) @map("auto_approved")
+  createdAt     DateTime                @default(now()) @map("created_at")
+  updatedAt     DateTime                @updatedAt @map("updated_at")
+  
+  student       Student                 @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  course        Course                  @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  academicCycle AcademicCycle           @relation(fields: [academicCycleId], references: [id], onDelete: Cascade)
+  reviewer      User?                   @relation("PreferenceReviewer", fields: [reviewedById], references: [id])
+  creator       User?                   @relation("PreferenceCreator", fields: [createdBy], references: [id])
+
+  @@unique([studentId, courseId, academicCycleId])
+  @@unique([studentId, academicCycleId, priority]) // Ensure unique priority per student per academic cycle
+  @@index([studentId])
+  @@index([academicCycleId])
+  @@index([status])
+  @@index([priority])
+  @@index([source])
+  @@index([createdBy])
+  @@map("course_preference")
 }
 
 model ScheduleChangeAction {
@@ -1024,6 +1065,23 @@ enum RequestPriority {
   CRITICAL
 
   @@map("request_priority")
+}
+
+enum CoursePreferenceStatus {
+  DRAFT
+  SUBMITTED
+  APPROVED
+  REJECTED
+
+  @@map("course_preference_status")
+}
+
+enum PreferenceSource {
+  STUDENT_INITIATED
+  COUNSELOR_INITIATED
+  SYSTEM_INITIATED
+
+  @@map("preference_source")
 }
 
 enum ConflictType {

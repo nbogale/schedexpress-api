@@ -8,6 +8,8 @@ import { CycleType, UserRole } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { ApiErrorResponse } from 'src/common/api-error';
 import { AcademicCyclesService } from 'src/academic-cycles/academic-cycles.service';
+import * as Papa from 'papaparse';
+import * as XLSX from 'xlsx';
 
 @Injectable()
 export class StudentsService {
@@ -461,5 +463,110 @@ export class StudentsService {
     const username = email.split('@')[0];
     // Remove special characters and convert to lowercase
     return username.replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+  }
+
+  /**
+   * Get export data for all students
+   */
+  private async getExportData() {
+    const students = await this.prisma.user.findMany({
+      where: {
+        role: UserRole.STUDENT,
+      },
+      include: {
+        student: {
+          include: {
+            gradeLevel: true,
+          },
+        },
+      },
+      orderBy: [
+        { lastName: 'asc' },
+        { firstName: 'asc' },
+      ],
+    });
+
+    return students.map((user) => ({
+      student_id: user.student?.studentId || '',
+      first_name: user.firstName,
+      last_name: user.lastName,
+      grade_level: user.student?.gradeLevel?.name || 'N/A',
+      email: user.email,
+      graduation_year: user.student?.graduationYear || null,
+    }));
+  }
+
+  /**
+   * Generate CSV export for students
+   */
+  async generateCSVExport(): Promise<string> {
+    const exportData = await this.getExportData();
+
+    const headers = [
+      'student_id',
+      'first_name',
+      'last_name',
+      'grade_level',
+      'email',
+      'graduation_year',
+    ];
+
+    const rows = exportData.map((row) => [
+      row.student_id,
+      row.first_name,
+      row.last_name,
+      row.grade_level,
+      row.email,
+      row.graduation_year || '',
+    ]);
+
+    return Papa.unparse([headers, ...rows]);
+  }
+
+  /**
+   * Generate Excel export for students
+   */
+  async generateExcelExport(): Promise<Buffer> {
+    const exportData = await this.getExportData();
+
+    const headers = [
+      'student_id',
+      'first_name',
+      'last_name',
+      'grade_level',
+      'email',
+      'graduation_year',
+    ];
+
+    // Convert to array of arrays for XLSX
+    const rows = exportData.map((row) => [
+      row.student_id,
+      row.first_name,
+      row.last_name,
+      row.grade_level,
+      row.email,
+      row.graduation_year || '',
+    ]);
+
+    // Create workbook
+    const workbook = XLSX.utils.book_new();
+    const worksheet = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+
+    // Set column widths for better readability
+    const colWidths = [
+      { wch: 15 }, // student_id
+      { wch: 18 }, // first_name
+      { wch: 18 }, // last_name
+      { wch: 12 }, // grade_level
+      { wch: 30 }, // email
+      { wch: 15 }, // graduation_year
+    ];
+    worksheet['!cols'] = colWidths;
+
+    // Add worksheet to workbook
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Student Roster');
+
+    // Convert to buffer
+    return XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
   }
 }
