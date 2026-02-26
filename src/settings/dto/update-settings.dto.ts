@@ -5,15 +5,6 @@ import { ScheduleChangeConfig } from '../../schedule-change-requests/interfaces/
 export enum ScheduleType {
   STANDARD = 'STANDARD',
   BLOCK = 'BLOCK',
-  HYBRID = 'HYBRID',
-  ROTATING = 'ROTATING'
-}
-
-export enum RotationDayType {
-  A_B_DAYS = 'A_B_DAYS',
-  A_B_C_DAYS = 'A_B_C_DAYS',
-  A_B_C_D_DAYS = 'A_B_C_D_DAYS',
-  CUSTOM = 'CUSTOM'
 }
 
 export class UpdateSettingsDto {
@@ -67,14 +58,13 @@ export class UpdateSettingsDto {
   hasRotationDays?: boolean;
 
   @ApiProperty({
-    example: RotationDayType.A_B_DAYS,
-    description: 'Type of rotation day system',
-    enum: RotationDayType,
+    example: 'A_DAY,B_DAY',
+    description: 'Comma-separated rotation pattern tokens (e.g. A_DAY,B_DAY)',
     required: false,
   })
-  @IsEnum(RotationDayType)
+  @IsString()
   @IsOptional()
-  rotationDayType?: RotationDayType;
+  rotationPattern?: string;
 
   @ApiProperty({
     example: 45,

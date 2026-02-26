@@ -46,6 +46,16 @@ export class PeriodGenerationService {
       throw new NotFoundException(`Academic cycle with ID ${cycleId} not found`);
     }
 
+    const academicSettings = await this.academicSettingsService.getAcademicSettings();
+    if (academicSettings.enableAcademicDefaults === false) {
+      return {
+        periods: [],
+        warnings: [
+          'Academic defaults are disabled in settings. Enable them to generate default periods automatically.',
+        ],
+      };
+    }
+
     const defaultConfig = await this.academicSettingsService.getDefaultPeriodConfiguration();
     
     if (!defaultConfig) {

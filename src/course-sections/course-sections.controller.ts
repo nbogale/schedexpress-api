@@ -28,7 +28,7 @@ export class CourseSectionsController {
 
   @Get()
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.ADMIN, UserRole.PLATFORM_ADMIN, UserRole.COUNSELOR, UserRole.PRINCIPAL, UserRole.TEACHER)
+  @Roles(UserRole.ADMIN, UserRole.PLATFORM_ADMIN, UserRole.COUNSELOR, UserRole.PRINCIPAL, UserRole.TEACHER, UserRole.STUDENT)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get all course sections with optional filtering' })
   @ApiQuery({ name: 'skip', required: false, type: Number })

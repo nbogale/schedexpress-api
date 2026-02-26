@@ -408,6 +408,7 @@ export class TeachersService {
         timeBlock: true,
         academicCycle: true,
         room: true,
+        _count: { select: { scheduleCourseSections: true } },
       },
       orderBy: [{ timeBlock: { startTime: "asc" } }, { sectionNumber: "asc" }],
     });
@@ -436,6 +437,7 @@ export class TeachersService {
           timeBlock: true,
           academicCycle: true,
           room: true,
+          _count: { select: { scheduleCourseSections: true } },
         },
       });
 
@@ -449,7 +451,14 @@ export class TeachersService {
       }
     }
 
-    return sections;
+    // Always compute enrollment based on actual schedule enrollments (avoids stale currentEnrollment column)
+    return (sections as any[]).map((section) => {
+      const { _count, ...rest } = section;
+      return {
+        ...rest,
+        currentEnrollment: _count?.scheduleCourseSections ?? rest.currentEnrollment ?? 0,
+      };
+    });
   }
 
   async getStudentsPerCourse(teacherId: string) {

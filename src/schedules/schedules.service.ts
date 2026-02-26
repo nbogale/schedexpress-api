@@ -133,16 +133,27 @@ export class SchedulesService {
       throw new BadRequestException(errorResponse);
     }
 
+    // Source-of-truth enrollment counts (scheduleCourseSections) for accurate capacity checks
+    const enrollmentCounts = await this.prisma.scheduleCourseSection.groupBy({
+      by: ['courseSectionId'],
+      where: { courseSectionId: { in: courseSectionIds } },
+      _count: { courseSectionId: true },
+    });
+    const enrollmentCountBySectionId = new Map<string, number>(
+      enrollmentCounts.map((r) => [r.courseSectionId, r._count.courseSectionId]),
+    );
+
     // Check capacity based on business rules
     const enrollmentRules = await this.businessRulesService.getRuleCategory('enrollment') as EnrollmentRuleConfig;
     if (enrollmentRules && enrollmentRules.isActive && enrollmentRules.capacity.checkCapacity) {
       const overCapacityCourses = courseSections.filter(course => {
-        const isOverCapacity = course.currentEnrollment >= course.maxEnrollment;
+        const effectiveEnrollment = enrollmentCountBySectionId.get(course.id) ?? course.currentEnrollment;
+        const isOverCapacity = effectiveEnrollment >= course.maxEnrollment;
         if (!isOverCapacity) return false;
         
         // Check if over-enrollment is allowed
         if (enrollmentRules.capacity.allowOverEnrollment && enrollmentRules.capacity.overEnrollmentLimit) {
-          const currentPercentage = (course.currentEnrollment / course.maxEnrollment) * 100;
+          const currentPercentage = (effectiveEnrollment / course.maxEnrollment) * 100;
           return currentPercentage > enrollmentRules.capacity.overEnrollmentLimit;
         }
         return true;
@@ -152,7 +163,8 @@ export class SchedulesService {
         // Check if any course exceeds over-enrollment limit
         const exceedsLimit = overCapacityCourses.some(course => {
           if (enrollmentRules.capacity.allowOverEnrollment && enrollmentRules.capacity.overEnrollmentLimit) {
-            const currentPercentage = (course.currentEnrollment / course.maxEnrollment) * 100;
+            const effectiveEnrollment = enrollmentCountBySectionId.get(course.id) ?? course.currentEnrollment;
+            const currentPercentage = (effectiveEnrollment / course.maxEnrollment) * 100;
             return currentPercentage > enrollmentRules.capacity.overEnrollmentLimit;
           }
           return true; // At capacity and over-enrollment not allowed
@@ -170,7 +182,7 @@ export class SchedulesService {
     } else {
       // Fallback to basic capacity check if rules are disabled
       const overCapacityCourses = courseSections.filter(
-        course => course.currentEnrollment >= course.maxEnrollment
+        course => (enrollmentCountBySectionId.get(course.id) ?? course.currentEnrollment) >= course.maxEnrollment
       );
 
       if (overCapacityCourses.length > 0) {
@@ -184,32 +196,47 @@ export class SchedulesService {
       }
     }
 
-    return this.prisma.schedule.create({
-      data: {
-        ...scheduleData,
-        academicCycle: { connect: { id: academicCycleId } },
-        student: { connect: { id: studentId } },
-        scheduleCourseSections: {
-          create: courseSectionIds.map(id => ({
-            courseSection: { connect: { id } }
-          }))
+    return this.prisma.$transaction(async (tx) => {
+      const schedule = await tx.schedule.create({
+        data: {
+          ...scheduleData,
+          academicCycle: { connect: { id: academicCycleId } },
+          student: { connect: { id: studentId } },
+          scheduleCourseSections: {
+            create: courseSectionIds.map(id => ({
+              courseSection: { connect: { id } }
+            }))
+          },
         },
-      },
-      include: {
-        student: true,
-        scheduleCourseSections: {
-          include: {
-            courseSection: {
-              include: {
-                course: true,
-                timeBlock: true,
-                room: true,
-                teacher: true,
+        include: {
+          student: true,
+          scheduleCourseSections: {
+            include: {
+              courseSection: {
+                include: {
+                  course: true,
+                  timeBlock: true,
+                  room: true,
+                  teacher: true,
+                }
               }
             }
-          }
+          },
         },
-      },
+      });
+
+      // Keep denormalized currentEnrollment in sync (best-effort) with actual enrollments
+      await Promise.all(
+        courseSections.map((section) => {
+          const effectiveEnrollment = enrollmentCountBySectionId.get(section.id) ?? section.currentEnrollment;
+          return tx.courseSection.update({
+            where: { id: section.id },
+            data: { currentEnrollment: effectiveEnrollment + 1 },
+          });
+        }),
+      );
+
+      return schedule;
     });
   }
 

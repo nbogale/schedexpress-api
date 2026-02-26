@@ -1,59 +1,108 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { UpdateSettingsDto } from './dto/update-settings.dto';
+import { ScheduleType, UpdateSettingsDto } from './dto/update-settings.dto';
+import { InstitutionConfigService } from './institution-config.service';
+
+const NON_STANDARD_SCHEDULE_TYPES = new Set<ScheduleType>([
+  ScheduleType.BLOCK,
+]);
 
 @Injectable()
 export class SettingsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly institutionConfigService: InstitutionConfigService,
+  ) {}
 
-  async getSettings() {
-    let settings = await this.prisma.settings.findFirst();
+  private normalizeRotationPattern(rotationPattern?: string | null) {
+    if (!rotationPattern) return null;
 
-    // Create default settings if none exist
-    if (!settings) {
-      settings = await this.prisma.settings.create({
-        data: {
-          schoolName: 'East High School',
-          maxCourseLoad: 8,
-          allowConflicts: false,
-          scheduleType: 'STANDARD',
-          hasRotationDays: false,
-          rotationDayType: null,
-          minBlockDuration: 45,
-          maxBlockDuration: 120,
-          allowOverlappingBlocks: false,
-        },
-      });
+    const tokens = this.institutionConfigService.parseRotationPatternTokens(rotationPattern);
+    if (tokens.length === 0) {
+      return null;
     }
 
-    return settings;
+    const hasInvalidToken = tokens.some((token) => !/^[A-Z][A-Z0-9_]{0,49}$/.test(token));
+    if (hasInvalidToken) {
+      throw new Error('Rotation pattern contains invalid tokens');
+    }
+
+    return tokens.join(',');
+  }
+
+  private normalizeSettings(
+    input: UpdateSettingsDto,
+    currentSettings: {
+      scheduleType: ScheduleType;
+      hasRotationDays: boolean;
+      rotationPattern: string | null;
+      minBlockDuration: number;
+      maxBlockDuration: number;
+    },
+  ) {
+    const scheduleType = (input.scheduleType ?? currentSettings.scheduleType ?? ScheduleType.STANDARD) as ScheduleType;
+    let hasRotationDays = input.hasRotationDays ?? currentSettings.hasRotationDays ?? false;
+    let rotationPattern = this.normalizeRotationPattern(input.rotationPattern ?? currentSettings.rotationPattern ?? null);
+    const minBlockDuration = input.minBlockDuration ?? currentSettings.minBlockDuration;
+    const maxBlockDuration = input.maxBlockDuration ?? currentSettings.maxBlockDuration;
+
+    if (minBlockDuration >= maxBlockDuration) {
+      throw new Error('Minimum block duration must be less than maximum block duration');
+    }
+
+    if (scheduleType === ScheduleType.STANDARD) {
+      hasRotationDays = false;
+      rotationPattern = null;
+    } else if (NON_STANDARD_SCHEDULE_TYPES.has(scheduleType)) {
+      if (!hasRotationDays) {
+        throw new Error(`Rotation days must be enabled for ${scheduleType.toLowerCase()} schedules`);
+      }
+
+      if (!rotationPattern) {
+        throw new Error(`Rotation pattern is required for ${scheduleType.toLowerCase()} schedules`);
+      }
+    }
+
+    return {
+      scheduleType,
+      hasRotationDays,
+      rotationPattern,
+      minBlockDuration,
+      maxBlockDuration,
+    };
+  }
+
+  async getSettings() {
+    return this.institutionConfigService.getOrCreateSettings();
   }
 
   async updateSettings(updateSettingsDto: UpdateSettingsDto) {
-    let settings = await this.prisma.settings.findFirst();
+    const settings = (await this.institutionConfigService.getOrCreateSettings()) as any;
+    const defaults = this.institutionConfigService.getDefaultSettings();
+    const normalizedSettings = this.normalizeSettings(updateSettingsDto, {
+      scheduleType: (settings.scheduleType as ScheduleType) ?? defaults.scheduleType,
+      hasRotationDays: settings.hasRotationDays ?? defaults.hasRotationDays,
+      rotationPattern: settings.rotationPattern ?? defaults.rotationPattern,
+      minBlockDuration: settings.minBlockDuration ?? defaults.minBlockDuration,
+      maxBlockDuration: settings.maxBlockDuration ?? defaults.maxBlockDuration,
+    });
 
-    // Create settings if they don't exist
-    if (!settings) {
-      return this.prisma.settings.create({
-        data: {
-          schoolName: updateSettingsDto.schoolName || 'East High School',
-          maxCourseLoad: updateSettingsDto.maxCourseLoad || 8,
-          allowConflicts: updateSettingsDto.allowConflicts || false,
-          scheduleType: updateSettingsDto.scheduleType || 'STANDARD',
-          hasRotationDays: updateSettingsDto.hasRotationDays || false,
-          rotationDayType: updateSettingsDto.rotationDayType || null,
-          minBlockDuration: updateSettingsDto.minBlockDuration || 45,
-          maxBlockDuration: updateSettingsDto.maxBlockDuration || 120,
-          allowOverlappingBlocks: updateSettingsDto.allowOverlappingBlocks || false,
-          ...(updateSettingsDto.scheduleChangeConfig && { scheduleChangeConfig: updateSettingsDto.scheduleChangeConfig }),
-        } as any,
-      });
-    }
-
-    // Update existing settings
     return this.prisma.settings.update({
       where: { id: settings.id },
-      data: updateSettingsDto as any,
+      data: {
+        schoolName: updateSettingsDto.schoolName ?? settings.schoolName,
+        maxCourseLoad: updateSettingsDto.maxCourseLoad ?? settings.maxCourseLoad,
+        allowConflicts: updateSettingsDto.allowConflicts ?? settings.allowConflicts,
+        scheduleType: normalizedSettings.scheduleType,
+        hasRotationDays: normalizedSettings.hasRotationDays,
+        rotationPattern: normalizedSettings.rotationPattern,
+        minBlockDuration: normalizedSettings.minBlockDuration,
+        maxBlockDuration: normalizedSettings.maxBlockDuration,
+        allowOverlappingBlocks: updateSettingsDto.allowOverlappingBlocks ?? settings.allowOverlappingBlocks,
+        ...(updateSettingsDto.scheduleChangeConfig !== undefined
+          ? { scheduleChangeConfig: updateSettingsDto.scheduleChangeConfig }
+          : {}),
+      } as any,
     });
   }
 }

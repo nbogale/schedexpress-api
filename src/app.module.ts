@@ -28,6 +28,9 @@ import { GradeLookupModule } from './grade-lookup/grade-lookup.module';
 import { AcademicCyclesModule } from './academic-cycles/academic-cycles.module';
 import { ParentGuardiansModule } from './parent-guardians/parent-guardians.module';
 import { CoursePreferencesModule } from './course-preferences/course-preferences.module';
+import { GraduationAuditModule } from './graduation-audit/graduation-audit.module';
+import { GraduationPlanModule } from './graduation-plan/graduation-plan.module';
+import { CourseRecommendationModule } from './course-recommendation/course-recommendation.module';
 
 @Module({
   imports: [
@@ -61,6 +64,9 @@ import { CoursePreferencesModule } from './course-preferences/course-preferences
     AcademicCyclesModule,
     ParentGuardiansModule,
     CoursePreferencesModule,
+    GraduationAuditModule,
+    GraduationPlanModule,
+    CourseRecommendationModule,
   ],
 })
 export class AppModule {}

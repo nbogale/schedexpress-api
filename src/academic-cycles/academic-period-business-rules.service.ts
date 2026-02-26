@@ -30,6 +30,23 @@ export class AcademicPeriodBusinessRulesService {
 
   constructor(private prisma: PrismaService) {}
 
+  private async academicPeriodsEnabled(): Promise<boolean> {
+    try {
+      const settings = await this.prisma.settings.findFirst({ select: { id: true } });
+      if (!settings) return true;
+
+      const academicSettings = await this.prisma.academicSettings.findUnique({
+        where: { settingsId: settings.id },
+        select: { enableAcademicDefaults: true },
+      });
+
+      return academicSettings?.enableAcademicDefaults !== false;
+    } catch (error) {
+      this.logger.error('Error checking enableAcademicDefaults', error);
+      return true;
+    }
+  }
+
   /**
    * Get business rules for the school
    * Returns rules from AcademicSettings, or default rules if not configured
@@ -326,7 +343,8 @@ export class AcademicPeriodBusinessRulesService {
       ? await this.prisma.academicPeriod.findUnique({ where: { id: periodId } })
       : await this.getCurrentPeriod(cycleId);
 
-    if (rules.periodBasedChanges.requireActivePeriod && !currentPeriod) {
+    const periodsEnabled = await this.academicPeriodsEnabled();
+    if (rules.periodBasedChanges.requireActivePeriod && periodsEnabled && !currentPeriod) {
       return {
         allowed: false,
         reason: 'No active period found. Schedule changes are only allowed during active periods.',

@@ -16,6 +16,17 @@ import { ScheduleChangeRuleConfig } from '../academic-cycles/interfaces/academic
 export class ScheduleChangesService {
   private readonly logger = new Logger(ScheduleChangesService.name);
 
+  private withComputedEnrollment<T extends { _count?: { scheduleCourseSections?: number }; currentEnrollment?: number }>(
+    section: T | null
+  ): (Omit<T, '_count'> & { currentEnrollment: number }) | null {
+    if (!section) return null;
+    const { _count, ...rest } = section as any;
+    return {
+      ...rest,
+      currentEnrollment: _count?.scheduleCourseSections ?? rest.currentEnrollment ?? 0,
+    };
+  }
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly coursesService: CoursesService,
@@ -29,13 +40,27 @@ export class ScheduleChangesService {
     if (filters?.studentId) where.studentId = filters.studentId;
     if (filters?.priority) where.priority = filters.priority;
 
-    return this.prisma.scheduleChangeRequest.findMany({
+    const requests = await this.prisma.scheduleChangeRequest.findMany({
       where,
       include: {
         student: { include: { user: true, gradeLevel: true } },
         academicCycle: true,
-        currentCourseSection: { include: { course: true, timeBlock: true } },
-        requestedCourseSection: { include: { course: true } },
+        currentCourseSection: {
+          include: {
+            course: true,
+            timeBlock: true,
+            teacher: true,
+            _count: { select: { scheduleCourseSections: true } },
+          },
+        },
+        requestedCourseSection: {
+          include: {
+            course: true,
+            timeBlock: true,
+            teacher: true,
+            _count: { select: { scheduleCourseSections: true } },
+          },
+        },
         preferredTimeBlock: true,
         reviewer: true,
         courseConflicts: true,
@@ -45,6 +70,12 @@ export class ScheduleChangesService {
         { createdAt: 'asc' },
       ],
     });
+
+    return requests.map(req => ({
+      ...req,
+      currentCourseSection: this.withComputedEnrollment(req.currentCourseSection as any) as any,
+      requestedCourseSection: this.withComputedEnrollment(req.requestedCourseSection as any) as any,
+    }));
   }
 
   async findOne(id: string) {
@@ -54,9 +85,23 @@ export class ScheduleChangesService {
         student: { include: { user: true } },
         academicCycle: true,
         currentCourseSection: {
-          include: { course: true, teacher: true, room: true, timeBlock: true },
+          include: {
+            course: true,
+            teacher: true,
+            room: true,
+            timeBlock: true,
+            _count: { select: { scheduleCourseSections: true } },
+          },
         },
-        requestedCourseSection: { include: { course: true } },
+        requestedCourseSection: {
+          include: {
+            course: true,
+            teacher: true,
+            room: true,
+            timeBlock: true,
+            _count: { select: { scheduleCourseSections: true } },
+          },
+        },
         preferredTimeBlock: true,
         reviewer: true,
         actions: {
@@ -69,7 +114,11 @@ export class ScheduleChangesService {
       },
     });
     if (!req) throw new NotFoundException(`Schedule change request with ID ${id} not found`);
-    return req;
+    return {
+      ...req,
+      currentCourseSection: this.withComputedEnrollment(req.currentCourseSection as any) as any,
+      requestedCourseSection: this.withComputedEnrollment(req.requestedCourseSection as any) as any,
+    };
   }
 
   async create(dto: CreateScheduleChangeRequestDto, userId: string) {
@@ -191,14 +240,9 @@ export class ScheduleChangesService {
       );
     }
 
-    // Check enrollment capacity for ADD_COURSE and CHANGE_SECTION
-    if (requestedCourseSection && requestedCourseSection.currentEnrollment >= requestedCourseSection.maxEnrollment) {
-      throw new ConflictException(
-        ApiErrorResponseBuilder.create(ErrorCode.CSSE, 'Requested course section is at maximum enrollment')
-          .withLogger(this.logger)
-          .build()
-      );
-    }
+    // NOTE:
+    // We intentionally allow students to submit requests even if a section is currently full.
+    // Counselors can still review/deny, suggest alternatives, or handle waitlist workflows.
 
     // Get current academic cycle
     const currentAcademicCycle = await this.prisma.academicCycle.findFirst({
@@ -296,52 +340,6 @@ export class ScheduleChangesService {
             .build()
         );
       }
-
-      const existingSchedule = await this.prisma.schedule.findFirst({
-        where: {
-          studentId: student.id,
-          scheduleCourseSections: {
-            some: {
-              courseSection: {
-                timeBlockId: dto.preferredTimeBlockId,
-              },
-            },
-          },
-        },
-        include: {
-          scheduleCourseSections: {
-            include: {
-              courseSection: {
-                include: {
-                  course: true,
-                  timeBlock: true,
-                }
-              }
-            }
-          },
-        },
-      });
-
-      console.log('existingSchedule', existingSchedule);
-      console.log('currentCourseSection', currentCourseSection);
-      console.log('requestedCourseSection', requestedCourseSection);
-      console.log('tb', tb);
-      console.log('dto.currentCourseSectionId', dto.currentCourseSectionId);
-      console.log('dto.requestedCourseSectionId', dto.requestedCourseSectionId);
-
-      if (dto.requestType === RequestType.CHANGE_SECTION) {
-
-        if(currentCourseSection.timeBlockId !== requestedCourseSection.timeBlockId && (existingSchedule && existingSchedule.scheduleCourseSections.length > 0)) {
-          const existingScheduleSection = existingSchedule.scheduleCourseSections.find(s => s.courseSection.timeBlockId === tb.id);
-          if (existingScheduleSection && existingScheduleSection.courseSection.id !== dto.currentCourseSectionId) {
-            throw new BadRequestException(
-              ApiErrorResponseBuilder.create(ErrorCode.SCRC, 'You already have a course scheduled during the preferred time block')
-                .withLogger(this.logger)
-                .build()
-            );
-          }
-        }
-      }
     }
 
     const req = await this.prisma.scheduleChangeRequest.create({
@@ -415,35 +413,62 @@ export class ScheduleChangesService {
     }
 
     try {
-      // Create notification for the student and counselor
-      const currentCourseSection = await this.prisma.courseSection.findUnique(
-        { where: { id: dto.currentCourseSectionId }, include: { course: { select: { name: true } } } });
-  
-        await this.notificationsService.createNotification({
-            studentId: student.id,
-            userId: userId,
-            message: `Your request to change from ${currentCourseSection.course.name} to ${requestedCourseSection.course.name} has been submitted`,
-            type: NotificationType.REQUEST_UPDATE
-        }, true);
-  
-        this.logger.log('Email notification created successfully');
-  
-        const counselor = await this.prisma.user.findFirst({
-          where: {
-            role: UserRoleType.COUNSELOR,
-          },
-        });
-  
-        if(counselor) {
-          const message = `New schedule change request from ${student.user.firstName} ${student.user.lastName || 'a student'} (Grade ${student.gradeLevel.level})`;
-          await this.notificationsService.createNotification({
-            userId: counselor.id,
-            type: NotificationType.REQUEST_UPDATE,
-            message: message,
-          }, true);
+      // Create notification for the student and counselors
+      const currentCourseName = currentCourseSection?.course?.name;
+      const requestedCourseName = requestedCourseSection?.course?.name;
+
+      const studentMessage =
+        dto.requestType === RequestType.ADD_COURSE
+          ? `Your request to add ${requestedCourseName || 'a course'} has been submitted`
+          : dto.requestType === RequestType.DROP_COURSE
+          ? `Your request to drop ${currentCourseName || 'a course'} has been submitted`
+          : `Your request to change from ${currentCourseName || 'a course'} to ${requestedCourseName || 'a course'} has been submitted`;
+
+      await this.notificationsService.createNotification(
+        {
+          studentId: student.id,
+          userId,
+          message: studentMessage,
+          type: NotificationType.REQUEST_UPDATE,
+        },
+        true
+      );
+
+      const counselors = await this.prisma.user.findMany({
+        where: { role: UserRoleType.COUNSELOR },
+        select: { id: true },
+      });
+
+      if (counselors.length > 0) {
+        const counselorMessage =
+          dto.requestType === RequestType.ADD_COURSE
+            ? `New schedule change request from ${student.user.firstName} ${student.user.lastName || 'a student'} (Grade ${student.gradeLevel.level}): Add ${requestedCourseName || 'a course'}`
+            : dto.requestType === RequestType.DROP_COURSE
+            ? `New schedule change request from ${student.user.firstName} ${student.user.lastName || 'a student'} (Grade ${student.gradeLevel.level}): Drop ${currentCourseName || 'a course'}`
+            : `New schedule change request from ${student.user.firstName} ${student.user.lastName || 'a student'} (Grade ${student.gradeLevel.level}): Change ${currentCourseName || 'a course'} → ${requestedCourseName || 'a course'}`;
+
+        const results = await Promise.allSettled(
+          counselors.map(counselor =>
+            this.notificationsService.createNotification(
+              {
+                userId: counselor.id,
+                type: NotificationType.REQUEST_UPDATE,
+                message: counselorMessage,
+              },
+              true
+            )
+          )
+        );
+
+        const failed = results.filter(r => r.status === 'rejected');
+        if (failed.length > 0) {
+          this.logger.warn(
+            `Failed to create ${failed.length} counselor notification(s) for schedule change request ${req.id}`
+          );
         }
-    } catch (error) {
-      console.log('Error creating notification', error);
+      }
+    } catch (error: any) {
+      this.logger.error(`Error creating schedule-change notification(s) for request ${req.id}: ${error?.message || error}`, error?.stack);
     }
     return this.findOne(req.id);    
   }

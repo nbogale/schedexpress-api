@@ -1,16 +1,99 @@
-import { Injectable } from '@nestjs/common';
+import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { 
   formatTimeWithAMPM, 
   parseTimeString, 
-  createTimeDate, 
   getTimeRangeDisplay,
   isValidTimeFormat 
 } from '../common/time-utils';
+import { InstitutionConfigService } from '../settings/institution-config.service';
+import { ScheduleType } from '../settings/dto/update-settings.dto';
+import { ApiErrorResponseBuilder } from '../common/api-error-builder';
+import { ErrorCode } from '../common/error-codes';
 
 @Injectable()
 export class TimeBlocksService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private readonly institutionConfigService: InstitutionConfigService,
+  ) {}
+
+  private normalizeRotationDay(rotationDay?: string | null) {
+    if (!rotationDay) return null;
+    return rotationDay.trim().toUpperCase();
+  }
+
+  private async validateTimeBlockAgainstSettings(
+    startTime: Date,
+    endTime: Date,
+    rotationDay?: string | null,
+    excludeTimeBlockId?: string,
+  ) {
+    const scheduleConfig = await this.institutionConfigService.getScheduleConfiguration();
+    const durationInMinutes = Math.round((endTime.getTime() - startTime.getTime()) / (1000 * 60));
+    const normalizedRotationDay = this.normalizeRotationDay(rotationDay);
+
+    if (durationInMinutes < scheduleConfig.minBlockDuration || durationInMinutes > scheduleConfig.maxBlockDuration) {
+      throw new Error(
+        `Time block duration must be between ${scheduleConfig.minBlockDuration} and ${scheduleConfig.maxBlockDuration} minutes`,
+      );
+    }
+
+    if (!scheduleConfig.allowOverlappingBlocks) {
+      const overlappingBlocks = await this.prisma.timeBlock.findMany({
+        where: {
+          isActive: true,
+          ...(excludeTimeBlockId ? { id: { not: excludeTimeBlockId } } : {}),
+          OR: [
+            {
+              startTime: { gte: startTime, lt: endTime },
+            },
+            {
+              endTime: { gt: startTime, lte: endTime },
+            },
+            {
+              startTime: { lte: startTime },
+              endTime: { gte: endTime },
+            },
+          ],
+        },
+      });
+
+      if (overlappingBlocks.length > 0) {
+        throw new ConflictException(
+          ApiErrorResponseBuilder.create(
+            ErrorCode.TBDC,
+            'Overlapping time blocks are not allowed by current institution settings',
+          ).build(),
+        );
+      }
+    }
+
+    const requiresRotation = scheduleConfig.scheduleType !== ScheduleType.STANDARD && scheduleConfig.hasRotationDays;
+    const allowedTokens = this.institutionConfigService.parseRotationPatternTokens(scheduleConfig.rotationPattern);
+
+    if (!requiresRotation && normalizedRotationDay) {
+      throw new Error(
+        `Rotation day is not allowed for ${scheduleConfig.scheduleType.toLowerCase()} schedules with current settings`,
+      );
+    }
+
+    if (requiresRotation) {
+      if (!normalizedRotationDay) {
+        throw new Error('Rotation day is required by current institution schedule configuration');
+      }
+
+      if (!scheduleConfig.rotationPattern || allowedTokens.length === 0) {
+        throw new Error('Institution rotation pattern is not configured');
+      }
+
+      if (!allowedTokens.includes(normalizedRotationDay)) {
+        throw new Error(
+          `Rotation day "${normalizedRotationDay}" is not allowed. Allowed values: ${allowedTokens.join(', ')}`,
+        );
+      }
+    }
+  }
 
   /**
    * Create a new time block with AM/PM time format
@@ -20,6 +103,8 @@ export class TimeBlocksService {
     startTime: string; // Format: "09:30 AM" or "2:45 PM"
     endTime: string;   // Format: "10:45 AM" or "4:00 PM"
     isActive?: boolean;
+    rotationDay?: string | null;
+    blockNumber?: number | null;
   }) {
     // Validate time formats
     if (!isValidTimeFormat(data.startTime)) {
@@ -38,22 +123,27 @@ export class TimeBlocksService {
       throw new Error('End time must be after start time');
     }
 
+    const normalizedRotationDay = this.normalizeRotationDay(data.rotationDay);
+    await this.validateTimeBlockAgainstSettings(startTimeDate, endTimeDate, normalizedRotationDay);
+
     return this.prisma.timeBlock.create({
       data: {
         name: data.name,
         startTime: startTimeDate,
         endTime: endTimeDate,
         isActive: data.isActive ?? true,
-      },
+        rotationDay: normalizedRotationDay,
+        blockNumber: data.blockNumber ?? null,
+      } as any,
     });
   }
 
   /**
    * Get all time blocks with formatted time display
    */
-  async getAllTimeBlocks() {
+  async getAllTimeBlocks(includeInactive: boolean = false) {
     const timeBlocks = await this.prisma.timeBlock.findMany({
-      where: { isActive: true },
+      where: includeInactive ? {} : { isActive: true },
       orderBy: { startTime: 'asc' },
     });
 
@@ -122,12 +212,24 @@ export class TimeBlocksService {
       startTime?: string; // Format: "09:30 AM"
       endTime?: string;   // Format: "10:45 AM"
       isActive?: boolean;
+      rotationDay?: string | null;
+      blockNumber?: number | null;
     }
   ) {
+    const existingTimeBlock = await this.prisma.timeBlock.findUnique({
+      where: { id },
+    });
+
+    if (!existingTimeBlock) {
+      throw new Error('Time block not found');
+    }
+
     const updateData: any = {};
 
     if (data.name !== undefined) updateData.name = data.name;
     if (data.isActive !== undefined) updateData.isActive = data.isActive;
+    if (data.rotationDay !== undefined) updateData.rotationDay = this.normalizeRotationDay(data.rotationDay);
+    if (data.blockNumber !== undefined) updateData.blockNumber = data.blockNumber;
 
     // Handle time updates
     if (data.startTime !== undefined) {
@@ -151,20 +253,84 @@ export class TimeBlocksService {
       }
     }
 
+    const finalStartTime: Date = updateData.startTime ?? existingTimeBlock.startTime;
+    const finalEndTime: Date = updateData.endTime ?? existingTimeBlock.endTime;
+    const finalRotationDay: string | null =
+      updateData.rotationDay !== undefined ? updateData.rotationDay : (existingTimeBlock.rotationDay as string | null);
+
+    await this.validateTimeBlockAgainstSettings(finalStartTime, finalEndTime, finalRotationDay, id);
+
     return this.prisma.timeBlock.update({
       where: { id },
       data: updateData,
     });
   }
 
+  async toggleTimeBlockStatus(id: string, isActive: boolean) {
+    return this.prisma.timeBlock.update({
+      where: { id },
+      data: { isActive },
+    });
+  }
+
   /**
-   * Delete a time block (soft delete by setting isActive to false)
+   * Delete a time block:
+   * - hard delete when no references exist
+   * - otherwise soft delete by setting isActive=false
    */
   async deleteTimeBlock(id: string) {
-    return this.prisma.timeBlock.update({
+    const existingTimeBlock = await this.prisma.timeBlock.findUnique({
+      where: { id },
+      select: { id: true, isActive: true },
+    });
+
+    if (!existingTimeBlock) {
+      throw new NotFoundException(
+        ApiErrorResponseBuilder.create(ErrorCode.TBDB, 'Time block not found').build(),
+      );
+    }
+
+    const [startSectionReferences, endSectionReferences, preferredRequestReferences] = await this.prisma.$transaction([
+      this.prisma.courseSection.count({ where: { timeBlockId: id } }),
+      this.prisma.courseSection.count({ where: { endTimeBlockId: id } }),
+      this.prisma.scheduleChangeRequest.count({ where: { preferredTimeBlockId: id } }),
+    ]);
+
+    const referenceCount =
+      startSectionReferences + endSectionReferences + preferredRequestReferences;
+
+    if (referenceCount === 0) {
+      await this.prisma.timeBlock.delete({ where: { id } });
+      return {
+        id,
+        hardDeleted: true,
+        deactivated: false,
+        referenceCount,
+      };
+    }
+
+    if (!existingTimeBlock.isActive) {
+      return {
+        id,
+        hardDeleted: false,
+        deactivated: false,
+        referenceCount,
+        reason: 'referenced',
+      };
+    }
+
+    await this.prisma.timeBlock.update({
       where: { id },
       data: { isActive: false },
     });
+
+    return {
+      id,
+      hardDeleted: false,
+      deactivated: true,
+      referenceCount,
+      reason: 'referenced',
+    };
   }
 
   /**

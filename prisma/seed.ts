@@ -1,4 +1,4 @@
-import { PrismaClient, UserRole, ConflictType, RequestStatus, NotificationType, RotationDay, RelationshipType, ContactMethod, DigestFrequency, RequestType } from '@prisma/client';
+import { PrismaClient, UserRole, ConflictType, RequestStatus, NotificationType, RotationDay, RelationshipType, ContactMethod, DigestFrequency, RequestType, RequirementType, AuditStatus } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 
 const prisma = new PrismaClient();
@@ -6,11 +6,47 @@ const prisma = new PrismaClient();
 async function main() {
   console.log('🌱 Starting high school mock data seeding...');
 
+  // Use a shared hash for seeded accounts (faster + consistent; safe for dev/demo data)
+  const defaultPasswordHash = await bcrypt.hash('Welcome2ES!', 10);
+
+  const upsertUserByEmail = (data: {
+    email: string;
+    username: string;
+    role: UserRole;
+    firstName: string;
+    lastName: string;
+  }) =>
+    prisma.user.upsert({
+      where: { email: data.email },
+      update: {
+        username: data.username,
+        passwordHash: defaultPasswordHash,
+        role: data.role,
+        firstName: data.firstName,
+        lastName: data.lastName
+      },
+      create: {
+        ...data,
+        passwordHash: defaultPasswordHash
+      }
+    });
+
   // Clear existing data
   // Delete in order: child tables first, then parent tables (respecting foreign key constraints)
   // Run sequentially to avoid deadlocks
   const deleteOperations = [
     // Level 1: Most dependent tables (have foreign keys to multiple other tables)
+    // Graduation Plan & Audit (child-most tables first)
+    () => prisma.planNote.deleteMany().catch(() => {}),
+    () => prisma.graduationPlanHistory.deleteMany().catch(() => {}),
+    () => prisma.graduationPlanCourse.deleteMany().catch(() => {}),
+    () => prisma.courseRequirementAllocation.deleteMany().catch(() => {}),
+    () => prisma.auditNote.deleteMany().catch(() => {}),
+    () => (prisma as any).courseRecommendation.deleteMany().catch(() => {}),
+    () => prisma.graduationAudit.deleteMany().catch(() => {}),
+    () => prisma.graduationRequirement.deleteMany().catch(() => {}),
+    () => prisma.graduationPlan.deleteMany().catch(() => {}),
+
     () => prisma.scheduleCourseSection.deleteMany().catch(() => {}),
     () => prisma.scheduleImportDetail.deleteMany().catch(() => {}),
     () => prisma.studentCourseHistory.deleteMany().catch(() => {}),
@@ -165,14 +201,14 @@ async function main() {
 
   // Create Time Blocks
   const timeBlocks = await Promise.all([
-    prisma.timeBlock.create({ data: { name: 'Period 1', startTime: new Date('1970-01-01T08:00:00'), endTime: new Date('1970-01-01T08:50:00'), rotationDay: RotationDay.A_DAY } }),
-    prisma.timeBlock.create({ data: { name: 'Period 2', startTime: new Date('1970-01-01T09:00:00'), endTime: new Date('1970-01-01T09:50:00'), rotationDay: RotationDay.A_DAY } }),
-    prisma.timeBlock.create({ data: { name: 'Period 3', startTime: new Date('1970-01-01T10:00:00'), endTime: new Date('1970-01-01T10:50:00'), rotationDay: RotationDay.A_DAY } }),
-    prisma.timeBlock.create({ data: { name: 'Period 4', startTime: new Date('1970-01-01T11:00:00'), endTime: new Date('1970-01-01T11:50:00'), rotationDay: RotationDay.A_DAY } }),
-    prisma.timeBlock.create({ data: { name: 'Period 5', startTime: new Date('1970-01-01T12:00:00'), endTime: new Date('1970-01-01T12:50:00'), rotationDay: RotationDay.A_DAY } }),
-    prisma.timeBlock.create({ data: { name: 'Period 6', startTime: new Date('1970-01-01T13:00:00'), endTime: new Date('1970-01-01T13:50:00'), rotationDay: RotationDay.A_DAY } }),
-    prisma.timeBlock.create({ data: { name: 'Period 7', startTime: new Date('1970-01-01T14:00:00'), endTime: new Date('1970-01-01T14:50:00'), rotationDay: RotationDay.A_DAY } }),
-    prisma.timeBlock.create({ data: { name: 'Period 8', startTime: new Date('1970-01-01T15:00:00'), endTime: new Date('1970-01-01T15:50:00'), rotationDay: RotationDay.A_DAY } })
+    prisma.timeBlock.create({ data: { name: 'Period 1', startTime: new Date('1970-01-01T08:00:00'), endTime: new Date('1970-01-01T08:50:00') } }),
+    prisma.timeBlock.create({ data: { name: 'Period 2', startTime: new Date('1970-01-01T09:00:00'), endTime: new Date('1970-01-01T09:50:00') } }),
+    prisma.timeBlock.create({ data: { name: 'Period 3', startTime: new Date('1970-01-01T10:00:00'), endTime: new Date('1970-01-01T10:50:00') } }),
+    prisma.timeBlock.create({ data: { name: 'Period 4', startTime: new Date('1970-01-01T11:00:00'), endTime: new Date('1970-01-01T11:50:00') } }),
+    prisma.timeBlock.create({ data: { name: 'Period 5', startTime: new Date('1970-01-01T12:00:00'), endTime: new Date('1970-01-01T12:50:00') } }),
+    prisma.timeBlock.create({ data: { name: 'Period 6', startTime: new Date('1970-01-01T13:00:00'), endTime: new Date('1970-01-01T13:50:00') } }),
+    prisma.timeBlock.create({ data: { name: 'Period 7', startTime: new Date('1970-01-01T14:00:00'), endTime: new Date('1970-01-01T14:50:00') } }),
+    prisma.timeBlock.create({ data: { name: 'Period 8', startTime: new Date('1970-01-01T15:00:00'), endTime: new Date('1970-01-01T15:50:00') } })
   ]);
 
   console.log('⏰ Created time blocks');
@@ -182,51 +218,51 @@ async function main() {
   
   const users = await Promise.all([
     // Administrators
-    prisma.user.create({ data: { email: 'p.williams@lincolnhs.edu', username: 'pwilliams', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.ADMIN, firstName: 'Patricia', lastName: 'Williams' } }),
-    prisma.user.create({ data: { email: 'j.anderson@lincolnhs.edu', username: 'janderson', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.ADMIN, firstName: 'James', lastName: 'Anderson' } }),
+    upsertUserByEmail({ email: 'p.williams@lincolnhs.edu', username: 'pwilliams', role: UserRole.ADMIN, firstName: 'Patricia', lastName: 'Williams' }),
+    upsertUserByEmail({ email: 'j.anderson@lincolnhs.edu', username: 'janderson', role: UserRole.ADMIN, firstName: 'James', lastName: 'Anderson' }),
     
     // Platform Administrators
-    prisma.user.create({ data: { email: 's.mitchell@lincolnhs.edu', username: 'smitchell', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.PLATFORM_ADMIN, firstName: 'Sarah', lastName: 'Mitchell' } }),
-    prisma.user.create({ data: { email: 'd.foster@lincolnhs.edu', username: 'dfoster', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.PLATFORM_ADMIN, firstName: 'David', lastName: 'Foster' } }),
+    upsertUserByEmail({ email: 's.mitchell@lincolnhs.edu', username: 'smitchell', role: UserRole.PLATFORM_ADMIN, firstName: 'Sarah', lastName: 'Mitchell' }),
+    upsertUserByEmail({ email: 'd.foster@lincolnhs.edu', username: 'dfoster', role: UserRole.PLATFORM_ADMIN, firstName: 'David', lastName: 'Foster' }),
     
     // Principal
-    prisma.user.create({ data: { email: 'r.martinez@lincolnhs.edu', username: 'rmartinez', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.PRINCIPAL, firstName: 'Robert', lastName: 'Martinez' } }),
+    upsertUserByEmail({ email: 'r.martinez@lincolnhs.edu', username: 'rmartinez', role: UserRole.PRINCIPAL, firstName: 'Robert', lastName: 'Martinez' }),
     
     // Counselors
-    prisma.user.create({ data: { email: 'p.lee@lincolnhs.edu', username: 'plee', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.COUNSELOR, firstName: 'Patricia', lastName: 'Lee' } }),
-    prisma.user.create({ data: { email: 'm.torres@lincolnhs.edu', username: 'mtorres', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.COUNSELOR, firstName: 'Michael', lastName: 'Torres' } }),
-    prisma.user.create({ data: { email: 'j.adams@lincolnhs.edu', username: 'jadams', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.COUNSELOR, firstName: 'Jennifer', lastName: 'Adams' } }),
-    prisma.user.create({ data: { email: 'r.kim@lincolnhs.edu', username: 'rkim', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.COUNSELOR, firstName: 'Robert', lastName: 'Kim' } }),
-    prisma.user.create({ data: { email: 's.garcia@lincolnhs.edu', username: 'sgarcia', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.COUNSELOR, firstName: 'Sarah', lastName: 'Garcia' } }),
-    prisma.user.create({ data: { email: 'd.martinez@lincolnhs.edu', username: 'dmartinez', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.COUNSELOR, firstName: 'David', lastName: 'Martinez' } }),
+    upsertUserByEmail({ email: 'p.lee@lincolnhs.edu', username: 'plee', role: UserRole.COUNSELOR, firstName: 'Patricia', lastName: 'Lee' }),
+    upsertUserByEmail({ email: 'm.torres@lincolnhs.edu', username: 'mtorres', role: UserRole.COUNSELOR, firstName: 'Michael', lastName: 'Torres' }),
+    upsertUserByEmail({ email: 'j.adams@lincolnhs.edu', username: 'jadams', role: UserRole.COUNSELOR, firstName: 'Jennifer', lastName: 'Adams' }),
+    upsertUserByEmail({ email: 'r.kim@lincolnhs.edu', username: 'rkim', role: UserRole.COUNSELOR, firstName: 'Robert', lastName: 'Kim' }),
+    upsertUserByEmail({ email: 's.garcia@lincolnhs.edu', username: 'sgarcia', role: UserRole.COUNSELOR, firstName: 'Sarah', lastName: 'Garcia' }),
+    upsertUserByEmail({ email: 'd.martinez@lincolnhs.edu', username: 'dmartinez', role: UserRole.COUNSELOR, firstName: 'David', lastName: 'Martinez' }),
     
     // Teachers
-    prisma.user.create({ data: { email: 's.johnson@lincolnhs.edu', username: 'sjohnson', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.TEACHER, firstName: 'Sarah', lastName: 'Johnson' } }),
-    prisma.user.create({ data: { email: 'j.miller@lincolnhs.edu', username: 'jmiller', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.TEACHER, firstName: 'James', lastName: 'Miller' } }),
-    prisma.user.create({ data: { email: 'r.green@lincolnhs.edu', username: 'rgreen', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.TEACHER, firstName: 'Rachel', lastName: 'Green' } }),
-    prisma.user.create({ data: { email: 'k.park@lincolnhs.edu', username: 'kpark', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.TEACHER, firstName: 'Kevin', lastName: 'Park' } }),
-    prisma.user.create({ data: { email: 's.white@lincolnhs.edu', username: 'swhite', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.TEACHER, firstName: 'Susan', lastName: 'White' } }),
-    prisma.user.create({ data: { email: 'd.kim@lincolnhs.edu', username: 'dkim', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.TEACHER, firstName: 'Daniel', lastName: 'Kim' } }),
-    prisma.user.create({ data: { email: 'l.martinez@lincolnhs.edu', username: 'lmartinez', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.TEACHER, firstName: 'Laura', lastName: 'Martinez' } }),
-    prisma.user.create({ data: { email: 't.anderson@lincolnhs.edu', username: 'tanderson', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.TEACHER, firstName: 'Thomas', lastName: 'Anderson' } }),
-    prisma.user.create({ data: { email: 'e.rodriguez@lincolnhs.edu', username: 'erodriguez', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.TEACHER, firstName: 'Emily', lastName: 'Rodriguez' } }),
-    prisma.user.create({ data: { email: 'c.taylor@lincolnhs.edu', username: 'ctaylor', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.TEACHER, firstName: 'Christopher', lastName: 'Taylor' } }),
-    prisma.user.create({ data: { email: 'a.brown@lincolnhs.edu', username: 'abrown', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.TEACHER, firstName: 'Amanda', lastName: 'Brown' } }),
-    prisma.user.create({ data: { email: 'm.davis@lincolnhs.edu', username: 'mdavis', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.TEACHER, firstName: 'Michael', lastName: 'Davis' } }),
-    prisma.user.create({ data: { email: 'j.wilson@lincolnhs.edu', username: 'jwilson', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.TEACHER, firstName: 'Jessica', lastName: 'Wilson' } }),
-    prisma.user.create({ data: { email: 'r.moore@lincolnhs.edu', username: 'rmoore', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.TEACHER, firstName: 'Robert', lastName: 'Moore' } }),
-    prisma.user.create({ data: { email: 's.jackson@lincolnhs.edu', username: 'sjackson', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.TEACHER, firstName: 'Stephanie', lastName: 'Jackson' } }),
-    prisma.user.create({ data: { email: 'b.thompson@lincolnhs.edu', username: 'bthompson', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.TEACHER, firstName: 'Brian', lastName: 'Thompson' } }),
-    prisma.user.create({ data: { email: 'n.garcia@lincolnhs.edu', username: 'ngarcia', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.TEACHER, firstName: 'Nicole', lastName: 'Garcia' } }),
-    prisma.user.create({ data: { email: 'h.martinez@lincolnhs.edu', username: 'hmartinez', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.TEACHER, firstName: 'Heather', lastName: 'Martinez' } }),
-    prisma.user.create({ data: { email: 'j.robinson@lincolnhs.edu', username: 'jrobinson', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.TEACHER, firstName: 'Jason', lastName: 'Robinson' } }),
-    prisma.user.create({ data: { email: 'k.clark@lincolnhs.edu', username: 'kclark', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.TEACHER, firstName: 'Katherine', lastName: 'Clark' } }),
-    prisma.user.create({ data: { email: 'd.rodriguez@lincolnhs.edu', username: 'drodriguez', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.TEACHER, firstName: 'Derek', lastName: 'Rodriguez' } }),
-    prisma.user.create({ data: { email: 'l.lewis@lincolnhs.edu', username: 'llewis', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.TEACHER, firstName: 'Lisa', lastName: 'Lewis' } }),
-    prisma.user.create({ data: { email: 'm.walker@lincolnhs.edu', username: 'mwalker', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.TEACHER, firstName: 'Matthew', lastName: 'Walker' } }),
-    prisma.user.create({ data: { email: 'a.hall@lincolnhs.edu', username: 'ahall', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.TEACHER, firstName: 'Ashley', lastName: 'Hall' } }),
-    prisma.user.create({ data: { email: 'j.allen@lincolnhs.edu', username: 'jallen', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.TEACHER, firstName: 'Justin', lastName: 'Allen' } }),
-    prisma.user.create({ data: { email: 'r.young@lincolnhs.edu', username: 'ryoung', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.TEACHER, firstName: 'Rachel', lastName: 'Young' } }),
+    upsertUserByEmail({ email: 's.johnson@lincolnhs.edu', username: 'sjohnson', role: UserRole.TEACHER, firstName: 'Sarah', lastName: 'Johnson' }),
+    upsertUserByEmail({ email: 'j.miller@lincolnhs.edu', username: 'jmiller', role: UserRole.TEACHER, firstName: 'James', lastName: 'Miller' }),
+    upsertUserByEmail({ email: 'r.green@lincolnhs.edu', username: 'rgreen', role: UserRole.TEACHER, firstName: 'Rachel', lastName: 'Green' }),
+    upsertUserByEmail({ email: 'k.park@lincolnhs.edu', username: 'kpark', role: UserRole.TEACHER, firstName: 'Kevin', lastName: 'Park' }),
+    upsertUserByEmail({ email: 's.white@lincolnhs.edu', username: 'swhite', role: UserRole.TEACHER, firstName: 'Susan', lastName: 'White' }),
+    upsertUserByEmail({ email: 'd.kim@lincolnhs.edu', username: 'dkim', role: UserRole.TEACHER, firstName: 'Daniel', lastName: 'Kim' }),
+    upsertUserByEmail({ email: 'l.martinez@lincolnhs.edu', username: 'lmartinez', role: UserRole.TEACHER, firstName: 'Laura', lastName: 'Martinez' }),
+    upsertUserByEmail({ email: 't.anderson@lincolnhs.edu', username: 'tanderson', role: UserRole.TEACHER, firstName: 'Thomas', lastName: 'Anderson' }),
+    upsertUserByEmail({ email: 'e.rodriguez@lincolnhs.edu', username: 'erodriguez', role: UserRole.TEACHER, firstName: 'Emily', lastName: 'Rodriguez' }),
+    upsertUserByEmail({ email: 'c.taylor@lincolnhs.edu', username: 'ctaylor', role: UserRole.TEACHER, firstName: 'Christopher', lastName: 'Taylor' }),
+    upsertUserByEmail({ email: 'a.brown@lincolnhs.edu', username: 'abrown', role: UserRole.TEACHER, firstName: 'Amanda', lastName: 'Brown' }),
+    upsertUserByEmail({ email: 'm.davis@lincolnhs.edu', username: 'mdavis', role: UserRole.TEACHER, firstName: 'Michael', lastName: 'Davis' }),
+    upsertUserByEmail({ email: 'j.wilson@lincolnhs.edu', username: 'jwilson', role: UserRole.TEACHER, firstName: 'Jessica', lastName: 'Wilson' }),
+    upsertUserByEmail({ email: 'r.moore@lincolnhs.edu', username: 'rmoore', role: UserRole.TEACHER, firstName: 'Robert', lastName: 'Moore' }),
+    upsertUserByEmail({ email: 's.jackson@lincolnhs.edu', username: 'sjackson', role: UserRole.TEACHER, firstName: 'Stephanie', lastName: 'Jackson' }),
+    upsertUserByEmail({ email: 'b.thompson@lincolnhs.edu', username: 'bthompson', role: UserRole.TEACHER, firstName: 'Brian', lastName: 'Thompson' }),
+    upsertUserByEmail({ email: 'n.garcia@lincolnhs.edu', username: 'ngarcia', role: UserRole.TEACHER, firstName: 'Nicole', lastName: 'Garcia' }),
+    upsertUserByEmail({ email: 'h.martinez@lincolnhs.edu', username: 'hmartinez', role: UserRole.TEACHER, firstName: 'Heather', lastName: 'Martinez' }),
+    upsertUserByEmail({ email: 'j.robinson@lincolnhs.edu', username: 'jrobinson', role: UserRole.TEACHER, firstName: 'Jason', lastName: 'Robinson' }),
+    upsertUserByEmail({ email: 'k.clark@lincolnhs.edu', username: 'kclark', role: UserRole.TEACHER, firstName: 'Katherine', lastName: 'Clark' }),
+    upsertUserByEmail({ email: 'd.rodriguez@lincolnhs.edu', username: 'drodriguez', role: UserRole.TEACHER, firstName: 'Derek', lastName: 'Rodriguez' }),
+    upsertUserByEmail({ email: 'l.lewis@lincolnhs.edu', username: 'llewis', role: UserRole.TEACHER, firstName: 'Lisa', lastName: 'Lewis' }),
+    upsertUserByEmail({ email: 'm.walker@lincolnhs.edu', username: 'mwalker', role: UserRole.TEACHER, firstName: 'Matthew', lastName: 'Walker' }),
+    upsertUserByEmail({ email: 'a.hall@lincolnhs.edu', username: 'ahall', role: UserRole.TEACHER, firstName: 'Ashley', lastName: 'Hall' }),
+    upsertUserByEmail({ email: 'j.allen@lincolnhs.edu', username: 'jallen', role: UserRole.TEACHER, firstName: 'Justin', lastName: 'Allen' }),
+    upsertUserByEmail({ email: 'r.young@lincolnhs.edu', username: 'ryoung', role: UserRole.TEACHER, firstName: 'Rachel', lastName: 'Young' }),
     
     // Students (500 students - 125 per grade level)
     ...Array.from({ length: 500 }, async (_, i) => {
@@ -298,24 +334,21 @@ async function main() {
       
       const email = `${username}@student.lincolnhs.edu`;
       
-      return prisma.user.create({ 
-        data: { 
-          email, 
-          username, 
-          passwordHash: await bcrypt.hash('Welcome2ES!', 10), 
-          role: UserRole.STUDENT, 
-          firstName, 
-          lastName 
-        } 
+      return upsertUserByEmail({
+        email,
+        username,
+        role: UserRole.STUDENT,
+        firstName,
+        lastName
       });
     }),
     
     // Parents
-    prisma.user.create({ data: { email: 'john.thompson@email.com', username: 'jthompson', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.PARENT_GUARDIAN, firstName: 'John', lastName: 'Thompson' } }),
-    prisma.user.create({ data: { email: 'maria.rodriguez@email.com', username: 'mrodriguez', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.PARENT_GUARDIAN, firstName: 'Maria', lastName: 'Rodriguez' } }),
-    prisma.user.create({ data: { email: 'robert.johnson@email.com', username: 'rjohnson', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.PARENT_GUARDIAN, firstName: 'Robert', lastName: 'Johnson' } }),
-    prisma.user.create({ data: { email: 'lisa.martinez@email.com', username: 'lisamartinez', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.PARENT_GUARDIAN, firstName: 'Lisa', lastName: 'Martinez' } }),
-    prisma.user.create({ data: { email: 'david.williams@email.com', username: 'dwilliams', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.PARENT_GUARDIAN, firstName: 'David', lastName: 'Williams' } })
+    upsertUserByEmail({ email: 'john.thompson@email.com', username: 'jthompson', role: UserRole.PARENT_GUARDIAN, firstName: 'John', lastName: 'Thompson' }),
+    upsertUserByEmail({ email: 'maria.rodriguez@email.com', username: 'mrodriguez', role: UserRole.PARENT_GUARDIAN, firstName: 'Maria', lastName: 'Rodriguez' }),
+    upsertUserByEmail({ email: 'robert.johnson@email.com', username: 'rjohnson', role: UserRole.PARENT_GUARDIAN, firstName: 'Robert', lastName: 'Johnson' }),
+    upsertUserByEmail({ email: 'lisa.martinez@email.com', username: 'lisamartinez', role: UserRole.PARENT_GUARDIAN, firstName: 'Lisa', lastName: 'Martinez' }),
+    upsertUserByEmail({ email: 'david.williams@email.com', username: 'dwilliams', role: UserRole.PARENT_GUARDIAN, firstName: 'David', lastName: 'Williams' })
   ]);
 
   // Add existing usernames to the Set to prevent conflicts
@@ -778,22 +811,21 @@ async function main() {
 
   console.log('📋 Created academic cycle rules');
 
-  // Create Academic Cycles with Parent-Child Relationships
-  // First, create the School Year (no parent)
+  // Create Academic Cycle (School Year Only)
   const schoolYearCycle = await prisma.academicCycle.create({
     data: {
-      name: '2024-2025',
+      name: '2025-2026',
       cycleType: 'SCHOOL_YEAR',
       cycleNumber: null,
-      startDate: new Date('2024-08-15'),
-      endDate: new Date('2025-06-15'),
-      openingDate: new Date('2024-08-01'), // Opening day (preparation starts)
-      closingDate: new Date('2025-06-15'), // Closing day (last day of school)
-      isCurrent: false,
-      isActive: false,
+      startDate: new Date('2025-08-01'),
+      endDate: new Date('2026-07-31'),
+      openingDate: new Date('2025-08-01'),
+      closingDate: new Date('2026-07-31'),
+      isCurrent: true,
+      isActive: true,
       isValidated: true,
       validatedBy: users[0].id, // Admin user
-      description: '2024-2025 Academic Year',
+      description: '2025-2026 Academic Year (School Year Only)',
       scheduleChangeConfig: {
         enabled: false,
         deadlineDays: 14,
@@ -803,423 +835,11 @@ async function main() {
     }
   });
 
-  // Create Semesters (children of School Year)
-  const fallSemester = await prisma.academicCycle.create({
-    data: {
-      name: 'Fall Semester',
-      cycleType: 'SEMESTER',
-      cycleNumber: 1,
-      parentId: schoolYearCycle.id, // Parent: School Year
-      startDate: new Date('2024-08-15'),
-      endDate: new Date('2024-12-20'),
-      isCurrent: false,
-      isActive: false,
-      isValidated: true,
-      validatedBy: users[0].id,
-      description: 'Fall semester of the 2024-2025 academic year',
-      scheduleChangeConfig: {
-        enabled: false,
-        deadlineDays: 14,
-        studentCanRequest: false,
-        allowChangesAfterDeadline: false
-      }
-    }
-  });
+  const academicCycles = [schoolYearCycle];
+  const currentAcademicCycle = schoolYearCycle;
 
-  const springSemester = await prisma.academicCycle.create({
-    data: {
-      name: 'Spring Semester',
-      cycleType: 'SEMESTER',
-      cycleNumber: 2,
-      parentId: schoolYearCycle.id, // Parent: School Year
-      startDate: new Date('2025-01-15'),
-      endDate: new Date('2025-06-15'),
-      isCurrent: false,
-      isActive: false,
-      isValidated: false,
-      description: 'Spring semester of the 2024-2025 academic year',
-      scheduleChangeConfig: {
-        enabled: true,
-        deadlineDays: 14,
-        studentCanRequest: true,
-        allowChangesAfterDeadline: false
-      }
-    }
-  });
-
-  // Create Quarters (children of respective Semesters)
-  const quarters = await Promise.all([
-    // First Quarter (child of Fall Semester)
-    prisma.academicCycle.create({
-      data: {
-        name: 'First Quarter',
-        cycleType: 'QUARTER',
-        cycleNumber: 1,
-        parentId: fallSemester.id, // Parent: Fall Semester
-        startDate: new Date('2024-08-15'),
-        endDate: new Date('2025-10-18'),
-        isCurrent: false,
-        isActive: false,
-        isValidated: true,
-        validatedBy: users[0].id,
-        description: 'First quarter of the fall semester',
-        scheduleChangeConfig: {
-          enabled: false,
-          deadlineDays: 14,
-          studentCanRequest: false,
-          allowChangesAfterDeadline: false
-        }
-      }
-    }),
-    
-    // Second Quarter (child of Fall Semester)
-    prisma.academicCycle.create({
-      data: {
-        name: 'Second Quarter',
-        cycleType: 'QUARTER',
-        cycleNumber: 2,
-        parentId: fallSemester.id, // Parent: Fall Semester
-        startDate: new Date('2024-10-21'),
-        endDate: new Date('2025-12-20'),
-        isCurrent: false,
-        isActive: true,
-        isValidated: false,
-        description: 'Second quarter of the fall semester',
-        scheduleChangeConfig: {
-          enabled: true,
-          deadlineDays: 14,
-          studentCanRequest: true,
-          allowChangesAfterDeadline: false
-        }
-      }
-    }),
-    
-    // Third Quarter (child of Spring Semester)
-    prisma.academicCycle.create({
-      data: {
-        name: 'Third Quarter',
-        cycleType: 'QUARTER',
-        cycleNumber: 3,
-        parentId: springSemester.id, // Parent: Spring Semester
-          startDate: new Date('2025-01-15'),
-        endDate: new Date('2025-03-20'),
-        isCurrent: false,
-        isActive: true,
-        isValidated: false,
-        description: 'Third quarter of the spring semester',
-        scheduleChangeConfig: {
-          enabled: true,
-          deadlineDays: 14,
-          studentCanRequest: true,
-          allowChangesAfterDeadline: false
-        }
-      }
-    }),
-    
-    // Fourth Quarter (child of Spring Semester)
-    prisma.academicCycle.create({
-      data: {
-        name: 'Fourth Quarter',
-        cycleType: 'QUARTER',
-        cycleNumber: 4,
-        parentId: springSemester.id, // Parent: Spring Semester
-        startDate: new Date('2025-03-23'),
-        endDate: new Date('2025-06-15'),
-        isCurrent: false,
-        isActive: true,
-        isValidated: false,
-        description: 'Fourth quarter of the spring semester',
-        scheduleChangeConfig: {
-          enabled: true,
-          deadlineDays: 14,
-          studentCanRequest: true,
-          allowChangesAfterDeadline: false
-        }
-      }
-    })
-  ]);
-
-  // Create array of all academic cycles for reference
-  const academicCycles = [schoolYearCycle, fallSemester, springSemester, ...quarters];
-
-  // Get the current academic cycle (School Year) for course sections
-  const currentAcademicCycle = academicCycles[0]; // School Year
-
-  console.log('🔄 Created academic cycles (School Year, Semesters, Quarters)');
-
-  // Create Academic Periods for the School Year
-  console.log('📅 Creating academic periods...');
-  
-  const schoolYearPeriods = await Promise.all([
-    // Preparation Period (before school year starts)
-    prisma.academicPeriod.create({
-      data: {
-        cycleId: schoolYearCycle.id,
-        name: '2024-2025 Preparation',
-        periodType: 'PREPARATION',
-        status: 'PLANNED',
-        startDate: new Date('2024-08-01'),
-        endDate: new Date('2025-08-14'),
-        description: 'Pre-cycle setup, teacher preparation, and room assignment',
-        isInstructional: false,
-        allowsEnrollment: false,
-        allowsGrading: false,
-        allowsScheduleChanges: false,
-        isBreak: false,
-        sortOrder: 1,
-        createdBy: users[0].id
-      }
-    }),
-    
-    // Registration Period (at school year level - Option A: Single registration)
-    prisma.academicPeriod.create({
-      data: {
-        cycleId: schoolYearCycle.id,
-        name: '2024-2025 Registration',
-        periodType: 'REGISTRATION',
-        status: 'PLANNED',
-        startDate: new Date('2024-08-01'),
-        endDate: new Date('2025-08-15'),
-        description: 'Student enrollment period for the entire academic year',
-        isInstructional: false,
-        allowsEnrollment: true,
-        allowsGrading: false,
-        allowsScheduleChanges: true,
-        isBreak: false,
-        sortOrder: 2,
-        createdBy: users[0].id
-      }
-    })
-  ]);
-
-  // Create Academic Periods for Fall Semester
-  const fallSemesterPeriods = await Promise.all([
-    // Fall Instruction Period
-    prisma.academicPeriod.create({
-      data: {
-        cycleId: fallSemester.id,
-        name: 'Fall Semester Instruction',
-        periodType: 'INSTRUCTION',
-        status: 'PLANNED',
-        startDate: new Date('2024-08-20'),
-        endDate: new Date('2025-12-10'),
-        description: 'Main instruction period for fall semester',
-        isInstructional: true,
-        allowsEnrollment: false,
-        allowsGrading: false,
-        allowsScheduleChanges: true, // Allow changes in first few weeks
-        isBreak: false,
-        sortOrder: 1,
-        createdBy: users[0].id
-      }
-    }),
-    
-    // Thanksgiving Break
-    prisma.academicPeriod.create({
-      data: {
-        cycleId: fallSemester.id,
-        name: 'Thanksgiving Break',
-        periodType: 'BREAK',
-        status: 'PLANNED',
-        startDate: new Date('2024-11-24'),
-        endDate: new Date('2025-11-28'),
-        description: 'Thanksgiving holiday break',
-        isInstructional: false,
-        allowsEnrollment: false,
-        allowsGrading: false,
-        allowsScheduleChanges: false,
-        isBreak: true,
-        sortOrder: 2,
-        createdBy: users[0].id
-      }
-    }),
-    
-    // Fall Exam Period
-    prisma.academicPeriod.create({
-      data: {
-        cycleId: fallSemester.id,
-        name: 'Fall Final Exams',
-        periodType: 'EXAM',
-        status: 'PLANNED',
-        startDate: new Date('2024-12-11'),
-        endDate: new Date('2025-12-15'),
-        description: 'Final examination period for fall semester',
-        isInstructional: false,
-        allowsEnrollment: false,
-        allowsGrading: false,
-        allowsScheduleChanges: false,
-        isBreak: false,
-        sortOrder: 3,
-        createdBy: users[0].id
-      }
-    }),
-    
-    // Fall Grading Period
-    prisma.academicPeriod.create({
-      data: {
-        cycleId: fallSemester.id,
-        name: 'Fall Grade Submission',
-        periodType: 'GRADING',
-        status: 'PLANNED',
-        startDate: new Date('2024-12-16'),
-        endDate: new Date('2025-12-20'),
-        description: 'Grade submission period for fall semester',
-        isInstructional: false,
-        allowsEnrollment: false,
-        allowsGrading: true,
-        allowsScheduleChanges: false,
-        isBreak: false,
-        sortOrder: 4,
-        createdBy: users[0].id
-      }
-    })
-  ]);
-
-  // Create Academic Periods for Spring Semester
-  const springSemesterPeriods = await Promise.all([
-    // Spring Instruction Period
-    prisma.academicPeriod.create({
-      data: {
-        cycleId: springSemester.id,
-        name: 'Spring Semester Instruction',
-        periodType: 'INSTRUCTION',
-        status: 'PLANNED',
-          startDate: new Date('2025-01-15'),
-        endDate: new Date('2025-05-15'),
-        description: 'Main instruction period for spring semester',
-        isInstructional: true,
-        allowsEnrollment: false,
-        allowsGrading: false,
-        allowsScheduleChanges: true, // Allow changes in first few weeks
-        isBreak: false,
-        sortOrder: 1,
-        createdBy: users[0].id
-      }
-    }),
-    
-    // Spring Break
-    prisma.academicPeriod.create({
-      data: {
-        cycleId: springSemester.id,
-        name: 'Spring Break',
-        periodType: 'BREAK',
-        status: 'PLANNED',
-        startDate: new Date('2025-03-10'),
-        endDate: new Date('2025-03-14'),
-        description: 'Spring break holiday',
-        isInstructional: false,
-        allowsEnrollment: false,
-        allowsGrading: false,
-        allowsScheduleChanges: false,
-        isBreak: true,
-        sortOrder: 2,
-        createdBy: users[0].id
-      }
-    }),
-    
-    // Review Period
-    prisma.academicPeriod.create({
-      data: {
-        cycleId: springSemester.id,
-        name: 'Spring Review Week',
-        periodType: 'REVIEW',
-        status: 'PLANNED',
-        startDate: new Date('2025-05-16'),
-        endDate: new Date('2025-05-20'),
-        description: 'Review week before final exams',
-        isInstructional: true,
-        allowsEnrollment: false,
-        allowsGrading: false,
-        allowsScheduleChanges: false,
-        isBreak: false,
-        sortOrder: 3,
-        createdBy: users[0].id
-      }
-    }),
-    
-    // Spring Exam Period
-    prisma.academicPeriod.create({
-      data: {
-        cycleId: springSemester.id,
-        name: 'Spring Final Exams',
-        periodType: 'EXAM',
-        status: 'PLANNED',
-        startDate: new Date('2025-05-21'),
-        endDate: new Date('2025-05-25'),
-        description: 'Final examination period for spring semester',
-        isInstructional: false,
-        allowsEnrollment: false,
-        allowsGrading: false,
-        allowsScheduleChanges: false,
-        isBreak: false,
-        sortOrder: 4,
-        createdBy: users[0].id
-      }
-    }),
-    
-    // Spring Grading Period
-    prisma.academicPeriod.create({
-      data: {
-        cycleId: springSemester.id,
-        name: 'Spring Grade Submission',
-        periodType: 'GRADING',
-        status: 'PLANNED',
-        startDate: new Date('2025-05-26'),
-        endDate: new Date('2025-05-30'),
-        description: 'Grade submission period for spring semester',
-        isInstructional: false,
-        allowsEnrollment: false,
-        allowsGrading: true,
-        allowsScheduleChanges: false,
-        isBreak: false,
-        sortOrder: 5,
-        createdBy: users[0].id
-      }
-    })
-  ]);
-
-  // Create Winter Break Period (spans between semesters, attached to school year)
-  const winterBreak = await prisma.academicPeriod.create({
-    data: {
-      cycleId: schoolYearCycle.id,
-      name: 'Winter Break',
-      periodType: 'BREAK',
-      status: 'PLANNED',
-      startDate: new Date('2024-12-21'),
-      endDate: new Date('2024-01-05'),
-      description: 'Winter holiday break between semesters',
-      isInstructional: false,
-      allowsEnrollment: false,
-      allowsGrading: false,
-      allowsScheduleChanges: false,
-      isBreak: true,
-      sortOrder: 3,
-      createdBy: users[0].id
-    }
-  });
-
-  // Create Transition/Closing Period (end of school year)
-  const closingPeriod = await prisma.academicPeriod.create({
-    data: {
-      cycleId: schoolYearCycle.id,
-      name: '2024-2025 Closing',
-      periodType: 'TRANSITION',
-      status: 'PLANNED',
-      startDate: new Date('2024-06-01'),
-      endDate: new Date('2024-06-15'),
-      description: 'End of year transition and closing activities',
-      isInstructional: false,
-      allowsEnrollment: false,
-      allowsGrading: false,
-      allowsScheduleChanges: false,
-      isBreak: false,
-      sortOrder: 4,
-      createdBy: users[0].id
-    }
-  });
-
-  const allPeriods = [...schoolYearPeriods, ...fallSemesterPeriods, ...springSemesterPeriods, winterBreak, closingPeriod];
-  console.log(`📅 Created ${allPeriods.length} academic periods`);
+  console.log('🔄 Created academic cycle (School Year Only)');
+  console.log('📅 Academic periods disabled for School Year Only. Skipping academic period seeding.');
 
   // Create Course Sections programmatically based on teacher assignments and avoiding conflicts
   console.log('📚 Creating course sections based on teacher assignments...');
@@ -1234,7 +854,7 @@ async function main() {
   });
 
   // Helper function to check if a period is available for a teacher
-  const isPeriodAvailable = (teacherId: string, timeBlockId: string, rotationDay: RotationDay | null): boolean => {
+  const isPeriodAvailable = (teacherId: string, timeBlockId: string, rotationDay: string | null): boolean => {
     const usedPeriods = teacherPeriodUsage.get(teacherId);
     if (!usedPeriods) return false;
     const periodKey = `${timeBlockId}_${rotationDay || 'null'}`;
@@ -1242,7 +862,7 @@ async function main() {
   };
 
   // Helper function to mark a period as used
-  const markPeriodUsed = (teacherId: string, timeBlockId: string, rotationDay: RotationDay | null): void => {
+  const markPeriodUsed = (teacherId: string, timeBlockId: string, rotationDay: string | null): void => {
     const usedPeriods = teacherPeriodUsage.get(teacherId);
     if (usedPeriods) {
       const periodKey = `${timeBlockId}_${rotationDay || 'null'}`;
@@ -1251,13 +871,19 @@ async function main() {
   };
 
   // Helper function to find an available period for a teacher
-  const findAvailablePeriod = (teacherId: string): { timeBlockId: string; rotationDay: RotationDay | null } | null => {
+  const findAvailablePeriod = (teacherId: string): { timeBlockId: string; rotationDay: string | null } | null => {
     for (const timeBlock of timeBlocks) {
       const rotationDay = timeBlock.rotationDay || null;
       if (isPeriodAvailable(teacherId, timeBlock.id, rotationDay)) {
         return { timeBlockId: timeBlock.id, rotationDay };
       }
     }
+    return null;
+  };
+
+  const toCourseSectionRotationDay = (rotationDay: string | null): RotationDay | null => {
+    if (rotationDay === RotationDay.A_DAY) return RotationDay.A_DAY;
+    if (rotationDay === RotationDay.B_DAY) return RotationDay.B_DAY;
     return null;
   };
 
@@ -1354,7 +980,7 @@ async function main() {
           teacherId: teacher.id,
           roomId: teacher.roomId,
           timeBlockId: availablePeriod.timeBlockId,
-          rotationDay: availablePeriod.rotationDay,
+          rotationDay: toCourseSectionRotationDay(availablePeriod.rotationDay),
           maxEnrollment: baseEnrollment,
           currentEnrollment: currentEnrollment,
           academicCycleId: currentAcademicCycle.id,
@@ -1563,7 +1189,7 @@ async function main() {
           // Ensure unique combination
           do {
             course = currentCourses[Math.floor(Math.random() * currentCourses.length)];
-            academicCycle = quarters[Math.floor(Math.random() * quarters.length)]; // Random quarter
+            academicCycle = currentAcademicCycle; // School Year Only
             combination = `${student.id}-${course.id}-${academicCycle.id}`;
             attempts++;
           } while (usedCombinations.has(combination) && attempts < 20);
@@ -1688,7 +1314,7 @@ async function main() {
           data: {
             studentId: emilyJohnson.student.id,
             courseId: course.id,
-            academicCycleId: quarters[0].id, // First Quarter
+            academicCycleId: currentAcademicCycle.id,
             grade: grade,
             gradePoints: gradePoints,
             percentage: percentage,
@@ -1759,6 +1385,169 @@ async function main() {
 
   console.log('📝 Created schedule change requests');
 
+  // ----- Florida Standard High School Diploma graduation requirements (24 credits) -----
+  // Ref: https://www.fldoe.org/schools/k-12-public-schools/sss/graduation-requirements/
+  const algebraI = courses[0];
+  const geometry = courses[1];
+  const biology = courses[10];
+  const graduationReqs = await Promise.all([
+    // Total credits (24)
+    prisma.graduationRequirement.create({
+      data: {
+        name: '24 Credits Total',
+        description: 'Florida Standard Diploma: 24 credits required',
+        requirementType: RequirementType.CREDIT_TOTAL,
+        requiredCredits: 24,
+        isActive: true,
+        priority: 0,
+      },
+    }),
+    // English Language Arts - 4 credits
+    prisma.graduationRequirement.create({
+      data: {
+        name: '4 Credits English Language Arts',
+        description: 'Four credits in ELA (e.g. English 9–12 or equivalents)',
+        requirementType: RequirementType.CREDIT_BY_SUBJECT,
+        requirementCategory: 'English',
+        requiredCredits: 4,
+        isActive: true,
+        priority: 1,
+      },
+    }),
+    // Mathematics - 4 credits (must include Algebra I and Geometry)
+    prisma.graduationRequirement.create({
+      data: {
+        name: 'Algebra I Required',
+        description: 'Algebra I (or equivalent) required for graduation',
+        requirementType: RequirementType.COURSE_REQUIRED,
+        requiredCourseId: algebraI.id,
+        isActive: true,
+        priority: 2,
+      },
+    }),
+    prisma.graduationRequirement.create({
+      data: {
+        name: 'Geometry Required',
+        description: 'Geometry (or equivalent) required for graduation',
+        requirementType: RequirementType.COURSE_REQUIRED,
+        requiredCourseId: geometry.id,
+        isActive: true,
+        priority: 3,
+      },
+    }),
+    prisma.graduationRequirement.create({
+      data: {
+        name: '4 Credits Mathematics',
+        description: 'At least 4 credits in Mathematics (incl. Algebra I and Geometry)',
+        requirementType: RequirementType.CREDIT_BY_SUBJECT,
+        requirementCategory: 'Mathematics',
+        requiredCredits: 4,
+        isActive: true,
+        priority: 4,
+      },
+    }),
+    // Science - 3 credits (Biology 1 + two equally rigorous, one physical)
+    prisma.graduationRequirement.create({
+      data: {
+        name: 'Biology 1 Required',
+        description: 'Biology 1 (or equally rigorous life science) required',
+        requirementType: RequirementType.COURSE_REQUIRED,
+        requiredCourseId: biology.id,
+        isActive: true,
+        priority: 5,
+      },
+    }),
+    prisma.graduationRequirement.create({
+      data: {
+        name: '3 Credits Science',
+        description: 'Three credits in Science (Biology 1 plus two equally rigorous, one physical)',
+        requirementType: RequirementType.CREDIT_BY_SUBJECT,
+        requirementCategory: 'Science',
+        requiredCredits: 3,
+        isActive: true,
+        priority: 6,
+      },
+    }),
+    // Social Studies - 3 credits (World History, U.S. History, Economics, U.S. Government)
+    prisma.graduationRequirement.create({
+      data: {
+        name: '3 Credits Social Studies',
+        description: 'World History, U.S. History, Economics, U.S. Government',
+        requirementType: RequirementType.CREDIT_BY_SUBJECT,
+        requirementCategory: 'Social Studies',
+        requiredCredits: 3,
+        isActive: true,
+        priority: 7,
+      },
+    }),
+    // Practical/Performing Arts - 1 credit
+    prisma.graduationRequirement.create({
+      data: {
+        name: '1 Credit Fine/Performing Arts',
+        description: 'Fine arts, performing arts, speech/debate, or approved CTE',
+        requirementType: RequirementType.CREDIT_BY_SUBJECT,
+        requirementCategory: 'Arts',
+        requiredCredits: 1,
+        isActive: true,
+        priority: 8,
+      },
+    }),
+    // Physical Education - 1 credit
+    prisma.graduationRequirement.create({
+      data: {
+        name: '1 Credit Physical Education',
+        description: 'One credit in PE (e.g. PE 9, PE 10, Health)',
+        requirementType: RequirementType.CREDIT_BY_SUBJECT,
+        requirementCategory: 'Physical',
+        requiredCredits: 1,
+        isActive: true,
+        priority: 9,
+      },
+    }),
+    // Minimum GPA 2.0
+    prisma.graduationRequirement.create({
+      data: {
+        name: 'Minimum 2.0 GPA',
+        description: 'Florida requirement: unweighted GPA of 2.0 or higher',
+        requirementType: RequirementType.GPA_MIN,
+        minimumGPA: 2.0,
+        isActive: true,
+        priority: 10,
+      },
+    }),
+  ]);
+
+  // Audit records for first student (so course recommendations have deficiencies to fill)
+  const firstStudent = students[0];
+  const gradYear = firstStudent.graduationYear ?? new Date().getFullYear() + 1;
+  await Promise.all([
+    prisma.graduationAudit.create({
+      data: {
+        studentId: firstStudent.id,
+        requirementId: graduationReqs[2].id,
+        academicCycleId: currentAcademicCycle.id,
+        graduationYear: gradYear,
+        status: AuditStatus.NOT_MET,
+        currentValue: 0,
+        requiredValue: 1,
+        deficiency: 1,
+      },
+    }),
+    prisma.graduationAudit.create({
+      data: {
+        studentId: firstStudent.id,
+        requirementId: graduationReqs[4].id,
+        academicCycleId: currentAcademicCycle.id,
+        graduationYear: gradYear,
+        status: AuditStatus.PARTIAL,
+        currentValue: 2,
+        requiredValue: 4,
+        deficiency: 2,
+      },
+    }),
+  ]);
+  console.log('🎯 Created Florida graduation requirements (24-credit Standard Diploma) and sample audit for first student');
+
   // Create Grade Lookup entries
   const gradeLookups = await Promise.all([
     prisma.gradeLookup.create({ data: { grade: 'A+', gradePoints: 4.0, description: 'Excellent' } }),
@@ -1787,6 +1576,7 @@ async function main() {
         allowConflicts: false,
         scheduleType: 'STANDARD',
         hasRotationDays: false,
+        rotationPattern: null,
         minBlockDuration: 45,
         maxBlockDuration: 120,
         allowOverlappingBlocks: false,
@@ -1880,6 +1670,7 @@ async function main() {
     where: { settingsId: settings.id },
     update: {
       academicStructureType: 'SCHOOL_YEAR_ONLY',
+      enableAcademicDefaults: false,
       defaultSemesterCount: 0,
       defaultQuarterCount: 0,
       defaultTrimesterCount: 0,
@@ -1890,6 +1681,7 @@ async function main() {
     create: {
       settingsId: settings.id,
       academicStructureType: 'SCHOOL_YEAR_ONLY',
+      enableAcademicDefaults: false,
       defaultSemesterCount: 0,
       defaultQuarterCount: 0,
       defaultTrimesterCount: 0,

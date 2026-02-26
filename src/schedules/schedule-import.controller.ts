@@ -209,6 +209,12 @@ export class ScheduleImportController {
     description: 'Items per page',
     type: Number,
   })
+  @ApiQuery({
+    name: 'status',
+    required: false,
+    description: 'Filter row status (SUCCESS, FAILED, SKIPPED, WARNING, PENDING)',
+    type: String,
+  })
   @ApiResponse({
     status: 200,
     description: 'Return import details with pagination',
@@ -217,11 +223,13 @@ export class ScheduleImportController {
     @Param('id') id: string,
     @Query('page') page?: number,
     @Query('limit') limit?: number,
+    @Query('status') status?: string,
   ) {
     const result = await this.scheduleImportService.getImportDetails(
       id,
       page ? parseInt(page.toString(), 10) : undefined,
       limit ? parseInt(limit.toString(), 10) : undefined,
+      status,
     );
 
     return {

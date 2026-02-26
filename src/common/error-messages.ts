@@ -77,6 +77,7 @@ export const errorMessages: Record<ErrorCode, string> = {
   // Time Block Error Messages
   [ErrorCode.TBDA]: 'Cannot delete time block that is used in course sections.',
   [ErrorCode.TBDB]: 'Time block not found.',
+  [ErrorCode.TBDC]: 'Overlapping time blocks are not allowed by current institution settings.',
 
   // Teacher Error Messages
   [ErrorCode.TCHD]: 'Teacher is used in course sections.',
@@ -95,6 +96,7 @@ export const errorMessages: Record<ErrorCode, string> = {
   [ErrorCode.ACCD]: 'Academic period dates are not within the cycle dates.',
   [ErrorCode.ACCE]: 'Academic cycle not found.',
   [ErrorCode.ACCF]: 'Period overlaps with existing period(s). Please adjust the dates.',
+  [ErrorCode.ACCG]: 'Academic periods are disabled in Academic Settings.',
 
   // Academic Period Business Rules Error Messages - Enrollment
   [ErrorCode.ACRE1]: 'No active period found. Enrollment is only allowed during active periods.',

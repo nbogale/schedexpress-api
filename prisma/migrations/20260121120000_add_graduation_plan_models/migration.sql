@@ -1,0 +1,7 @@
+-- No-op migration.
+--
+-- This migration was accidentally generated as a duplicate of:
+--   20260120224910_add_graduation_plan_models
+--
+-- Keeping it as a no-op prevents "type already exists" / "table already exists"
+-- errors during `prisma migrate reset/deploy`, while preserving migration history.

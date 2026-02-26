@@ -1762,20 +1762,25 @@ export class ScheduleImportService {
   /**
    * Get import details (row-level data)
    */
-  async getImportDetails(importId: string, page?: number, limit?: number) {
+  async getImportDetails(importId: string, page?: number, limit?: number, status?: string) {
     const pageNum = page || 1;
     const limitNum = limit || 100;
     const skip = (pageNum - 1) * limitNum;
 
+    const where: any = { importFileId: importId };
+    if (status) {
+      where.status = status as any;
+    }
+
     const [details, total] = await Promise.all([
       this.prisma.scheduleImportDetail.findMany({
-        where: { importFileId: importId },
+        where,
         orderBy: { rowNumber: 'asc' },
         skip,
         take: limitNum,
       }),
       this.prisma.scheduleImportDetail.count({
-        where: { importFileId: importId },
+        where,
       }),
     ]);
 

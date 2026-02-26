@@ -30,6 +30,7 @@ export class AcademicSettingsService {
         data: {
           settingsId: settings.id,
           academicStructureType: AcademicStructureType.SCHOOL_YEAR_ONLY,
+          enableAcademicDefaults: true,
           defaultSemesterCount: 0,
           defaultQuarterCount: 0,
           defaultTrimesterCount: 0,
@@ -77,11 +78,13 @@ export class AcademicSettingsService {
 
   async getDefaultPeriodConfiguration() {
     const academicSettings = await this.getAcademicSettings();
+    if (academicSettings.enableAcademicDefaults === false) return null;
     return academicSettings.defaultPeriodConfiguration || null;
   }
 
   async getAcademicPeriodRules() {
     const academicSettings = await this.getAcademicSettings();
+    if (academicSettings.enableAcademicDefaults === false) return null;
     return academicSettings.academicPeriodRules || null;
   }
 }

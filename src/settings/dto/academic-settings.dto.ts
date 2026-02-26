@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsString, IsInt, IsBoolean, IsObject, IsOptional, IsEnum, Min, Max, IsIn } from 'class-validator';
+import { IsInt, IsBoolean, IsObject, IsOptional, IsEnum, Min, Max } from 'class-validator';
 
 export enum AcademicStructureType {
   SEMESTER_QUARTERS = 'SEMESTER_QUARTERS',
@@ -90,6 +90,15 @@ export class UpdateAcademicSettingsDto {
   academicStructureType?: AcademicStructureType;
 
   @ApiProperty({
+    example: true,
+    description: 'Whether academic defaults (period templates/rules) are enabled',
+    required: false,
+  })
+  @IsBoolean()
+  @IsOptional()
+  enableAcademicDefaults?: boolean;
+
+  @ApiProperty({
     example: 2,
     description: 'Default number of semesters per year (0 allowed for SCHOOL_YEAR_ONLY)',
     required: false,
@@ -159,6 +168,9 @@ export class AcademicSettingsResponseDto {
 
   @ApiProperty({ enum: AcademicStructureType })
   academicStructureType: AcademicStructureType;
+
+  @ApiProperty()
+  enableAcademicDefaults: boolean;
 
   @ApiProperty()
   defaultSemesterCount: number;

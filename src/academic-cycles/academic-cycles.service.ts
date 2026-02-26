@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException, ConflictException, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { AcademicSettingsService } from '../settings/academic-settings.service';
 import { CreateAcademicCycleConfigDto } from './dto/create-academic-cycle-config.dto';
 import { UpdateAcademicCycleConfigDto } from './dto/update-academic-cycle-config.dto';
 import { CreateAcademicCycleRuleDto } from './dto/create-academic-cycle-rule.dto';
@@ -16,7 +17,23 @@ import { ApiErrorResponseBuilder } from 'src/common/api-error-builder';
 export class AcademicCyclesService {
   private readonly logger = new Logger(AcademicCyclesService.name);
 
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly academicSettingsService: AcademicSettingsService,
+  ) {}
+
+  private async assertAcademicPeriodsEnabled() {
+    const settings = await this.academicSettingsService.getAcademicSettings();
+    if (settings?.enableAcademicDefaults === false) {
+      const errorResponse = ApiErrorResponseBuilder.create(
+        ErrorCode.ACCG,
+        'Academic periods are disabled in Academic Settings',
+      )
+        .withLogger(this.logger)
+        .build();
+      throw new BadRequestException(errorResponse);
+    }
+  }
 
   // Academic Cycle Config Methods
   async createConfig(createConfigDto: CreateAcademicCycleConfigDto, userId: string) {
@@ -678,6 +695,8 @@ export class AcademicCyclesService {
 
   // Academic Period Methods
   async createPeriod(createPeriodDto: CreateAcademicPeriodDto, userId: string) {
+    await this.assertAcademicPeriodsEnabled();
+
     // Validate that the cycle exists
     const cycle = await this.prisma.academicCycle.findUnique({
       where: { id: createPeriodDto.cycleId }
@@ -1028,6 +1047,7 @@ export class AcademicCyclesService {
   }
 
   async updatePeriod(id: string, updatePeriodDto: UpdateAcademicPeriodDto) {
+    await this.assertAcademicPeriodsEnabled();
     const period = await this.findPeriodById(id);
 
     // Check if period is in the past (endDate < today)
@@ -1222,6 +1242,7 @@ export class AcademicCyclesService {
   }
 
   async deletePeriod(id: string) {
+    await this.assertAcademicPeriodsEnabled();
     await this.findPeriodById(id);
     return this.prisma.academicPeriod.delete({
       where: { id }
@@ -1229,6 +1250,7 @@ export class AcademicCyclesService {
   }
 
   async updatePeriodStatus(id: string, status: AcademicPeriodStatus) {
+    await this.assertAcademicPeriodsEnabled();
     await this.findPeriodById(id);
     return this.prisma.academicPeriod.update({
       where: { id },

@@ -8,36 +8,49 @@ datasource db {
 }
 
 model User {
-  id                      String                  @id @default(cuid())
-  email                   String                  @unique @db.VarChar(255)
-  passwordHash            String                  @map("password_hash") @db.VarChar(255)
-  firstName               String                  @map("first_name") @db.VarChar(100)
-  lastName                String                  @map("last_name") @db.VarChar(100)
-  createdAt               DateTime                @default(now()) @map("created_at")
-  updatedAt               DateTime                @updatedAt @map("updated_at")
-  username                String                  @unique @db.VarChar(50)
-  status                  UserStatus              @default(ACTIVE)
+  id                      String                        @id @default(cuid())
+  email                   String                        @unique @db.VarChar(255)
+  passwordHash            String                        @map("password_hash") @db.VarChar(255)
+  firstName               String                        @map("first_name") @db.VarChar(100)
+  lastName                String                        @map("last_name") @db.VarChar(100)
+  createdAt               DateTime                      @default(now()) @map("created_at")
+  updatedAt               DateTime                      @updatedAt @map("updated_at")
+  username                String                        @unique @db.VarChar(50)
+  status                  UserStatus                    @default(ACTIVE)
   role                    UserRole
-  academicCycleValidators AcademicCycle[]         @relation("AcademicCycleValidator")
-  academicCycleConfigs    AcademicCycleConfig[]   @relation("AcademicCycleConfigCreator")
-  academicPeriodsCreated  AcademicPeriod[]        @relation("AcademicPeriodCreator")
-  academicYearTemplates   AcademicYearTemplate[]  @relation("AcademicYearTemplateCreator")
+  academicCycleValidators AcademicCycle[]               @relation("AcademicCycleValidator")
+  academicCycleConfigs    AcademicCycleConfig[]         @relation("AcademicCycleConfigCreator")
+  academicPeriodsCreated  AcademicPeriod[]              @relation("AcademicPeriodCreator")
+  academicYearTemplates   AcademicYearTemplate[]        @relation("AcademicYearTemplateCreator")
   auditLogs               AuditLog[]
   notifications           Notification[]
-  performedActions        ScheduleChangeAction[]  @relation("ActionPerformer")
-  reviewedRequests        ScheduleChangeRequest[] @relation("RequestReviewer")
-  reviewedPreferences     CoursePreference[]      @relation("PreferenceReviewer")
-  createdPreferences      CoursePreference[]      @relation("PreferenceCreator")
+  performedActions        ScheduleChangeAction[]        @relation("ActionPerformer")
+  reviewedRequests        ScheduleChangeRequest[]       @relation("RequestReviewer")
+  reviewedPreferences     CoursePreference[]            @relation("PreferenceReviewer")
+  createdPreferences      CoursePreference[]            @relation("PreferenceCreator")
   student                 Student?
-  gradesGiven             StudentGrade[]          @relation("GradeTeacher")
+  gradesGiven             StudentGrade[]                @relation("GradeTeacher")
   teacher                 Teacher?
   parentGuardian          ParentGuardian?
   userAccount             UserAccount?
-  accountActionsPerformed UserAccountHistory[]    @relation("AccountActionPerformer")
-  statusChangesPerformed  UserStatusHistory[]     @relation("StatusChangePerformer")
+  accountActionsPerformed UserAccountHistory[]          @relation("AccountActionPerformer")
+  statusChangesPerformed  UserStatusHistory[]           @relation("StatusChangePerformer")
   statusHistory           UserStatusHistory[]
-  scheduleImportFiles     ScheduleImportFile[]    @relation("ScheduleImportUploader")
-  submittedGrades         StudentCourseHistory[]  @relation("GradeSubmitter")
+  scheduleImportFiles     ScheduleImportFile[]          @relation("ScheduleImportUploader")
+  submittedGrades         StudentCourseHistory[]        @relation("GradeSubmitter")
+  requirementCreator      GraduationRequirement[]       @relation("RequirementCreator")
+  auditPerformer          GraduationAudit[]             @relation("AuditPerformer")
+  auditWaiver             GraduationAudit[]             @relation("AuditWaiver")
+  allocationCreator       CourseRequirementAllocation[] @relation("AllocationCreator")
+  conflictResolver        CourseRequirementAllocation[] @relation("ConflictResolver")
+  auditNoteCreator        AuditNote[]                   @relation("AuditNoteCreator")
+  auditNoteCompleter      AuditNote[]                   @relation("AuditNoteCompleter")
+  planSubmitter           GraduationPlan[]              @relation("PlanSubmitter")
+  planApprover            GraduationPlan[]              @relation("PlanApprover")
+  planRejector            GraduationPlan[]              @relation("PlanRejector")
+  planHistoryPerformer    GraduationPlanHistory[]       @relation("PlanHistoryPerformer")
+  planNoteCreator         PlanNote[]                    @relation("PlanNoteCreator")
+  planNoteCompleter       PlanNote[]                    @relation("PlanNoteCompleter")
 
   @@map("user")
 }
@@ -77,15 +90,19 @@ model Student {
   emergencyContactId String? @map("emergency_contact_id")
 
   // Existing relationships
-  waitlist          CourseWaitlist[]
-  notifications     Notification[]
-  schedules         Schedule[]
-  changeRequests    ScheduleChangeRequest[]
-  coursePreferences CoursePreference[]
-  gradeLevel        GradeLevel              @relation(fields: [gradeLevelId], references: [id])
-  user              User                    @relation(fields: [userId], references: [id])
-  courseHistory     StudentCourseHistory[]
-  grades            StudentGrade[]
+  waitlist              CourseWaitlist[]
+  notifications         Notification[]
+  schedules             Schedule[]
+  changeRequests        ScheduleChangeRequest[]
+  coursePreferences     CoursePreference[]
+  gradeLevel            GradeLevel                    @relation(fields: [gradeLevelId], references: [id])
+  user                  User                          @relation(fields: [userId], references: [id])
+  courseHistory         StudentCourseHistory[]
+  grades                StudentGrade[]
+  graduationAudits      GraduationAudit[]
+  courseAllocations     CourseRequirementAllocation[]
+  graduationPlans       GraduationPlan[]
+  courseRecommendations CourseRecommendation[]
 
   // Parent relationships
   primaryParent    ParentGuardian? @relation("PrimaryParent", fields: [primaryParentId], references: [id])
@@ -116,10 +133,12 @@ model StudentCourseHistory {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  course          Course        @relation(fields: [courseId], references: [id])
-  academicCycle   AcademicCycle @relation(fields: [academicCycleId], references: [id])
-  student         Student       @relation(fields: [studentId], references: [id])
-  submittedByUser User?         @relation("GradeSubmitter", fields: [submittedBy], references: [id]) // New relation
+  course               Course                        @relation(fields: [courseId], references: [id])
+  academicCycle        AcademicCycle                 @relation(fields: [academicCycleId], references: [id])
+  student              Student                       @relation(fields: [studentId], references: [id])
+  submittedByUser      User?                         @relation("GradeSubmitter", fields: [submittedBy], references: [id])
+  courseAllocations    CourseRequirementAllocation[]
+  completedPlanCourses GraduationPlanCourse[]
 
   @@index([academicCycleId])
   @@index([studentId, courseId, academicCycleId, gradeType]) // New composite index
@@ -259,9 +278,10 @@ model ParentGuardian {
   notifications Notification[]
 
   // Reverse relationships to students
-  primaryStudents   Student[] @relation("PrimaryParent")
-  secondaryStudents Student[] @relation("SecondaryParent")
-  emergencyStudents Student[] @relation("EmergencyContact")
+  primaryStudents   Student[]        @relation("PrimaryParent")
+  secondaryStudents Student[]        @relation("SecondaryParent")
+  emergencyStudents Student[]        @relation("EmergencyContact")
+  approvedPlans     GraduationPlan[]
 
   @@map("parent_guardian")
 }
@@ -302,9 +322,9 @@ model Settings {
   allowConflicts Boolean @default(false) @map("allow_conflicts")
 
   // Schedule Configuration
-  scheduleType    ScheduleType     @default(STANDARD) @map("schedule_type")
-  hasRotationDays Boolean          @default(false) @map("has_rotation_days")
-  rotationDayType RotationDayType? @map("rotation_day_type")
+  scheduleType    ScheduleType @default(STANDARD) @map("schedule_type")
+  hasRotationDays Boolean      @default(false) @map("has_rotation_days")
+  rotationPattern String?      @map("rotation_pattern") @db.VarChar(255)
 
   // Time Block Rules
   minBlockDuration       Int     @default(45) @map("min_block_duration") // in minutes
@@ -328,11 +348,12 @@ model AcademicSettings {
   settingsId String @unique @map("settings_id")
 
   // Academic Structure Configuration
-  academicStructureType String  @default("SCHOOL_YEAR_ONLY") @map("academic_structure_type") @db.VarChar(50)
-  defaultSemesterCount  Int     @default(0) @map("default_semester_count")
-  defaultQuarterCount   Int     @default(0) @map("default_quarter_count")
-  defaultTrimesterCount Int     @default(0) @map("default_trimester_count")
-  semestersHaveQuarters Boolean @default(false) @map("semesters_have_quarters")
+  academicStructureType  String  @default("SCHOOL_YEAR_ONLY") @map("academic_structure_type") @db.VarChar(50)
+  enableAcademicDefaults Boolean @default(true) @map("enable_academic_defaults")
+  defaultSemesterCount   Int     @default(0) @map("default_semester_count")
+  defaultQuarterCount    Int     @default(0) @map("default_quarter_count")
+  defaultTrimesterCount  Int     @default(0) @map("default_trimester_count")
+  semestersHaveQuarters  Boolean @default(false) @map("semesters_have_quarters")
 
   // Academic Period Defaults Configuration (JSON for flexibility)
   defaultPeriodConfiguration Json? @map("default_period_configuration")
@@ -432,6 +453,9 @@ model AcademicCycle {
   studentCourseHistory   StudentCourseHistory[]
   scheduleImportFiles    ScheduleImportFile[]
   coursePreferences      CoursePreference[]
+  graduationAudits       GraduationAudit[]
+  plannedCourses         GraduationPlanCourse[]
+  courseRecommendations  CourseRecommendation[]
 
   @@index([parentId])
   @@index([cycleType])
@@ -565,33 +589,36 @@ model GradeLevel {
 }
 
 model Course {
-  id               String                 @id @default(cuid())
-  code             String                 @unique @db.VarChar(20)
-  name             String                 @db.VarChar(255)
-  description      String?
-  departmentId     String                 @map("department_id")
-  credits          Decimal                @default(1.0) @db.Decimal(3, 1)
-  courseLevelId    String                 @map("course_level_id")
-  minGradeLevelId  String                 @map("min_grade_level_id")
-  maxStudents      Int                    @default(30) @map("max_students")
-  isElective       Boolean                @default(false) @map("is_elective")
-  isCore           Boolean                @default(false) @map("is_core")
-  isActive         Boolean                @default(true) @map("is_active")
-  createdAt        DateTime               @default(now()) @map("created_at")
-  updatedAt        DateTime               @updatedAt @map("updated_at")
-  courseLevel      CourseLevel            @relation(fields: [courseLevelId], references: [id])
-  department       Department             @relation(fields: [departmentId], references: [id])
-  minGradeLevel    GradeLevel             @relation("MinGradeLevel", fields: [minGradeLevelId], references: [id])
-  prerequisites    CoursePrerequisite[]   @relation("PrerequisiteCourses")
-  prerequisiteFor  CoursePrerequisite[]   @relation("RequiredCourses")
-  conflictingRules CourseRule[]           @relation("ConflictingCourseRules")
-  courseRules      CourseRule[]           @relation("CourseRules")
-  sections         CourseSection[]
-  sequences        CourseSequence[]
-  courseHistory    StudentCourseHistory[]
-  grades           StudentGrade[]
-  preferences      CoursePreference[]
-  teacherCourses   TeacherCourse[]
+  id                    String                  @id @default(cuid())
+  code                  String                  @unique @db.VarChar(20)
+  name                  String                  @db.VarChar(255)
+  description           String?
+  departmentId          String                  @map("department_id")
+  credits               Decimal                 @default(1.0) @db.Decimal(3, 1)
+  courseLevelId         String                  @map("course_level_id")
+  minGradeLevelId       String                  @map("min_grade_level_id")
+  maxStudents           Int                     @default(30) @map("max_students")
+  isElective            Boolean                 @default(false) @map("is_elective")
+  isCore                Boolean                 @default(false) @map("is_core")
+  isActive              Boolean                 @default(true) @map("is_active")
+  createdAt             DateTime                @default(now()) @map("created_at")
+  updatedAt             DateTime                @updatedAt @map("updated_at")
+  courseLevel           CourseLevel             @relation(fields: [courseLevelId], references: [id])
+  department            Department              @relation(fields: [departmentId], references: [id])
+  minGradeLevel         GradeLevel              @relation("MinGradeLevel", fields: [minGradeLevelId], references: [id])
+  prerequisites         CoursePrerequisite[]    @relation("PrerequisiteCourses")
+  prerequisiteFor       CoursePrerequisite[]    @relation("RequiredCourses")
+  conflictingRules      CourseRule[]            @relation("ConflictingCourseRules")
+  courseRules           CourseRule[]            @relation("CourseRules")
+  sections              CourseSection[]
+  sequences             CourseSequence[]
+  courseHistory         StudentCourseHistory[]
+  grades                StudentGrade[]
+  preferences           CoursePreference[]
+  teacherCourses        TeacherCourse[]
+  requiredForGraduation GraduationRequirement[] @relation("RequiredCourse")
+  planCourses           GraduationPlanCourse[]
+  recommendations       CourseRecommendation[]
 
   @@map("course")
 }
@@ -662,7 +689,7 @@ model TimeBlock {
   createdAt            DateTime                @default(now()) @map("created_at")
   updatedAt            DateTime                @updatedAt @map("updated_at")
   blockNumber          Int?                    @map("block_number")
-  rotationDay          RotationDay?            @map("rotation_day")
+  rotationDay          String?                 @map("rotation_day") @db.VarChar(50)
   sections             CourseSection[]         @relation("StartTimeBlock")
   endTimeBlockSections CourseSection[]         @relation("EndTimeBlock")
   preferredInRequests  ScheduleChangeRequest[]
@@ -671,23 +698,23 @@ model TimeBlock {
 }
 
 model Teacher {
-  id           String          @id @default(cuid())
-  teacherId    String          @unique @map("teacher_id") @db.VarChar(20)
-  name         String?
-  email        String          @unique
-  password     String?
-  departmentId String          @map("department_id")
-  roomId       String          @map("room_id")
-  maxCourses   Int             @default(6) @map("max_courses")
-  isActive     Boolean         @default(true) @map("is_active")
-  status       TeacherStatus   @default(ACTIVE)
-  createdAt    DateTime        @default(now()) @map("created_at")
-  updatedAt    DateTime        @updatedAt @map("updated_at")
-  userId       String          @unique @map("user_id")
-  sections     CourseSection[]
-  department   Department      @relation(fields: [departmentId], references: [id])
-  room         Room            @relation(fields: [roomId], references: [id])
-  user         User            @relation(fields: [userId], references: [id])
+  id             String          @id @default(cuid())
+  teacherId      String          @unique @map("teacher_id") @db.VarChar(20)
+  name           String?
+  email          String          @unique
+  password       String?
+  departmentId   String          @map("department_id")
+  roomId         String          @map("room_id")
+  maxCourses     Int             @default(6) @map("max_courses")
+  isActive       Boolean         @default(true) @map("is_active")
+  status         TeacherStatus   @default(ACTIVE)
+  createdAt      DateTime        @default(now()) @map("created_at")
+  updatedAt      DateTime        @updatedAt @map("updated_at")
+  userId         String          @unique @map("user_id")
+  sections       CourseSection[]
+  department     Department      @relation(fields: [departmentId], references: [id])
+  room           Room            @relation(fields: [roomId], references: [id])
+  user           User            @relation(fields: [userId], references: [id])
   teacherCourses TeacherCourse[]
 
   @@map("teacher")
@@ -725,28 +752,28 @@ model ScheduleChangeRequest {
 }
 
 model CoursePreference {
-  id            String                  @id @default(cuid())
-  studentId     String                  @map("student_id")
-  courseId      String                  @map("course_id")
-  academicCycleId String                @map("academic_cycle_id")
-  reason        String?
-  priority      Int?                    // 1st choice, 2nd choice, 3rd choice, etc.
-  status        CoursePreferenceStatus  @default(DRAFT)
-  counselorNotes String?                @map("counselor_notes") @db.Text
-  submittedAt   DateTime?               @map("submitted_at")
-  reviewedAt    DateTime?               @map("reviewed_at")
-  reviewedById  String?                 @map("reviewed_by_id")
-  createdBy     String?                 @map("created_by") // userId who created (null = student)
-  source        PreferenceSource        @default(STUDENT_INITIATED)
-  autoApproved  Boolean                 @default(false) @map("auto_approved")
-  createdAt     DateTime                @default(now()) @map("created_at")
-  updatedAt     DateTime                @updatedAt @map("updated_at")
-  
-  student       Student                 @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  course        Course                  @relation(fields: [courseId], references: [id], onDelete: Cascade)
-  academicCycle AcademicCycle           @relation(fields: [academicCycleId], references: [id], onDelete: Cascade)
-  reviewer      User?                   @relation("PreferenceReviewer", fields: [reviewedById], references: [id])
-  creator       User?                   @relation("PreferenceCreator", fields: [createdBy], references: [id])
+  id              String                 @id @default(cuid())
+  studentId       String                 @map("student_id")
+  courseId        String                 @map("course_id")
+  academicCycleId String                 @map("academic_cycle_id")
+  reason          String?
+  priority        Int? // 1st choice, 2nd choice, 3rd choice, etc.
+  status          CoursePreferenceStatus @default(DRAFT)
+  counselorNotes  String?                @map("counselor_notes") @db.Text
+  submittedAt     DateTime?              @map("submitted_at")
+  reviewedAt      DateTime?              @map("reviewed_at")
+  reviewedById    String?                @map("reviewed_by_id")
+  createdBy       String?                @map("created_by") // userId who created (null = student)
+  source          PreferenceSource       @default(STUDENT_INITIATED)
+  autoApproved    Boolean                @default(false) @map("auto_approved")
+  createdAt       DateTime               @default(now()) @map("created_at")
+  updatedAt       DateTime               @updatedAt @map("updated_at")
+
+  student       Student       @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  course        Course        @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  academicCycle AcademicCycle @relation(fields: [academicCycleId], references: [id], onDelete: Cascade)
+  reviewer      User?         @relation("PreferenceReviewer", fields: [reviewedById], references: [id])
+  creator       User?         @relation("PreferenceCreator", fields: [createdBy], references: [id])
 
   @@unique([studentId, courseId, academicCycleId])
   @@unique([studentId, academicCycleId, priority]) // Ensure unique priority per student per academic cycle
@@ -1120,19 +1147,8 @@ enum RotationDay {
 enum ScheduleType {
   STANDARD
   BLOCK
-  HYBRID
-  ROTATING
 
   @@map("schedule_type")
-}
-
-enum RotationDayType {
-  A_B_DAYS
-  A_B_C_DAYS
-  A_B_C_D_DAYS
-  CUSTOM
-
-  @@map("rotation_day_type")
 }
 
 enum VerificationCodeType {
@@ -1253,4 +1269,460 @@ enum TeacherStatus {
   INACTIVE
 
   @@map("teacher_status")
+}
+
+// ============================================
+// Graduation Management Models (Epic A)
+// ============================================
+
+model GraduationRequirement {
+  id                  String          @id @default(cuid())
+  name                String          @db.VarChar(255)
+  description         String?         @db.Text
+  requirementType     RequirementType @map("requirement_type")
+  requirementCategory String?         @map("requirement_category") @db.VarChar(100)
+
+  // For credit requirements
+  requiredCredits Decimal? @map("required_credits") @db.Decimal(5, 1)
+
+  // For course requirements
+  requiredCourseId     String? @map("required_course_id")
+  alternativeCourseIds Json?   @map("alternative_course_ids") // JSON array for COURSE_ONE_OF
+
+  // For subject-specific requirements (e.g., lab-based science)
+  requiresLabBased        Boolean @default(false) @map("requires_lab_based")
+  requiresLifeScience     Boolean @default(false) @map("requires_life_science")
+  requiresPhysicalScience Boolean @default(false) @map("requires_physical_science")
+
+  // For GPA requirements
+  minimumGPA Decimal? @map("minimum_gpa") @db.Decimal(3, 2)
+
+  // For assessment requirements (supports alternatives)
+  assessmentAlternatives Json? @map("assessment_alternatives") // Array of assessment options
+
+  // Metadata
+  isActive  Boolean  @default(true) @map("is_active")
+  priority  Int      @default(0)
+  createdBy String?  @map("created_by")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  requiredCourse    Course?                       @relation("RequiredCourse", fields: [requiredCourseId], references: [id])
+  creator           User?                         @relation("RequirementCreator", fields: [createdBy], references: [id])
+  audits            GraduationAudit[]
+  courseAllocations CourseRequirementAllocation[]
+  recommendations   CourseRecommendation[]
+
+  @@map("graduation_requirement")
+}
+
+model GraduationAudit {
+  id              String  @id @default(cuid())
+  studentId       String  @map("student_id")
+  requirementId   String  @map("requirement_id")
+  academicCycleId String? @map("academic_cycle_id")
+  graduationYear  Int     @map("graduation_year")
+
+  // Audit Results
+  status        AuditStatus
+  currentValue  Decimal?    @map("current_value") @db.Decimal(5, 1)
+  requiredValue Decimal     @map("required_value") @db.Decimal(5, 1)
+  deficiency    Decimal?    @map("deficiency") @db.Decimal(5, 1)
+
+  // Details
+  details      Json? // Additional audit details (course list, breakdown, etc.)
+  notes        String?   @db.Text
+  waivedBy     String?   @map("waived_by")
+  waivedAt     DateTime? @map("waived_at")
+  waivedReason String?   @map("waived_reason") @db.Text
+
+  // Metadata
+  auditedBy String?  @map("audited_by")
+  auditedAt DateTime @default(now()) @map("audited_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  student           Student                       @relation(fields: [studentId], references: [id])
+  requirement       GraduationRequirement         @relation(fields: [requirementId], references: [id])
+  academicCycle     AcademicCycle?                @relation(fields: [academicCycleId], references: [id])
+  waivingUser       User?                         @relation("AuditWaiver", fields: [waivedBy], references: [id])
+  auditor           User?                         @relation("AuditPerformer", fields: [auditedBy], references: [id])
+  courseAllocations CourseRequirementAllocation[]
+  auditNotes        AuditNote[]
+
+  @@unique([studentId, requirementId, academicCycleId, graduationYear])
+  @@index([studentId])
+  @@index([graduationYear])
+  @@index([status])
+  @@map("graduation_audit")
+}
+
+model CourseRequirementAllocation {
+  id              String @id @default(cuid())
+  studentId       String @map("student_id")
+  courseHistoryId String @map("course_history_id")
+  requirementId   String @map("requirement_id")
+  auditId         String @map("audit_id")
+
+  // Allocation Details
+  allocatedCredits Decimal @map("allocated_credits") @db.Decimal(5, 1)
+  allocationReason String? @map("allocation_reason") @db.Text
+
+  // Conflict Resolution
+  wasConflict        Boolean   @default(false) @map("was_conflict")
+  conflictResolvedBy String?   @map("conflict_resolved_by")
+  conflictResolvedAt DateTime? @map("conflict_resolved_at")
+
+  // Metadata
+  allocatedBy String   @map("allocated_by")
+  allocatedAt DateTime @default(now()) @map("allocated_at")
+
+  // Relations
+  student          Student               @relation(fields: [studentId], references: [id])
+  courseHistory    StudentCourseHistory  @relation(fields: [courseHistoryId], references: [id])
+  requirement      GraduationRequirement @relation(fields: [requirementId], references: [id])
+  audit            GraduationAudit       @relation(fields: [auditId], references: [id])
+  allocator        User                  @relation("AllocationCreator", fields: [allocatedBy], references: [id])
+  conflictResolver User?                 @relation("ConflictResolver", fields: [conflictResolvedBy], references: [id])
+
+  @@unique([courseHistoryId, requirementId, auditId])
+  @@index([studentId])
+  @@index([requirementId])
+  @@index([auditId])
+  @@map("course_requirement_allocation")
+}
+
+model AuditNote {
+  id      String @id @default(cuid())
+  auditId String @map("audit_id")
+
+  // Note Content
+  note         String  @db.Text
+  isActionItem Boolean @default(false) @map("is_action_item")
+
+  // Action Item Tracking
+  completed   Boolean   @default(false)
+  completedAt DateTime? @map("completed_at")
+  completedBy String?   @map("completed_by")
+
+  // Metadata
+  createdBy String   @map("created_by")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  audit     GraduationAudit @relation(fields: [auditId], references: [id], onDelete: Cascade)
+  creator   User            @relation("AuditNoteCreator", fields: [createdBy], references: [id])
+  completer User?           @relation("AuditNoteCompleter", fields: [completedBy], references: [id])
+
+  @@index([auditId])
+  @@index([isActionItem])
+  @@index([completed])
+  @@map("audit_note")
+}
+
+// ============================================
+// Epic B: Graduation Plan Models
+// ============================================
+
+model GraduationPlan {
+  id             String   @id @default(cuid())
+  studentId      String   @map("student_id")
+  graduationYear Int      @map("graduation_year")
+  planName       String?  @map("plan_name") @db.VarChar(255)
+  planType       PlanType @default(STANDARD) @map("plan_type")
+
+  // Plan Status
+  status   PlanStatus @default(DRAFT)
+  version  Int        @default(1)
+  isActive Boolean    @default(false) @map("is_active")
+
+  // Approval Workflow
+  submittedBy     String?   @map("submitted_by")
+  submittedAt     DateTime? @map("submitted_at")
+  approvedBy      String?   @map("approved_by")
+  approvedAt      DateTime? @map("approved_at")
+  rejectedBy      String?   @map("rejected_by")
+  rejectedAt      DateTime? @map("rejected_at")
+  rejectionReason String?   @map("rejection_reason") @db.Text
+
+  // Plan Details
+  notes String? @db.Text
+  goals Json? // Student goals, career interests, etc.
+
+  // Parent/Guardian Approval (optional)
+  parentApproved     Boolean   @default(false) @map("parent_approved")
+  parentApprovedAt   DateTime? @map("parent_approved_at")
+  parentApprovedById String?   @map("parent_approved_by_id")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  student        Student                 @relation(fields: [studentId], references: [id])
+  submitter      User?                   @relation("PlanSubmitter", fields: [submittedBy], references: [id])
+  approver       User?                   @relation("PlanApprover", fields: [approvedBy], references: [id])
+  rejector       User?                   @relation("PlanRejector", fields: [rejectedBy], references: [id])
+  parentApprover ParentGuardian?         @relation(fields: [parentApprovedById], references: [id])
+  planCourses    GraduationPlanCourse[]
+  history        GraduationPlanHistory[]
+  planNotes      PlanNote[]
+
+  @@unique([studentId, graduationYear, version])
+  @@index([studentId])
+  @@index([graduationYear])
+  @@index([status])
+  @@map("graduation_plan")
+}
+
+model GraduationPlanCourse {
+  id                     String  @id @default(cuid())
+  planId                 String  @map("plan_id")
+  courseId               String  @map("course_id")
+  plannedAcademicCycleId String? @map("planned_academic_cycle_id")
+  plannedYear            Int?    @map("planned_year")
+  plannedGrade           Int?    @map("planned_grade")
+
+  // Status Tracking
+  status                   PlannedCourseStatus @default(PLANNED)
+  completedCourseHistoryId String?             @map("completed_course_history_id")
+
+  // Metadata
+  priority   Int     @default(0)
+  notes      String? @db.Text
+  isRequired Boolean @default(false) @map("is_required")
+  isElective Boolean @default(true) @map("is_elective")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  plan                   GraduationPlan         @relation(fields: [planId], references: [id], onDelete: Cascade)
+  course                 Course                 @relation(fields: [courseId], references: [id])
+  plannedAcademicCycle   AcademicCycle?         @relation(fields: [plannedAcademicCycleId], references: [id])
+  completedCourseHistory StudentCourseHistory?  @relation(fields: [completedCourseHistoryId], references: [id])
+  recommendations        CourseRecommendation[]
+
+  @@unique([planId, courseId, plannedAcademicCycleId])
+  @@index([planId])
+  @@index([courseId])
+  @@map("graduation_plan_course")
+}
+
+model GraduationPlanHistory {
+  id          String            @id @default(cuid())
+  planId      String            @map("plan_id")
+  action      PlanHistoryAction
+  performedBy String            @map("performed_by")
+  performedAt DateTime          @default(now()) @map("performed_at")
+  changes     Json? // What changed (diff)
+  notes       String?           @db.Text
+
+  // Relations
+  plan      GraduationPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+  performer User           @relation("PlanHistoryPerformer", fields: [performedBy], references: [id])
+
+  @@index([planId])
+  @@map("graduation_plan_history")
+}
+
+model PlanNote {
+  id     String @id @default(cuid())
+  planId String @map("plan_id")
+
+  // Note Content
+  note         String  @db.Text
+  isActionItem Boolean @default(false) @map("is_action_item")
+
+  // Action Item Tracking
+  completed   Boolean   @default(false)
+  completedAt DateTime? @map("completed_at")
+  completedBy String?   @map("completed_by")
+
+  // Link to Plan Version/Snapshot (optional)
+  planVersion Int? @map("plan_version")
+
+  // Metadata
+  createdBy String   @map("created_by")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  plan      GraduationPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+  creator   User           @relation("PlanNoteCreator", fields: [createdBy], references: [id])
+  completer User?          @relation("PlanNoteCompleter", fields: [completedBy], references: [id])
+
+  @@index([planId])
+  @@index([isActionItem])
+  @@index([completed])
+  @@map("plan_note")
+}
+
+model CourseRecommendation {
+  id              String @id @default(cuid())
+  studentId       String @map("student_id")
+  courseId        String @map("course_id")
+  academicCycleId String @map("academic_cycle_id")
+
+  // Recommendation Details
+  recommendationType RecommendationType @map("recommendation_type")
+  reason             String?            @db.Text
+  priority           Int                @default(0)
+  confidence         Decimal            @map("confidence") @db.Decimal(3, 2)
+
+  // Fulfillment Tracking
+  requirementId String? @map("requirement_id")
+  planCourseId  String? @map("plan_course_id")
+
+  // Status
+  status        RecommendationStatus @default(PENDING)
+  studentAction StudentAction?       @map("student_action")
+  actionDate    DateTime?            @map("action_date")
+
+  // Metadata
+  generatedBy String?   @map("generated_by")
+  generatedAt DateTime  @default(now()) @map("generated_at")
+  expiresAt   DateTime? @map("expires_at")
+  notes       String?   @db.Text
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  student       Student                @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  course        Course                 @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  academicCycle AcademicCycle          @relation(fields: [academicCycleId], references: [id], onDelete: Cascade)
+  requirement   GraduationRequirement? @relation(fields: [requirementId], references: [id], onDelete: SetNull)
+  planCourse    GraduationPlanCourse?  @relation(fields: [planCourseId], references: [id], onDelete: SetNull)
+
+  @@unique([studentId, courseId, academicCycleId, generatedAt])
+  @@index([studentId])
+  @@index([academicCycleId])
+  @@index([status])
+  @@index([recommendationType])
+  @@map("course_recommendation")
+}
+
+enum PlanType {
+  STANDARD
+  COLLEGE_PREP
+  VOCATIONAL
+  HONORS
+  SPECIAL_NEEDS
+  CUSTOM
+
+  @@map("plan_type")
+}
+
+enum PlanStatus {
+  DRAFT
+  SUBMITTED
+  APPROVED
+  REJECTED
+  ACTIVE
+  ARCHIVED
+
+  @@map("plan_status")
+}
+
+enum PlannedCourseStatus {
+  PLANNED
+  ENROLLED
+  COMPLETED
+  FAILED
+  SUBSTITUTED
+  REMOVED
+
+  @@map("planned_course_status")
+}
+
+enum PlanHistoryAction {
+  CREATED
+  UPDATED
+  SUBMITTED
+  APPROVED
+  REJECTED
+  ACTIVATED
+  ARCHIVED
+  COURSE_ADDED
+  COURSE_REMOVED
+  COURSE_SUBSTITUTED
+
+  @@map("plan_history_action")
+}
+
+enum RequirementType {
+  CREDIT_TOTAL
+  CREDIT_BY_SUBJECT
+  COURSE_REQUIRED
+  COURSE_ONE_OF
+  COURSE_LEVEL
+  GPA_MIN
+  ASSESSMENT
+  OTHER
+
+  @@map("requirement_type")
+}
+
+enum AuditStatus {
+  MET
+  NOT_MET
+  PARTIAL
+  IN_PROGRESS
+  WAIVED
+  EXCEPTION
+
+  @@map("audit_status")
+}
+
+enum OverallAuditStatus {
+  ELIGIBLE
+  NOT_YET
+  NEEDS_REVIEW
+
+  @@map("overall_audit_status")
+}
+
+enum RecommendationType {
+  GRADUATION_REQUIREMENT
+  PREREQUISITE
+  INTEREST
+  GAP_FILLER
+  CREDIT_RECOVERY
+  ADVANCEMENT
+  ELECTIVE
+
+  @@map("recommendation_type")
+}
+
+enum RecommendationStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  ENROLLED
+  EXPIRED
+
+  @@map("recommendation_status")
+}
+
+enum StudentAction {
+  ACCEPTED
+  REJECTED
+  ADDED_TO_PREFERENCES
+  ENROLLED
+  IGNORED
+
+  @@map("student_action")
+}
+
+enum CourseAvailabilityStatus {
+  AVAILABLE
+  NOT_OFFERED
+  DISTRICT_WIDE
+  ONLINE
+  DUAL_ENROLLMENT
+
+  @@map("course_availability_status")
 }

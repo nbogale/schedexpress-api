@@ -81,6 +81,7 @@ export enum ErrorCode {
   // Time Block Error Codes
   TBDA = 'TBDA', // Cannot delete time block that is used in course sections
   TBDB = 'TBDB', // Time block not found
+  TBDC = 'TBDC', // Overlapping time blocks are not allowed
 
   // Teacher Error Codes
   TCHD = 'TCHD', // Teacher is used in course sections
@@ -99,6 +100,7 @@ export enum ErrorCode {
   ACCD = 'ACCD', // Academic period dates are not within the cycle dates
   ACCE = 'ACCE', // Academic cycle not found
   ACCF = 'ACCF', // Period overlaps with existing period(s)
+  ACCG = 'ACCG', // Academic periods are disabled by settings
 
   // Academic Period Business Rules Error Codes
   // Enrollment Rules (ACRE = ACademic Rules Enrollment)
