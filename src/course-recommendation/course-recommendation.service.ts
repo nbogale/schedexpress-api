@@ -210,7 +210,18 @@ export class CourseRecommendationService {
         { generatedAt: 'desc' },
       ],
     });
-    return this.serializeRecommendations(list);
+    const serialized = this.serializeRecommendations(list);
+    if (academicCycleId) {
+      for (const rec of serialized) {
+        if (rec.courseId) {
+          rec.availabilityStatus = await this.checkCourseAvailability(
+            rec.courseId,
+            academicCycleId,
+          );
+        }
+      }
+    }
+    return serialized;
   }
 
   async getRecommendation(recommendationId: string) {

@@ -5,7 +5,7 @@ import { CreateStudentDto } from './dto/create-student.dto';
 import { CreateBulkStudentsDto } from './dto/create-bulk-students.dto';
 import { FileParserService, ParsedStudentData } from '../common/file-parser.service';
 import { CycleType, UserRole } from '@prisma/client';
-import * as bcrypt from 'bcrypt';
+import * as bcrypt from 'bcryptjs';
 import { ApiErrorResponse } from 'src/common/api-error';
 import { AcademicCyclesService } from 'src/academic-cycles/academic-cycles.service';
 import * as Papa from 'papaparse';
@@ -124,7 +124,7 @@ export class StudentsService {
           lastName: createStudentDto.lastName,
           username: createStudentDto.username || username,
           role: UserRole.STUDENT,
-          passwordHash: await bcrypt.hash(temporaryPassword, 10),
+          passwordHash: bcrypt.hashSync(temporaryPassword, 10),
         },
       });
 
@@ -202,7 +202,7 @@ export class StudentsService {
               lastName: studentData.lastName,
               username: username,
               role: UserRole.STUDENT,
-              passwordHash: await bcrypt.hash(temporaryPassword, 10),
+              passwordHash: bcrypt.hashSync(temporaryPassword, 10),
             },
           });
 
@@ -329,7 +329,7 @@ export class StudentsService {
               lastName: studentData.lastName,
               username: username,
               role: UserRole.STUDENT,
-              passwordHash: await bcrypt.hash(temporaryPassword, 10),
+              passwordHash: bcrypt.hashSync(temporaryPassword, 10),
             },
           });
 

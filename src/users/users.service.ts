@@ -3,8 +3,8 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UpdateUserStatusDto } from './dto/update-user-status.dto';
-import * as bcrypt from 'bcrypt';
-import { UserRole, UserStatus } from '@prisma/client';
+import * as bcrypt from 'bcryptjs';
+import { Prisma, UserRole, UserStatus } from '@prisma/client';
 import { ApiErrorResponse } from 'src/common/api-error';
 import { ErrorCode } from 'src/common/error-codes';
 import { ApiErrorResponseBuilder } from 'src/common/api-error-builder';
@@ -55,7 +55,7 @@ export class UsersService {
    }
 
     // Hash password
-    const hashedPassword = await bcrypt.hash(userData.password, 10);
+    const hashedPassword = bcrypt.hashSync(userData.password, 10);
 
     delete userData.password;
 
@@ -288,6 +288,124 @@ export class UsersService {
     return users;
   }
 
+  async findAllPaginated(params: {
+    page: number;
+    limit: number;
+    name?: string;
+    email?: string;
+    username?: string;
+    role?: UserRole;
+    status?: UserStatus;
+  }) {
+    const { page, limit, name, email, username, role, status } = params;
+
+    const where: Prisma.UserWhereInput = {};
+    if (name) {
+      where.OR = [
+        { firstName: { contains: name, mode: 'insensitive' } },
+        { lastName: { contains: name, mode: 'insensitive' } },
+      ];
+    }
+
+    if (email) {
+      where.email = { contains: email, mode: 'insensitive' };
+    }
+
+    if (username) {
+      where.username = { contains: username, mode: 'insensitive' };
+    }
+
+    if (role) {
+      where.role = role;
+    }
+
+    if (status) {
+      where.status = status;
+    }
+
+    const roleCountWhere: Prisma.UserWhereInput = {};
+    if (name) {
+      roleCountWhere.OR = [
+        { firstName: { contains: name, mode: 'insensitive' } },
+        { lastName: { contains: name, mode: 'insensitive' } },
+      ];
+    }
+
+    if (email) {
+      roleCountWhere.email = { contains: email, mode: 'insensitive' };
+    }
+
+    if (username) {
+      roleCountWhere.username = { contains: username, mode: 'insensitive' };
+    }
+
+    if (status) {
+      roleCountWhere.status = status;
+    }
+
+    const [users, total] = await this.prisma.$transaction([
+      this.prisma.user.findMany({
+        where,
+        skip: (page - 1) * limit,
+        take: limit,
+        orderBy: { createdAt: 'desc' },
+        select: {
+          id: true,
+          email: true,
+          firstName: true,
+          lastName: true,
+          role: true,
+          status: true,
+          createdAt: true,
+          updatedAt: true,
+          student: {
+            select: {
+              id: true,
+              gradeLevel: true,
+            },
+          },
+          userAccount: {
+            select: {
+              id: true,
+              isActive: true,
+              isLocked: true,
+              lockReason: true,
+              failedLoginAttempts: true,
+              lastLoginAt: true,
+            },
+          },
+        },
+      }),
+      this.prisma.user.count({ where }),
+    ]);
+
+    const [studentCount, counselorCount, teacherCount, platformAdminCount, adminCount] =
+      await Promise.all([
+        this.prisma.user.count({ where: { ...roleCountWhere, role: UserRole.STUDENT } }),
+        this.prisma.user.count({ where: { ...roleCountWhere, role: UserRole.COUNSELOR } }),
+        this.prisma.user.count({ where: { ...roleCountWhere, role: UserRole.TEACHER } }),
+        this.prisma.user.count({ where: { ...roleCountWhere, role: UserRole.PLATFORM_ADMIN } }),
+        this.prisma.user.count({ where: { ...roleCountWhere, role: UserRole.ADMIN } }),
+      ]);
+
+    const roleCounts: Record<string, number> = {
+      STUDENT: studentCount,
+      COUNSELOR: counselorCount,
+      TEACHER: teacherCount,
+      PLATFORM_ADMIN: platformAdminCount,
+      ADMIN: adminCount,
+    };
+
+    return {
+      data: users,
+      total,
+      page,
+      limit,
+      totalPages: Math.max(1, Math.ceil(total / limit)),
+      roleCounts,
+    };
+  }
+
   async findOne(id: string) {
     const user = await this.prisma.user.findUnique({
       where: { id },
@@ -385,7 +503,7 @@ export class UsersService {
 
     // Hash password if provided
     if (userData.password) {
-      userData.password = await bcrypt.hash(userData.password, 10);
+      userData.password = bcrypt.hashSync(userData.password, 10);
     }
 
     return this.prisma.$transaction(async (prisma) => {
@@ -643,13 +761,13 @@ export class UsersService {
       }
 
       // Verify current password
-      const isPasswordValid = await bcrypt.compare(currentPassword, user.passwordHash);
+      const isPasswordValid = bcrypt.compareSync(currentPassword, user.passwordHash);
       if (!isPasswordValid) {
         throw new BadRequestException('Current password is incorrect');
       }
 
       // Hash new password
-      const newPasswordHash = await bcrypt.hash(newPassword, 10);
+      const newPasswordHash = bcrypt.hashSync(newPassword, 10);
 
       // Update user password and status
       const updatedUser = await prisma.user.update({

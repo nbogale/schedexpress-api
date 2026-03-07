@@ -51,6 +51,12 @@ model User {
   planHistoryPerformer    GraduationPlanHistory[]       @relation("PlanHistoryPerformer")
   planNoteCreator         PlanNote[]                    @relation("PlanNoteCreator")
   planNoteCompleter       PlanNote[]                    @relation("PlanNoteCompleter")
+  transferAcceptors       TransferGrade[]               @relation("TransferAcceptor")
+  transferExceptionApprovers TransferGrade[]            @relation("TransferExceptionApprover")
+  transcriptUploads       TranscriptUpload[]            @relation("TranscriptUploader")
+  transferHistoryPerformers TransferGradeHistory[]     @relation("TransferHistoryPerformer")
+  mappingCreators         TransferCreditMapping[]      @relation("MappingCreator")
+  bulkAuditJobs           BulkAuditJob[]               @relation("BulkAuditJobInitiator")
 
   @@map("user")
 }
@@ -103,6 +109,15 @@ model Student {
   courseAllocations     CourseRequirementAllocation[]
   graduationPlans       GraduationPlan[]
   courseRecommendations CourseRecommendation[]
+  transferGrades        TransferGrade[]
+  transcriptUploads     TranscriptUpload[]
+
+  // Transfer student fields
+  isTransferStudent   Boolean   @default(false) @map("is_transfer_student")
+  transferDate        DateTime? @map("transfer_date")
+  previousSchool      String?   @map("previous_school") @db.VarChar(255)
+  previousSchoolYear  String?   @map("previous_school_year") @db.VarChar(50)
+  transferCredits     Decimal   @default(0) @map("transfer_credits") @db.Decimal(5, 1)
 
   // Parent relationships
   primaryParent    ParentGuardian? @relation("PrimaryParent", fields: [primaryParentId], references: [id])
@@ -139,6 +154,7 @@ model StudentCourseHistory {
   submittedByUser      User?                         @relation("GradeSubmitter", fields: [submittedBy], references: [id])
   courseAllocations    CourseRequirementAllocation[]
   completedPlanCourses GraduationPlanCourse[]
+  transferGrade        TransferGrade?
 
   @@index([academicCycleId])
   @@index([studentId, courseId, academicCycleId, gradeType]) // New composite index
@@ -561,6 +577,7 @@ model Department {
   courses     Course[]
   sequences   CourseSequence[]
   teachers    Teacher[]
+  transferCreditMappings TransferCreditMapping[]
 
   @@map("department")
 }
@@ -619,6 +636,8 @@ model Course {
   requiredForGraduation GraduationRequirement[] @relation("RequiredCourse")
   planCourses           GraduationPlanCourse[]
   recommendations       CourseRecommendation[]
+  transferGradesAsMapped TransferGrade[]
+  transferCreditMappings TransferCreditMapping[]
 
   @@map("course")
 }
@@ -1359,6 +1378,29 @@ model GraduationAudit {
   @@map("graduation_audit")
 }
 
+model BulkAuditJob {
+  id               String             @id @default(cuid())
+  graduationYear   Int                @map("graduation_year")
+  totalStudents    Int                @map("total_students")
+  processedCount   Int                @default(0) @map("processed_count")
+  successfulCount  Int                @default(0) @map("successful_count")
+  failedCount      Int                @default(0) @map("failed_count")
+  status           BulkAuditJobStatus @default(PENDING)
+  initiatedBy      String             @map("initiated_by")
+  startedAt        DateTime?          @map("started_at")
+  completedAt      DateTime?          @map("completed_at")
+  errorMessage     String?            @map("error_message") @db.Text
+  createdAt        DateTime          @default(now()) @map("created_at")
+  updatedAt        DateTime          @updatedAt @map("updated_at")
+
+  initiator User @relation("BulkAuditJobInitiator", fields: [initiatedBy], references: [id])
+
+  @@index([initiatedBy])
+  @@index([status])
+  @@index([createdAt])
+  @@map("bulk_audit_job")
+}
+
 model CourseRequirementAllocation {
   id              String @id @default(cuid())
   studentId       String @map("student_id")
@@ -1685,6 +1727,15 @@ enum OverallAuditStatus {
   @@map("overall_audit_status")
 }
 
+enum BulkAuditJobStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+
+  @@map("bulk_audit_job_status")
+}
+
 enum RecommendationType {
   GRADUATION_REQUIREMENT
   PREREQUISITE
@@ -1725,4 +1776,175 @@ enum CourseAvailabilityStatus {
   DUAL_ENROLLMENT
 
   @@map("course_availability_status")
+}
+
+// ============================================
+// Epic C: Transfer Credit / Transfer Grade
+// ============================================
+
+enum TransferMappingType {
+  AUTO
+  MANUAL
+  EXCEPTION
+  PARTIAL
+
+  @@map("transfer_mapping_type")
+}
+
+enum TransferStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  EXCEPTION
+
+  @@map("transfer_status")
+}
+
+enum TransferType {
+  IN_STATE
+  OUT_OF_STATE
+  INTERNATIONAL
+
+  @@map("transfer_type")
+}
+
+enum ProcessingStatus {
+  PENDING
+  PROCESSING
+  PARSED
+  FAILED
+  MANUAL_REVIEW
+
+  @@map("processing_status")
+}
+
+enum TransferHistoryAction {
+  CREATED
+  UPDATED
+  MAPPED
+  UNMAPPED
+  APPROVED
+  REJECTED
+  EXCEPTION_GRANTED
+
+  @@map("transfer_history_action")
+}
+
+model TranscriptUpload {
+  id               String            @id @default(cuid())
+  studentId        String            @map("student_id")
+  fileName         String            @map("file_name") @db.VarChar(255)
+  filePath         String            @map("file_path") @db.VarChar(500)
+  fileType         String            @map("file_type") @db.VarChar(50)
+  fileSize         Int               @map("file_size")
+  mimeType         String?           @map("mime_type") @db.VarChar(100)
+  sourceSchool     String?           @map("source_school") @db.VarChar(255)
+  sourceState      String?           @map("source_state") @db.VarChar(50)
+  sourceSchoolType String?           @map("source_school_type") @db.VarChar(50)
+  processingStatus ProcessingStatus  @default(PENDING) @map("processing_status")
+  parsedData       Json?             @map("parsed_data")
+  parsingErrors    Json?             @map("parsing_errors")
+  parsedAt         DateTime?         @map("parsed_at")
+  uploadedBy       String            @map("uploaded_by")
+  uploadedAt       DateTime          @default(now()) @map("uploaded_at")
+  notes            String?           @db.Text
+
+  student        Student         @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  uploader       User            @relation("TranscriptUploader", fields: [uploadedBy], references: [id])
+  transferGrades TransferGrade[]
+
+  @@index([studentId])
+  @@index([processingStatus])
+  @@map("transcript_upload")
+}
+
+model TransferGrade {
+  id                     String    @id @default(cuid())
+  studentId              String    @map("student_id")
+  sourceSchool           String    @map("source_school") @db.VarChar(255)
+  sourceSchoolType       String?   @map("source_school_type") @db.VarChar(50)
+  academicYear           String    @map("academic_year") @db.VarChar(20)
+  academicPeriod         String?   @map("academic_period") @db.VarChar(50)
+  originalCourseName     String    @map("original_course_name") @db.VarChar(255)
+  originalCourseCode     String?   @map("original_course_code") @db.VarChar(50)
+  originalCredits        Decimal   @map("original_credits") @db.Decimal(3, 1)
+  originalGrade          String    @map("original_grade") @db.VarChar(10)
+  originalGradeSystem    String    @map("original_grade_system") @db.VarChar(50)
+  convertedGrade         String?   @map("converted_grade") @db.VarChar(2)
+  convertedGradePoints   Decimal?  @map("converted_grade_points") @db.Decimal(3, 2)
+  mappedCourseId         String?   @map("mapped_course_id")
+  mappingType            TransferMappingType @default(MANUAL) @map("mapping_type")
+  status                 TransferStatus      @default(PENDING)
+  isAccepted             Boolean   @default(false) @map("is_accepted")
+  acceptedBy             String?   @map("accepted_by")
+  acceptedAt             DateTime? @map("accepted_at")
+  rejectionReason        String?   @map("rejection_reason") @db.Text
+  isException            Boolean   @default(false) @map("is_exception")
+  exceptionReason        String?   @map("exception_reason") @db.Text
+  exceptionApprovedBy    String?   @map("exception_approved_by")
+  exceptionApprovedAt    DateTime? @map("exception_approved_at")
+  studentCourseHistoryId String?   @unique @map("student_course_history_id")
+  parsingConfidence     Decimal?   @map("parsing_confidence") @db.Decimal(3, 2)
+  unmappingReason       String?   @map("unmapping_reason") @db.Text
+  transferType          TransferType? @map("transfer_type")
+  transcriptUploadId    String?   @map("transcript_upload_id")
+  notes                  String?   @db.Text
+  createdAt              DateTime  @default(now()) @map("created_at")
+  updatedAt              DateTime  @updatedAt @map("updated_at")
+
+  student             Student                 @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  mappedCourse        Course?                 @relation(fields: [mappedCourseId], references: [id], onDelete: SetNull)
+  acceptor            User?                   @relation("TransferAcceptor", fields: [acceptedBy], references: [id])
+  exceptionApprover   User?                   @relation("TransferExceptionApprover", fields: [exceptionApprovedBy], references: [id])
+  studentCourseHistory StudentCourseHistory?  @relation(fields: [studentCourseHistoryId], references: [id], onDelete: SetNull)
+  transcriptUpload    TranscriptUpload?       @relation(fields: [transcriptUploadId], references: [id], onDelete: SetNull)
+  history             TransferGradeHistory[]
+
+  @@index([studentId])
+  @@index([status])
+  @@index([mappedCourseId])
+  @@index([studentCourseHistoryId])
+  @@index([transcriptUploadId])
+  @@map("transfer_grade")
+}
+
+model TransferGradeHistory {
+  id              String               @id @default(cuid())
+  transferGradeId String               @map("transfer_grade_id")
+  action          TransferHistoryAction
+  changes         Json?
+  performedBy     String               @map("performed_by")
+  performedAt     DateTime             @default(now()) @map("performed_at")
+  notes           String?              @db.Text
+
+  transferGrade TransferGrade @relation(fields: [transferGradeId], references: [id], onDelete: Cascade)
+  performer     User          @relation("TransferHistoryPerformer", fields: [performedBy], references: [id])
+
+  @@index([transferGradeId])
+  @@map("transfer_grade_history")
+}
+
+model TransferCreditMapping {
+  id                  String    @id @default(cuid())
+  externalCourseCode  String    @map("external_course_code") @db.VarChar(100)
+  externalCourseName  String    @map("external_course_name") @db.VarChar(255)
+  sourceSchoolType    String?   @map("source_school_type") @db.VarChar(50)
+  internalCourseId    String?   @map("internal_course_id")
+  departmentId       String?   @map("department_id")
+  creditEquivalent    Decimal   @default(1.0) @map("credit_equivalent") @db.Decimal(3, 1)
+  mappingRule         String?   @map("mapping_rule") @db.Text
+  isActive            Boolean   @default(true) @map("is_active")
+  priority            Int       @default(0)
+  createdBy           String?   @map("created_by")
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
+
+  internalCourse Course?    @relation(fields: [internalCourseId], references: [id], onDelete: SetNull)
+  department     Department? @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  creator        User?     @relation("MappingCreator", fields: [createdBy], references: [id])
+
+  @@unique([externalCourseCode, externalCourseName, sourceSchoolType])
+  @@index([internalCourseId])
+  @@index([departmentId])
+  @@map("transfer_credit_mapping")
 }

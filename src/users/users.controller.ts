@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Param, Delete, Put, UseGuards, Request } from '@nestjs/common';
+import { BadRequestException, Controller, Get, Post, Body, Param, Delete, Put, UseGuards, Request, Query } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
@@ -8,7 +8,7 @@ import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagg
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
-import { UserRole } from '@prisma/client';
+import { UserRole, UserStatus } from '@prisma/client';
 
 @ApiTags('Users')
 @Controller('users')
@@ -35,8 +35,52 @@ export class UsersController {
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get all users' })
   @ApiResponse({ status: 200, description: 'Return all users' })
-  findAll() {
-    return this.usersService.findAll();
+  findAll(
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+    @Query('name') name?: string,
+    @Query('email') email?: string,
+    @Query('username') username?: string,
+    @Query('role') role?: string,
+    @Query('status') status?: string,
+  ) {
+    const hasPaginationQuery = !!page || !!limit || !!name || !!email || !!username || !!role || !!status;
+    if (!hasPaginationQuery) {
+      return this.usersService.findAll();
+    }
+
+    const parsedPage = Number.isFinite(Number(page)) ? Math.max(1, Number(page)) : 1;
+    const parsedLimit = Number.isFinite(Number(limit))
+      ? Math.min(100, Math.max(1, Number(limit)))
+      : 10;
+
+    let parsedRole: UserRole | undefined;
+    if (role) {
+      const isValidRole = (Object.values(UserRole) as string[]).includes(role);
+      if (!isValidRole) {
+        throw new BadRequestException('Invalid role filter');
+      }
+      parsedRole = role as UserRole;
+    }
+
+    let parsedStatus: UserStatus | undefined;
+    if (status) {
+      const isValidStatus = (Object.values(UserStatus) as string[]).includes(status);
+      if (!isValidStatus) {
+        throw new BadRequestException('Invalid status filter');
+      }
+      parsedStatus = status as UserStatus;
+    }
+
+    return this.usersService.findAllPaginated({
+      page: parsedPage,
+      limit: parsedLimit,
+      name: name?.trim() || undefined,
+      email: email?.trim() || undefined,
+      username: username?.trim() || undefined,
+      role: parsedRole,
+      status: parsedStatus,
+    });
   }
 
   @Get(':id')

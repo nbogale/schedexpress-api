@@ -1,6 +1,6 @@
 import { Injectable, Logger, UnauthorizedException, ConflictException, BadRequestException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import * as bcrypt from 'bcrypt';
+import * as bcrypt from 'bcryptjs';
 import { PrismaService } from '../prisma/prisma.service';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
@@ -56,7 +56,7 @@ export class AuthService {
       throw new UnauthorizedException(errorResponse);
     }
 
-    const isPasswordValid = await bcrypt.compare(password, user.passwordHash);
+    const isPasswordValid = bcrypt.compareSync(password, user.passwordHash);
     if (!isPasswordValid) {
       // Handle failed login attempt
       await this.handleFailedLoginAttempt(user.id);
@@ -280,7 +280,7 @@ export class AuthService {
 
     // Hash password
     const saltRounds = 10;
-    const passwordHash = await bcrypt.hash(registerDto.password, saltRounds);
+    const passwordHash = bcrypt.hashSync(registerDto.password, saltRounds);
 
     // Generate username if not provided
     const username = registerDto.username || this.generateUsername(registerDto.email);
@@ -464,7 +464,7 @@ export class AuthService {
 
     // Hash the new password
     const saltRounds = 10;
-    const passwordHash = await bcrypt.hash(newPassword, saltRounds);
+    const passwordHash = bcrypt.hashSync(newPassword, saltRounds);
 
     // Update user password and mark verification code as used
     await this.prisma.$transaction(async (prisma) => {

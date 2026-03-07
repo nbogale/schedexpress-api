@@ -31,6 +31,7 @@ import { CoursePreferencesModule } from './course-preferences/course-preferences
 import { GraduationAuditModule } from './graduation-audit/graduation-audit.module';
 import { GraduationPlanModule } from './graduation-plan/graduation-plan.module';
 import { CourseRecommendationModule } from './course-recommendation/course-recommendation.module';
+import { TransferCreditModule } from './transfer-credit/transfer-credit.module';
 
 @Module({
   imports: [
@@ -67,6 +68,7 @@ import { CourseRecommendationModule } from './course-recommendation/course-recom
     GraduationAuditModule,
     GraduationPlanModule,
     CourseRecommendationModule,
+    TransferCreditModule,
   ],
 })
 export class AppModule {}

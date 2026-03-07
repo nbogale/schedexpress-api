@@ -11,7 +11,7 @@ import { ApiErrorResponseBuilder } from "src/common/api-error-builder";
 import { ErrorCode } from "src/common/error-codes";
 import { ApiErrorResponse } from "src/common/api-error";
 import { UserRole, Prisma, TeacherStatus, CycleType } from "@prisma/client";
-import * as bcrypt from "bcrypt";
+import * as bcrypt from "bcryptjs";
 import * as Papa from "papaparse";
 import * as XLSX from "xlsx";
 
@@ -64,7 +64,7 @@ export class TeachersService {
           lastName: createTeacherDto.lastName,
           username: username,
           role: UserRole.TEACHER,
-          passwordHash: await bcrypt.hash(temporaryPassword, 10),
+          passwordHash: bcrypt.hashSync(temporaryPassword, 10),
         },
       });
 

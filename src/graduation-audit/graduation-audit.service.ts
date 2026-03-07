@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, InternalServerErrorException, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { GradeLookupService } from '../grade-lookup/grade-lookup.service';
 import { CreateGraduationRequirementDto } from './dto/create-graduation-requirement.dto';
@@ -7,11 +7,13 @@ import { RunAuditDto } from './dto/run-audit.dto';
 import { AllocateCourseDto } from './dto/allocate-course.dto';
 import { WaiveRequirementDto } from './dto/waive-requirement.dto';
 import { CreateAuditNoteDto } from './dto/create-audit-note.dto';
-import { 
-  RequirementType, 
+import {
+  RequirementType,
   AuditStatus,
-  Prisma 
+  BulkAuditJobStatus,
+  Prisma,
 } from '@prisma/client';
+import { BulkAuditScope } from './dto/start-bulk-audit.dto';
 
 // OverallAuditStatus is not in Prisma schema (it's a computed value)
 export enum OverallAuditStatus {
@@ -660,7 +662,7 @@ export class GraduationAuditService {
       },
     });
 
-    // Get all course history for the student
+    // Get all passed course history for the student (same pool used by audit)
     const allCourseHistory = await this.prisma.studentCourseHistory.findMany({
       where: {
         studentId,
@@ -678,30 +680,13 @@ export class GraduationAuditService {
     const breakdowns: DetailedAuditBreakdown[] = [];
 
     for (const audit of audits) {
-      const allocations = audit.courseAllocations || [];
-      const coursesCounted = allocations.map(alloc => ({
-        courseHistoryId: alloc.courseHistoryId,
-        courseName: alloc.courseHistory.course.name,
-        courseCode: alloc.courseHistory.course.code,
-        credits: Number(alloc.allocatedCredits),
-        allocationReason: alloc.allocationReason || undefined,
-      }));
+      // Natural counting: each course counts toward every requirement it qualifies for.
+      // Compute coursesCounted from the same logic as auditRequirement (no allocation needed).
+      const coursesCounted = this.getCoursesThatCountForRequirement(audit.requirement, allCourseHistory);
 
-      // Find courses that could count but aren't allocated
-      const excludedCourses = allCourseHistory
-        .filter(ch => {
-          // Check if this course could potentially count for this requirement
-          const couldCount = this.couldCourseCountForRequirement(ch, audit.requirement);
-          // But it's not allocated
-          const isAllocated = allocations.some(a => a.courseHistoryId === ch.id);
-          return couldCount && !isAllocated;
-        })
-        .map(ch => ({
-          courseHistoryId: ch.id,
-          courseName: ch.course.name,
-          courseCode: ch.course.code,
-          reason: 'Not allocated to this requirement',
-        }));
+      // No "excluded" courses for standard types: we don't force one-course-one-requirement.
+      // Reserve excludedCourses for future overrides (e.g. counselor excluded a course from a requirement).
+      const excludedCourses: DetailedAuditBreakdown['excludedCourses'] = [];
 
       breakdowns.push({
         requirementId: audit.requirementId,
@@ -719,20 +704,60 @@ export class GraduationAuditService {
     return breakdowns;
   }
 
-  private couldCourseCountForRequirement(courseHistory: any, requirement: any): boolean {
+  /**
+   * Returns the list of courses that count toward a requirement, using the same logic as auditRequirement.
+   * A course can count toward multiple requirements (e.g. Algebra I counts for total credits, math credits, and "Algebra I required").
+   */
+  private getCoursesThatCountForRequirement(
+    requirement: { requirementType: string; requirementCategory?: string | null; requiredCourseId?: string | null; alternativeCourseIds?: unknown },
+    allCourseHistory: Array<{ id: string; courseId: string; creditEarned: unknown; course: { name: string; code: string; department?: { name: string; code: string } | null } }>,
+  ): DetailedAuditBreakdown['coursesCounted'] {
     switch (requirement.requirementType) {
       case RequirementType.CREDIT_TOTAL:
-        return true; // Any course can count toward total credits
-      case RequirementType.CREDIT_BY_SUBJECT:
-        return courseHistory.course.department.name === requirement.requirementCategory ||
-               courseHistory.course.department.code === requirement.requirementCategory;
-      case RequirementType.COURSE_REQUIRED:
-        return courseHistory.courseId === requirement.requiredCourseId;
-      case RequirementType.COURSE_ONE_OF:
-        const alternatives = requirement.alternativeCourseIds as string[] || [];
-        return alternatives.includes(courseHistory.courseId);
+        return allCourseHistory.map(ch => ({
+          courseHistoryId: ch.id,
+          courseName: ch.course.name,
+          courseCode: ch.course.code,
+          credits: Number(ch.creditEarned),
+        }));
+      case RequirementType.CREDIT_BY_SUBJECT: {
+        const category = requirement.requirementCategory;
+        if (!category) return [];
+        const subjectCourses = allCourseHistory.filter(ch =>
+          ch.course.department &&
+          (ch.course.department.name === category || ch.course.department.code === category),
+        );
+        return subjectCourses.map(ch => ({
+          courseHistoryId: ch.id,
+          courseName: ch.course.name,
+          courseCode: ch.course.code,
+          credits: Number(ch.creditEarned),
+        }));
+      }
+      case RequirementType.COURSE_REQUIRED: {
+        const requiredId = requirement.requiredCourseId;
+        if (!requiredId) return [];
+        const match = allCourseHistory.find(ch => ch.courseId === requiredId);
+        if (!match) return [];
+        return [{
+          courseHistoryId: match.id,
+          courseName: match.course.name,
+          courseCode: match.course.code,
+          credits: Number(match.creditEarned),
+        }];
+      }
+      case RequirementType.COURSE_ONE_OF: {
+        const alternativeIds = (requirement.alternativeCourseIds as string[] | null) || [];
+        const matches = allCourseHistory.filter(ch => alternativeIds.includes(ch.courseId));
+        return matches.map(ch => ({
+          courseHistoryId: ch.id,
+          courseName: ch.course.name,
+          courseCode: ch.course.code,
+          credits: Number(ch.creditEarned),
+        }));
+      }
       default:
-        return false;
+        return [];
     }
   }
 
@@ -1009,32 +1034,279 @@ export class GraduationAuditService {
   // Bulk Operations
   // ============================================
 
-  async bulkAudit(studentIds: string[], graduationYear: number, auditedBy?: string) {
-    const results = [];
+  /**
+   * Run bulk audit synchronously. Student list is resolved server-side by scope (COHORT or ALL).
+   */
+  async bulkAudit(
+    graduationYear: number,
+    scope: BulkAuditScope,
+    auditedBy?: string,
+  ): Promise<{
+    total: number;
+    successful: number;
+    failed: number;
+    results: Array<{ studentId: string; success: boolean; summary?: AuditSummary; error?: string }>;
+  }> {
+    const studentIds = await this.resolveStudentIdsForBulkAudit(scope, graduationYear);
+    const results: Array<{ studentId: string; success: boolean; summary?: AuditSummary; error?: string }> = [];
 
     for (const studentId of studentIds) {
       try {
-        const auditResults = await this.runAudit(studentId, graduationYear, undefined, auditedBy);
+        await this.runAudit(studentId, graduationYear, undefined, auditedBy);
         const summary = await this.getAuditSummary(studentId, graduationYear);
-        results.push({
-          studentId,
-          success: true,
-          summary,
-        });
-      } catch (error) {
+        results.push({ studentId, success: true, summary });
+      } catch (error: any) {
         results.push({
           studentId,
           success: false,
-          error: error.message,
+          error: error?.message ?? 'Unknown error',
         });
       }
     }
 
     return {
       total: studentIds.length,
-      successful: results.filter(r => r.success).length,
-      failed: results.filter(r => !r.success).length,
+      successful: results.filter((r) => r.success).length,
+      failed: results.filter((r) => !r.success).length,
       results,
     };
+  }
+
+  /**
+   * Resolve which student IDs to audit based on scope. Backend determines the list; no client-provided student IDs.
+   * COHORT = students whose profile graduationYear matches the given year (Class of X).
+   * ALL = all students in the school.
+   */
+  private async resolveStudentIdsForBulkAudit(
+    scope: BulkAuditScope,
+    graduationYear: number,
+  ): Promise<string[]> {
+    if (scope === BulkAuditScope.COHORT) {
+      const students = await this.prisma.student.findMany({
+        where: { graduationYear },
+        select: { id: true },
+      });
+      return students.map((s) => s.id);
+    }
+    // ALL
+    const students = await this.prisma.student.findMany({
+      select: { id: true },
+    });
+    return students.map((s) => s.id);
+  }
+
+  /**
+   * Start bulk audit asynchronously. Creates a job record and processes in background.
+   * Student list is resolved server-side by scope: COHORT (Class of graduation year) or ALL.
+   * Only one bulk audit per user can be running at a time (PENDING or PROCESSING).
+   */
+  async startBulkAudit(
+    graduationYear: number,
+    scope: BulkAuditScope,
+    initiatedBy: string,
+  ): Promise<{ jobId: string; totalStudents: number }> {
+    const studentIds = await this.resolveStudentIdsForBulkAudit(scope, graduationYear);
+    if (!studentIds.length) {
+      throw new BadRequestException(
+        scope === BulkAuditScope.COHORT
+          ? `No students found with graduation year ${graduationYear}. Check student profiles have graduation year set.`
+          : 'No students found.',
+      );
+    }
+
+    const active = await this.prisma.bulkAuditJob.findFirst({
+      where: {
+        initiatedBy,
+        status: { in: [BulkAuditJobStatus.PENDING, BulkAuditJobStatus.PROCESSING] },
+      },
+    });
+    if (active) {
+      throw new BadRequestException(
+        'A bulk audit is already running. Wait for it to complete before starting another.',
+      );
+    }
+
+    const job = await this.prisma.bulkAuditJob.create({
+      data: {
+        graduationYear,
+        totalStudents: studentIds.length,
+        status: BulkAuditJobStatus.PENDING,
+        initiatedBy,
+      },
+    });
+
+    this.processBulkAuditAsync(job.id, studentIds, graduationYear, initiatedBy).catch((err) => {
+      this.logger.error(`Bulk audit job ${job.id} failed: ${err?.message}`, err?.stack);
+    });
+
+    return { jobId: job.id, totalStudents: studentIds.length };
+  }
+
+  /**
+   * Process bulk audit in background. Updates job progress and final status.
+   */
+  private async processBulkAuditAsync(
+    jobId: string,
+    studentIds: string[],
+    graduationYear: number,
+    auditedBy: string,
+  ) {
+    try {
+      await this.prisma.bulkAuditJob.update({
+        where: { id: jobId },
+        data: {
+          status: BulkAuditJobStatus.PROCESSING,
+          startedAt: new Date(),
+        },
+      });
+
+      let successfulCount = 0;
+      let failedCount = 0;
+
+      for (let i = 0; i < studentIds.length; i++) {
+        const studentId = studentIds[i];
+        try {
+          await this.runAudit(studentId, graduationYear, undefined, auditedBy);
+          await this.getAuditSummary(studentId, graduationYear);
+          successfulCount++;
+        } catch (error) {
+          failedCount++;
+          this.logger.warn(`Bulk audit job ${jobId}: failed for student ${studentId}: ${error?.message}`);
+        }
+
+        await this.prisma.bulkAuditJob.update({
+          where: { id: jobId },
+          data: {
+            processedCount: i + 1,
+            successfulCount,
+            failedCount,
+          },
+        });
+      }
+
+      await this.prisma.bulkAuditJob.update({
+        where: { id: jobId },
+        data: {
+          status: BulkAuditJobStatus.COMPLETED,
+          completedAt: new Date(),
+        },
+      });
+    } catch (error) {
+      await this.prisma.bulkAuditJob.update({
+        where: { id: jobId },
+        data: {
+          status: BulkAuditJobStatus.FAILED,
+          completedAt: new Date(),
+          errorMessage: error?.message?.slice(0, 2000) ?? 'Unknown error',
+        },
+      }).catch((updateErr) => {
+        this.logger.error(`Failed to update bulk audit job ${jobId} to FAILED: ${updateErr?.message}`);
+      });
+    }
+  }
+
+  async getBulkAuditJob(jobId: string, userId: string) {
+    const job = await this.prisma.bulkAuditJob.findFirst({
+      where: { id: jobId, initiatedBy: userId },
+    });
+    if (!job) throw new NotFoundException('Bulk audit job not found');
+    return job;
+  }
+
+  async getBulkAuditJobsForUser(userId: string, limit = 20) {
+    return this.prisma.bulkAuditJob.findMany({
+      where: { initiatedBy: userId },
+      orderBy: { createdAt: 'desc' },
+      take: limit,
+    });
+  }
+
+  // ============================================
+  // PDF Report
+  // ============================================
+
+  /**
+   * Resolves idOrUserId to Student.id. Accepts either Student.id or User.id (so frontend can pass either).
+   */
+  private async resolveStudentId(idOrUserId: string): Promise<string> {
+    const byId = await this.prisma.student.findUnique({
+      where: { id: idOrUserId },
+      select: { id: true },
+    });
+    if (byId) return byId.id;
+    const byUserId = await this.prisma.student.findFirst({
+      where: { userId: idOrUserId },
+      select: { id: true },
+    });
+    if (byUserId) return byUserId.id;
+    throw new NotFoundException('Student not found');
+  }
+
+  async generateAuditReportPDF(studentIdParam: string, graduationYear: number): Promise<Buffer> {
+    const studentId = await this.resolveStudentId(studentIdParam);
+    const PDFDocument = require('pdfkit');
+    const student = await this.prisma.student.findUnique({
+      where: { id: studentId },
+      include: { user: { select: { firstName: true, lastName: true, email: true } } },
+    });
+    if (!student) throw new NotFoundException('Student not found');
+
+    const summary = await this.getAuditSummary(studentId, graduationYear);
+    const breakdown = await this.getDetailedBreakdown(studentId, graduationYear);
+    const deficiencies = await this.getDeficiencies(studentId, graduationYear);
+
+    try {
+      return await new Promise<Buffer>((resolve, reject) => {
+        const doc = new PDFDocument({ margin: 50 });
+        const chunks: Buffer[] = [];
+        doc.on('data', (chunk: Buffer) => chunks.push(chunk));
+        doc.on('end', () => resolve(Buffer.concat(chunks)));
+        doc.on('error', reject);
+
+        const studentName = [student.user?.firstName, student.user?.lastName].filter(Boolean).join(' ') || 'Unknown';
+        doc.fontSize(18).text('Graduation Audit Report', { align: 'center' });
+        doc.moveDown(0.5);
+        doc.fontSize(10).text(`Student: ${studentName}  |  Graduation Year: ${graduationYear}`, { align: 'center' });
+        doc.text(`Generated: ${new Date().toLocaleString()}`, { align: 'center' });
+        doc.moveDown(1);
+
+        doc.fontSize(12).text('Overall Status', { continued: false });
+        doc.fontSize(10).text(`Status: ${summary.overallStatus ?? 'N/A'}`, { indent: 20 });
+        doc.text(`Met: ${summary.metRequirements ?? 0}  |  Not met: ${summary.notMetRequirements ?? 0}  |  Partial: ${summary.partialRequirements ?? 0}  |  Waived: ${summary.waivedRequirements ?? 0}`, { indent: 20 });
+        doc.moveDown(1);
+
+        doc.fontSize(12).text('Requirement Breakdown', { continued: false });
+        for (const item of breakdown) {
+          doc.fontSize(10).text(`${item.requirementName}: ${item.status} (${item.currentValue} / ${item.requiredValue})`, { indent: 20 });
+          if (item.coursesCounted?.length) {
+            item.coursesCounted.forEach((c: { courseName: string; courseCode: string; credits: number }) => {
+              doc.text(`  - ${c.courseCode} ${c.courseName} (${c.credits} cr)`, { indent: 30 });
+            });
+          }
+          if (item.deficiency != null && item.deficiency > 0) {
+            doc.text(`  Deficiency: ${item.deficiency}`, { indent: 30 });
+          }
+          doc.moveDown(0.3);
+        }
+        doc.moveDown(0.5);
+
+        if (deficiencies.length > 0) {
+          doc.fontSize(12).text('Missing / Incomplete Requirements', { continued: false });
+          deficiencies.forEach((d: { requirement?: { name?: string } | null }) => {
+            doc.fontSize(10).text(`- ${d.requirement?.name ?? 'Requirement'}`, { indent: 20 });
+          });
+          doc.moveDown(0.5);
+        }
+
+        doc.fontSize(10).text('Recommendations: Review unmet requirements with the student and update course plan as needed.', { indent: 20 });
+        doc.moveDown(2);
+        doc.fontSize(8).text('This report is confidential and intended only for authorized school staff and the student/family.', { align: 'center' });
+        doc.text('Do not distribute without permission.', { align: 'center' });
+        doc.end();
+      });
+    } catch (err: any) {
+      this.logger.error(`PDF generation failed: ${err?.message}`, err?.stack);
+      throw new InternalServerErrorException(err?.message ?? 'Failed to generate PDF report');
+    }
   }
 }

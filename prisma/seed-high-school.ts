@@ -1,5 +1,5 @@
 import { PrismaClient, UserRole, ConflictType, RequestStatus, NotificationType, RotationDay, RelationshipType, ContactMethod, DigestFrequency, RequestType } from '@prisma/client';
-import * as bcrypt from 'bcrypt';
+import * as bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
 
@@ -158,48 +158,48 @@ async function main() {
   
   const users = await Promise.all([
     // Administrators
-    prisma.user.create({ data: { email: 'p.williams@lincolnhs.edu', username: 'pwilliams', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.ADMIN, firstName: 'Patricia', lastName: 'Williams' } }),
-    prisma.user.create({ data: { email: 'j.anderson@lincolnhs.edu', username: 'janderson', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.ADMIN, firstName: 'James', lastName: 'Anderson' } }),
+    prisma.user.create({ data: { email: 'p.williams@lincolnhs.edu', username: 'pwilliams', passwordHash: bcrypt.hashSync('Welcome2ES!', 10), role: UserRole.ADMIN, firstName: 'Patricia', lastName: 'Williams' } }),
+    prisma.user.create({ data: { email: 'j.anderson@lincolnhs.edu', username: 'janderson', passwordHash: bcrypt.hashSync('Welcome2ES!', 10), role: UserRole.ADMIN, firstName: 'James', lastName: 'Anderson' } }),
     
     // Platform Administrators
-    prisma.user.create({ data: { email: 's.mitchell@lincolnhs.edu', username: 'smitchell', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.PLATFORM_ADMIN, firstName: 'Sarah', lastName: 'Mitchell' } }),
-    prisma.user.create({ data: { email: 'd.foster@lincolnhs.edu', username: 'dfoster', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.PLATFORM_ADMIN, firstName: 'David', lastName: 'Foster' } }),
+    prisma.user.create({ data: { email: 's.mitchell@lincolnhs.edu', username: 'smitchell', passwordHash: bcrypt.hashSync('Welcome2ES!', 10), role: UserRole.PLATFORM_ADMIN, firstName: 'Sarah', lastName: 'Mitchell' } }),
+    prisma.user.create({ data: { email: 'd.foster@lincolnhs.edu', username: 'dfoster', passwordHash: bcrypt.hashSync('Welcome2ES!', 10), role: UserRole.PLATFORM_ADMIN, firstName: 'David', lastName: 'Foster' } }),
     
     // Counselors
-    prisma.user.create({ data: { email: 'p.lee@lincolnhs.edu', username: 'plee', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.COUNSELOR, firstName: 'Patricia', lastName: 'Lee' } }),
-    prisma.user.create({ data: { email: 'm.torres@lincolnhs.edu', username: 'mtorres', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.COUNSELOR, firstName: 'Michael', lastName: 'Torres' } }),
-    prisma.user.create({ data: { email: 'j.adams@lincolnhs.edu', username: 'jadams', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.COUNSELOR, firstName: 'Jennifer', lastName: 'Adams' } }),
-    prisma.user.create({ data: { email: 'r.kim@lincolnhs.edu', username: 'rkim', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.COUNSELOR, firstName: 'Robert', lastName: 'Kim' } }),
-    prisma.user.create({ data: { email: 's.garcia@lincolnhs.edu', username: 'sgarcia', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.COUNSELOR, firstName: 'Sarah', lastName: 'Garcia' } }),
-    prisma.user.create({ data: { email: 'd.martinez@lincolnhs.edu', username: 'dmartinez', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.COUNSELOR, firstName: 'David', lastName: 'Martinez' } }),
+    prisma.user.create({ data: { email: 'p.lee@lincolnhs.edu', username: 'plee', passwordHash: bcrypt.hashSync('Welcome2ES!', 10), role: UserRole.COUNSELOR, firstName: 'Patricia', lastName: 'Lee' } }),
+    prisma.user.create({ data: { email: 'm.torres@lincolnhs.edu', username: 'mtorres', passwordHash: bcrypt.hashSync('Welcome2ES!', 10), role: UserRole.COUNSELOR, firstName: 'Michael', lastName: 'Torres' } }),
+    prisma.user.create({ data: { email: 'j.adams@lincolnhs.edu', username: 'jadams', passwordHash: bcrypt.hashSync('Welcome2ES!', 10), role: UserRole.COUNSELOR, firstName: 'Jennifer', lastName: 'Adams' } }),
+    prisma.user.create({ data: { email: 'r.kim@lincolnhs.edu', username: 'rkim', passwordHash: bcrypt.hashSync('Welcome2ES!', 10), role: UserRole.COUNSELOR, firstName: 'Robert', lastName: 'Kim' } }),
+    prisma.user.create({ data: { email: 's.garcia@lincolnhs.edu', username: 'sgarcia', passwordHash: bcrypt.hashSync('Welcome2ES!', 10), role: UserRole.COUNSELOR, firstName: 'Sarah', lastName: 'Garcia' } }),
+    prisma.user.create({ data: { email: 'd.martinez@lincolnhs.edu', username: 'dmartinez', passwordHash: bcrypt.hashSync('Welcome2ES!', 10), role: UserRole.COUNSELOR, firstName: 'David', lastName: 'Martinez' } }),
     
     // Teachers
-    prisma.user.create({ data: { email: 's.johnson@lincolnhs.edu', username: 'sjohnson', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.TEACHER, firstName: 'Sarah', lastName: 'Johnson' } }),
-    prisma.user.create({ data: { email: 'j.miller@lincolnhs.edu', username: 'jmiller', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.TEACHER, firstName: 'James', lastName: 'Miller' } }),
-    prisma.user.create({ data: { email: 'r.green@lincolnhs.edu', username: 'rgreen', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.TEACHER, firstName: 'Rachel', lastName: 'Green' } }),
-    prisma.user.create({ data: { email: 'k.park@lincolnhs.edu', username: 'kpark', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.TEACHER, firstName: 'Kevin', lastName: 'Park' } }),
-    prisma.user.create({ data: { email: 's.white@lincolnhs.edu', username: 'swhite', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.TEACHER, firstName: 'Susan', lastName: 'White' } }),
-    prisma.user.create({ data: { email: 'd.kim@lincolnhs.edu', username: 'dkim', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.TEACHER, firstName: 'Daniel', lastName: 'Kim' } }),
-    prisma.user.create({ data: { email: 'l.martinez@lincolnhs.edu', username: 'lmartinez', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.TEACHER, firstName: 'Laura', lastName: 'Martinez' } }),
-    prisma.user.create({ data: { email: 't.anderson@lincolnhs.edu', username: 'tanderson', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.TEACHER, firstName: 'Thomas', lastName: 'Anderson' } }),
-    prisma.user.create({ data: { email: 'e.rodriguez@lincolnhs.edu', username: 'erodriguez', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.TEACHER, firstName: 'Emily', lastName: 'Rodriguez' } }),
-    prisma.user.create({ data: { email: 'c.taylor@lincolnhs.edu', username: 'ctaylor', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.TEACHER, firstName: 'Christopher', lastName: 'Taylor' } }),
-    prisma.user.create({ data: { email: 'a.brown@lincolnhs.edu', username: 'abrown', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.TEACHER, firstName: 'Amanda', lastName: 'Brown' } }),
-    prisma.user.create({ data: { email: 'm.davis@lincolnhs.edu', username: 'mdavis', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.TEACHER, firstName: 'Michael', lastName: 'Davis' } }),
-    prisma.user.create({ data: { email: 'j.wilson@lincolnhs.edu', username: 'jwilson', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.TEACHER, firstName: 'Jessica', lastName: 'Wilson' } }),
-    prisma.user.create({ data: { email: 'r.moore@lincolnhs.edu', username: 'rmoore', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.TEACHER, firstName: 'Robert', lastName: 'Moore' } }),
-    prisma.user.create({ data: { email: 's.jackson@lincolnhs.edu', username: 'sjackson', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.TEACHER, firstName: 'Stephanie', lastName: 'Jackson' } }),
-    prisma.user.create({ data: { email: 'b.thompson@lincolnhs.edu', username: 'bthompson', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.TEACHER, firstName: 'Brian', lastName: 'Thompson' } }),
-    prisma.user.create({ data: { email: 'n.garcia@lincolnhs.edu', username: 'ngarcia', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.TEACHER, firstName: 'Nicole', lastName: 'Garcia' } }),
-    prisma.user.create({ data: { email: 'h.martinez@lincolnhs.edu', username: 'hmartinez', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.TEACHER, firstName: 'Heather', lastName: 'Martinez' } }),
-    prisma.user.create({ data: { email: 'j.robinson@lincolnhs.edu', username: 'jrobinson', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.TEACHER, firstName: 'Jason', lastName: 'Robinson' } }),
-    prisma.user.create({ data: { email: 'k.clark@lincolnhs.edu', username: 'kclark', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.TEACHER, firstName: 'Katherine', lastName: 'Clark' } }),
-    prisma.user.create({ data: { email: 'd.rodriguez@lincolnhs.edu', username: 'drodriguez', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.TEACHER, firstName: 'Derek', lastName: 'Rodriguez' } }),
-    prisma.user.create({ data: { email: 'l.lewis@lincolnhs.edu', username: 'llewis', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.TEACHER, firstName: 'Lisa', lastName: 'Lewis' } }),
-    prisma.user.create({ data: { email: 'm.walker@lincolnhs.edu', username: 'mwalker', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.TEACHER, firstName: 'Matthew', lastName: 'Walker' } }),
-    prisma.user.create({ data: { email: 'a.hall@lincolnhs.edu', username: 'ahall', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.TEACHER, firstName: 'Ashley', lastName: 'Hall' } }),
-    prisma.user.create({ data: { email: 'j.allen@lincolnhs.edu', username: 'jallen', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.TEACHER, firstName: 'Justin', lastName: 'Allen' } }),
-    prisma.user.create({ data: { email: 'r.young@lincolnhs.edu', username: 'ryoung', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.TEACHER, firstName: 'Rachel', lastName: 'Young' } }),
+    prisma.user.create({ data: { email: 's.johnson@lincolnhs.edu', username: 'sjohnson', passwordHash: bcrypt.hashSync('Welcome2ES!', 10), role: UserRole.TEACHER, firstName: 'Sarah', lastName: 'Johnson' } }),
+    prisma.user.create({ data: { email: 'j.miller@lincolnhs.edu', username: 'jmiller', passwordHash: bcrypt.hashSync('Welcome2ES!', 10), role: UserRole.TEACHER, firstName: 'James', lastName: 'Miller' } }),
+    prisma.user.create({ data: { email: 'r.green@lincolnhs.edu', username: 'rgreen', passwordHash: bcrypt.hashSync('Welcome2ES!', 10), role: UserRole.TEACHER, firstName: 'Rachel', lastName: 'Green' } }),
+    prisma.user.create({ data: { email: 'k.park@lincolnhs.edu', username: 'kpark', passwordHash: bcrypt.hashSync('Welcome2ES!', 10), role: UserRole.TEACHER, firstName: 'Kevin', lastName: 'Park' } }),
+    prisma.user.create({ data: { email: 's.white@lincolnhs.edu', username: 'swhite', passwordHash: bcrypt.hashSync('Welcome2ES!', 10), role: UserRole.TEACHER, firstName: 'Susan', lastName: 'White' } }),
+    prisma.user.create({ data: { email: 'd.kim@lincolnhs.edu', username: 'dkim', passwordHash: bcrypt.hashSync('Welcome2ES!', 10), role: UserRole.TEACHER, firstName: 'Daniel', lastName: 'Kim' } }),
+    prisma.user.create({ data: { email: 'l.martinez@lincolnhs.edu', username: 'lmartinez', passwordHash: bcrypt.hashSync('Welcome2ES!', 10), role: UserRole.TEACHER, firstName: 'Laura', lastName: 'Martinez' } }),
+    prisma.user.create({ data: { email: 't.anderson@lincolnhs.edu', username: 'tanderson', passwordHash: bcrypt.hashSync('Welcome2ES!', 10), role: UserRole.TEACHER, firstName: 'Thomas', lastName: 'Anderson' } }),
+    prisma.user.create({ data: { email: 'e.rodriguez@lincolnhs.edu', username: 'erodriguez', passwordHash: bcrypt.hashSync('Welcome2ES!', 10), role: UserRole.TEACHER, firstName: 'Emily', lastName: 'Rodriguez' } }),
+    prisma.user.create({ data: { email: 'c.taylor@lincolnhs.edu', username: 'ctaylor', passwordHash: bcrypt.hashSync('Welcome2ES!', 10), role: UserRole.TEACHER, firstName: 'Christopher', lastName: 'Taylor' } }),
+    prisma.user.create({ data: { email: 'a.brown@lincolnhs.edu', username: 'abrown', passwordHash: bcrypt.hashSync('Welcome2ES!', 10), role: UserRole.TEACHER, firstName: 'Amanda', lastName: 'Brown' } }),
+    prisma.user.create({ data: { email: 'm.davis@lincolnhs.edu', username: 'mdavis', passwordHash: bcrypt.hashSync('Welcome2ES!', 10), role: UserRole.TEACHER, firstName: 'Michael', lastName: 'Davis' } }),
+    prisma.user.create({ data: { email: 'j.wilson@lincolnhs.edu', username: 'jwilson', passwordHash: bcrypt.hashSync('Welcome2ES!', 10), role: UserRole.TEACHER, firstName: 'Jessica', lastName: 'Wilson' } }),
+    prisma.user.create({ data: { email: 'r.moore@lincolnhs.edu', username: 'rmoore', passwordHash: bcrypt.hashSync('Welcome2ES!', 10), role: UserRole.TEACHER, firstName: 'Robert', lastName: 'Moore' } }),
+    prisma.user.create({ data: { email: 's.jackson@lincolnhs.edu', username: 'sjackson', passwordHash: bcrypt.hashSync('Welcome2ES!', 10), role: UserRole.TEACHER, firstName: 'Stephanie', lastName: 'Jackson' } }),
+    prisma.user.create({ data: { email: 'b.thompson@lincolnhs.edu', username: 'bthompson', passwordHash: bcrypt.hashSync('Welcome2ES!', 10), role: UserRole.TEACHER, firstName: 'Brian', lastName: 'Thompson' } }),
+    prisma.user.create({ data: { email: 'n.garcia@lincolnhs.edu', username: 'ngarcia', passwordHash: bcrypt.hashSync('Welcome2ES!', 10), role: UserRole.TEACHER, firstName: 'Nicole', lastName: 'Garcia' } }),
+    prisma.user.create({ data: { email: 'h.martinez@lincolnhs.edu', username: 'hmartinez', passwordHash: bcrypt.hashSync('Welcome2ES!', 10), role: UserRole.TEACHER, firstName: 'Heather', lastName: 'Martinez' } }),
+    prisma.user.create({ data: { email: 'j.robinson@lincolnhs.edu', username: 'jrobinson', passwordHash: bcrypt.hashSync('Welcome2ES!', 10), role: UserRole.TEACHER, firstName: 'Jason', lastName: 'Robinson' } }),
+    prisma.user.create({ data: { email: 'k.clark@lincolnhs.edu', username: 'kclark', passwordHash: bcrypt.hashSync('Welcome2ES!', 10), role: UserRole.TEACHER, firstName: 'Katherine', lastName: 'Clark' } }),
+    prisma.user.create({ data: { email: 'd.rodriguez@lincolnhs.edu', username: 'drodriguez', passwordHash: bcrypt.hashSync('Welcome2ES!', 10), role: UserRole.TEACHER, firstName: 'Derek', lastName: 'Rodriguez' } }),
+    prisma.user.create({ data: { email: 'l.lewis@lincolnhs.edu', username: 'llewis', passwordHash: bcrypt.hashSync('Welcome2ES!', 10), role: UserRole.TEACHER, firstName: 'Lisa', lastName: 'Lewis' } }),
+    prisma.user.create({ data: { email: 'm.walker@lincolnhs.edu', username: 'mwalker', passwordHash: bcrypt.hashSync('Welcome2ES!', 10), role: UserRole.TEACHER, firstName: 'Matthew', lastName: 'Walker' } }),
+    prisma.user.create({ data: { email: 'a.hall@lincolnhs.edu', username: 'ahall', passwordHash: bcrypt.hashSync('Welcome2ES!', 10), role: UserRole.TEACHER, firstName: 'Ashley', lastName: 'Hall' } }),
+    prisma.user.create({ data: { email: 'j.allen@lincolnhs.edu', username: 'jallen', passwordHash: bcrypt.hashSync('Welcome2ES!', 10), role: UserRole.TEACHER, firstName: 'Justin', lastName: 'Allen' } }),
+    prisma.user.create({ data: { email: 'r.young@lincolnhs.edu', username: 'ryoung', passwordHash: bcrypt.hashSync('Welcome2ES!', 10), role: UserRole.TEACHER, firstName: 'Rachel', lastName: 'Young' } }),
     
     // Students (500 students - 125 per grade level)
     ...Array.from({ length: 500 }, async (_, i) => {
@@ -275,7 +275,7 @@ async function main() {
         data: { 
           email, 
           username, 
-          passwordHash: await bcrypt.hash('Welcome2ES!', 10), 
+          passwordHash: bcrypt.hashSync('Welcome2ES!', 10), 
           role: UserRole.STUDENT, 
           firstName, 
           lastName 
@@ -284,11 +284,11 @@ async function main() {
     }),
     
     // Parents
-    prisma.user.create({ data: { email: 'john.thompson@email.com', username: 'jthompson', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.PARENT_GUARDIAN, firstName: 'John', lastName: 'Thompson' } }),
-    prisma.user.create({ data: { email: 'maria.rodriguez@email.com', username: 'mrodriguez', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.PARENT_GUARDIAN, firstName: 'Maria', lastName: 'Rodriguez' } }),
-    prisma.user.create({ data: { email: 'robert.johnson@email.com', username: 'rjohnson', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.PARENT_GUARDIAN, firstName: 'Robert', lastName: 'Johnson' } }),
-    prisma.user.create({ data: { email: 'lisa.martinez@email.com', username: 'lisamartinez', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.PARENT_GUARDIAN, firstName: 'Lisa', lastName: 'Martinez' } }),
-    prisma.user.create({ data: { email: 'david.williams@email.com', username: 'dwilliams', passwordHash: await bcrypt.hash('Welcome2ES!', 10), role: UserRole.PARENT_GUARDIAN, firstName: 'David', lastName: 'Williams' } })
+    prisma.user.create({ data: { email: 'john.thompson@email.com', username: 'jthompson', passwordHash: bcrypt.hashSync('Welcome2ES!', 10), role: UserRole.PARENT_GUARDIAN, firstName: 'John', lastName: 'Thompson' } }),
+    prisma.user.create({ data: { email: 'maria.rodriguez@email.com', username: 'mrodriguez', passwordHash: bcrypt.hashSync('Welcome2ES!', 10), role: UserRole.PARENT_GUARDIAN, firstName: 'Maria', lastName: 'Rodriguez' } }),
+    prisma.user.create({ data: { email: 'robert.johnson@email.com', username: 'rjohnson', passwordHash: bcrypt.hashSync('Welcome2ES!', 10), role: UserRole.PARENT_GUARDIAN, firstName: 'Robert', lastName: 'Johnson' } }),
+    prisma.user.create({ data: { email: 'lisa.martinez@email.com', username: 'lisamartinez', passwordHash: bcrypt.hashSync('Welcome2ES!', 10), role: UserRole.PARENT_GUARDIAN, firstName: 'Lisa', lastName: 'Martinez' } }),
+    prisma.user.create({ data: { email: 'david.williams@email.com', username: 'dwilliams', passwordHash: bcrypt.hashSync('Welcome2ES!', 10), role: UserRole.PARENT_GUARDIAN, firstName: 'David', lastName: 'Williams' } })
   ]);
 
   // Add existing usernames to the Set to prevent conflicts

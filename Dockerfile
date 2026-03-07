@@ -37,13 +37,11 @@ RUN apt-get update && \
       postgresql-client && \
     rm -rf /var/lib/apt/lists/*
 
-# 6. Install only production deps
-COPY package*.json ./
-RUN npm install --only=production
+# 6. Copy full node_modules from builder (ensures pdfkit + all deps for PDF report are available)
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/package*.json ./
 
-# 7. Copy Prisma binaries & client into prod image
-COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
-COPY --from=builder /app/node_modules/@prisma/client ./node_modules/@prisma/client
+# 7. Prisma already in node_modules from above
 
 # 8. Copy built app and config
 COPY --from=builder /app/dist ./dist

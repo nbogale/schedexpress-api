@@ -1,5 +1,5 @@
 import { PrismaClient, UserRole, ConflictType, RequestStatus, NotificationType, RotationDay, RelationshipType, ContactMethod, DigestFrequency, RequestType, RequirementType, AuditStatus } from '@prisma/client';
-import * as bcrypt from 'bcrypt';
+import * as bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
 
@@ -7,7 +7,7 @@ async function main() {
   console.log('🌱 Starting high school mock data seeding...');
 
   // Use a shared hash for seeded accounts (faster + consistent; safe for dev/demo data)
-  const defaultPasswordHash = await bcrypt.hash('Welcome2ES!', 10);
+  const defaultPasswordHash = bcrypt.hashSync('Welcome2ES!', 10);
 
   const upsertUserByEmail = (data: {
     email: string;
@@ -814,6 +814,29 @@ async function main() {
   // Create Academic Cycle (School Year Only)
   const schoolYearCycle = await prisma.academicCycle.create({
     data: {
+      name: '2024-2025',
+      cycleType: 'SCHOOL_YEAR',
+      cycleNumber: null,
+      startDate: new Date('2024-08-01'),
+      endDate: new Date('2025-07-31'),
+      openingDate: new Date('2024-08-01'),
+      closingDate: new Date('2025-07-31'),
+      isCurrent: false,
+      isActive: true,
+      isValidated: true,
+      validatedBy: users[0].id, // Admin user
+      description: '2024-2025 Academic Year (School Year Only)',
+      scheduleChangeConfig: {
+        enabled: false,
+        deadlineDays: 14,
+        studentCanRequest: false,
+        allowChangesAfterDeadline: false
+      }
+    }
+  });
+
+  const schoolYearCycle20252026 = await prisma.academicCycle.create({
+    data: {
       name: '2025-2026',
       cycleType: 'SCHOOL_YEAR',
       cycleNumber: null,
@@ -835,7 +858,7 @@ async function main() {
     }
   });
 
-  const academicCycles = [schoolYearCycle];
+  const academicCycles = [schoolYearCycle, schoolYearCycle20252026];
   const currentAcademicCycle = schoolYearCycle;
 
   console.log('🔄 Created academic cycle (School Year Only)');
