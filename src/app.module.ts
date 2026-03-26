@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { ScheduleModule } from '@nestjs/schedule';
 
 import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './auth/auth.module';
@@ -16,20 +17,28 @@ import { StudentsModule } from './students/students.module';
 import { RoomsModule } from './rooms/rooms.module';
 import { DepartmentsModule } from './departments/departments.module';
 import { TimeBlocksModule } from './time-blocks/time-blocks.module';
-import { TermsModule } from './terms/terms.module';
-import { SchoolYearsModule } from './school-years/school-years.module';
 import { CourseLevelsModule } from './course-levels/course-levels.module';
 import { GradeLevelsModule } from './grade-levels/grade-levels.module';
 import { CourseSectionsModule } from './course-sections/course-sections.module';
 import { CoursePrerequisitesModule } from './course-prerequisites/course-prerequisites.module';
 import { CourseSequencesModule } from './course-sequences/course-sequences.module';
 import { TeachersModule } from './teachers/teachers.module';
+import { StudentCourseHistoryModule } from './student-course-history/student-course-history.module';
+import { GradeLookupModule } from './grade-lookup/grade-lookup.module';
+import { AcademicCyclesModule } from './academic-cycles/academic-cycles.module';
+import { ParentGuardiansModule } from './parent-guardians/parent-guardians.module';
+import { CoursePreferencesModule } from './course-preferences/course-preferences.module';
+import { GraduationAuditModule } from './graduation-audit/graduation-audit.module';
+import { GraduationPlanModule } from './graduation-plan/graduation-plan.module';
+import { CourseRecommendationModule } from './course-recommendation/course-recommendation.module';
+import { TransferCreditModule } from './transfer-credit/transfer-credit.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
     }),
+    ScheduleModule.forRoot(),
     PrismaModule,
     AuthModule,
     UsersModule,
@@ -45,14 +54,21 @@ import { TeachersModule } from './teachers/teachers.module';
     RoomsModule,
     DepartmentsModule,
     TimeBlocksModule,
-    TermsModule,
-    SchoolYearsModule,
     CourseLevelsModule,
     GradeLevelsModule,
     CourseSectionsModule,
     CoursePrerequisitesModule,
     CourseSequencesModule,
     TeachersModule,
+    StudentCourseHistoryModule,
+    GradeLookupModule,
+    AcademicCyclesModule,
+    ParentGuardiansModule,
+    CoursePreferencesModule,
+    GraduationAuditModule,
+    GraduationPlanModule,
+    CourseRecommendationModule,
+    TransferCreditModule,
   ],
 })
 export class AppModule {}

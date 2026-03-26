@@ -2,7 +2,7 @@ import { Injectable, NotFoundException, BadRequestException, Logger } from '@nes
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateCourseSectionDto } from './dto/create-course-section.dto';
 import { UpdateCourseSectionDto } from './dto/update-course-section.dto';
-import { Prisma } from '@prisma/client';
+import { CourseSection, Prisma } from '@prisma/client';
 import { ApiErrorResponse } from 'src/common/api-error';
 import { ErrorCode } from 'src/common/error-codes';
 import { ApiErrorResponseBuilder } from 'src/common/api-error-builder';
@@ -13,7 +13,23 @@ export class CourseSectionsService {
 
   constructor(private readonly prisma: PrismaService) {}
 
+  private toSectionWithComputedEnrollment(section: any) {
+    const computedEnrollment =
+      section?._count?.scheduleCourseSections ??
+      section?.currentEnrollment ??
+      0;
+    const waitlistCount = section?._count?.waitlist ?? 0;
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { _count, ...rest } = section ?? {};
+    return {
+      ...rest,
+      currentEnrollment: computedEnrollment,
+      waitlistCount,
+    };
+  }
+
   async create(createCourseSectionDto: CreateCourseSectionDto) {
+    console.log('createCourseSectionDto', JSON.stringify(createCourseSectionDto, null, 2));
     // Check if course exists
     const course = await this.prisma.course.findUnique({
       where: { id: createCourseSectionDto.courseId },
@@ -28,28 +44,14 @@ export class CourseSectionsService {
       throw new NotFoundException(errorResponse);
     }
 
-    // Check if school year exists
-    const schoolYear = await this.prisma.schoolYear.findUnique({
-      where: { id: createCourseSectionDto.schoolYearId },
+    // Check if academic cycle exists
+    const academicCycle = await this.prisma.academicCycle.findUnique({
+      where: { id: createCourseSectionDto.academicCycleId },
     });
-    if (!schoolYear) {
+    if (!academicCycle) {
       const errorResponse = ApiErrorResponseBuilder.create(
         ErrorCode.CSSN,
-        'School year not found'
-      )
-        .withLogger(this.logger)
-        .build();
-      throw new NotFoundException(errorResponse);
-    }
-
-    // Check if term exists
-    const term = await this.prisma.term.findUnique({
-      where: { id: createCourseSectionDto.termId },
-    });
-    if (!term) {
-      const errorResponse = ApiErrorResponseBuilder.create(
-        ErrorCode.CSSN,
-        'Term not found'
+        'Academic cycle not found'
       )
         .withLogger(this.logger)
         .build();
@@ -98,53 +100,116 @@ export class CourseSectionsService {
       throw new NotFoundException(errorResponse);
     }
 
-    // Check for time block conflicts
-    const existingSection = await this.prisma.courseSection.findFirst({
+    // Check room conflict for academicCycleId, timeblock, roomId, and rotationDay
+    const existingRoomSection = await this.prisma.courseSection.findFirst({
       where: {
-        schoolYearId: createCourseSectionDto.schoolYearId,
-        termId: createCourseSectionDto.termId,
+        academicCycleId: createCourseSectionDto.academicCycleId,
         timeBlockId: createCourseSectionDto.timeBlockId,
-        AND: [
-          {
-            OR: [
-              // Same rotation day
-              { rotationDay: createCourseSectionDto.rotationDay },
-              // If either section has no rotation day, they conflict (both run every day)
-              { rotationDay: null },
-              ...(createCourseSectionDto.rotationDay === null ? [{ rotationDay: null }] : []),
-            ],
-          },
-          {
-            OR: [
-              { roomId: createCourseSectionDto.roomId },
-              { teacherId: createCourseSectionDto.teacherId },
-            ],
-          },
-        ],
+        roomId: createCourseSectionDto.roomId,
+        rotationDay: createCourseSectionDto.rotationDay || null,
       },
     });
-
-    if (existingSection) {
+    if (existingRoomSection) {
       const errorResponse = ApiErrorResponseBuilder.create(
-        ErrorCode.CSSB,
-        'Time block conflict: Room or teacher is already assigned during this time'
+        ErrorCode.CSSG,
+        'Room conflict: Room is already assigned during this time'
       )
         .withLogger(this.logger)
         .build();
       throw new BadRequestException(errorResponse);
     }
 
-    return this.prisma.courseSection.create({
-      data: createCourseSectionDto,
+    // Check for teacher conflict for academicCycleId, timeblock and teacherId
+    const existingTeacherSection = await this.prisma.courseSection.findFirst({
+      where: {
+        academicCycleId: createCourseSectionDto.academicCycleId,
+        timeBlockId: createCourseSectionDto.timeBlockId,
+        teacherId: createCourseSectionDto.teacherId,
+        rotationDay: createCourseSectionDto.rotationDay || null,
+      },
+    });
+    if (existingTeacherSection) {
+      const errorResponse = ApiErrorResponseBuilder.create(
+        ErrorCode.CSSH,
+        'Teacher conflict: Teacher is already assigned during this time'
+      )
+        .withLogger(this.logger)
+        .build();
+      throw new BadRequestException(errorResponse);
+    }
+
+    // Auto-generate section number if not provided
+    let sectionNumber = createCourseSectionDto.sectionNumber;
+    if (!sectionNumber) {
+      // Find all existing sections for this course and academic cycle
+      const existingSections = await this.prisma.courseSection.findMany({
+        where: {
+          courseId: createCourseSectionDto.courseId,
+          academicCycleId: createCourseSectionDto.academicCycleId,
+        },
+        select: {
+          sectionNumber: true,
+        },
+        orderBy: {
+          sectionNumber: 'asc',
+        },
+      });
+
+      // Section letters: A through Z
+      const sectionLetters = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z'];
+
+      if (existingSections.length > 0) {
+        // Get existing section numbers (as letters)
+        const existingSectionNumbers = existingSections.map(s => s.sectionNumber.toUpperCase());
+        
+        // Find the highest letter used
+        let highestIndex = -1;
+        existingSectionNumbers.forEach(sectionNum => {
+          const index = sectionLetters.indexOf(sectionNum);
+          if (index > highestIndex) {
+            highestIndex = index;
+          }
+        });
+        
+        // Generate next letter
+        const nextIndex = highestIndex + 1;
+        if (nextIndex < sectionLetters.length) {
+          sectionNumber = sectionLetters[nextIndex];
+        } else {
+          // If we've used all letters, use the last one with a number (e.g., Z1, Z2)
+          sectionNumber = `Z${existingSections.length - sectionLetters.length + 1}`;
+        }
+      } else {
+        // No existing sections, start with 'A'
+        sectionNumber = 'A';
+      }
+    }
+
+    const created = await this.prisma.courseSection.create({
+      data: {
+        ...createCourseSectionDto,
+        sectionNumber,
+      },
       include: {
-        course: true,
-        schoolYear: true,
-        term: true,
+        course: {
+          include: {
+            department: true,
+            minGradeLevel: true,
+          },
+        },
+        academicCycle: true,
         timeBlock: true,
         room: true,
         teacher: true,
+        _count: {
+          select: {
+            scheduleCourseSections: true,
+            waitlist: true,
+          },
+        },
       },
     });
+    return this.toSectionWithComputedEnrollment(created);
   }
 
   async findAll(params: {
@@ -153,33 +218,82 @@ export class CourseSectionsService {
     where?: Prisma.CourseSectionWhereInput;
     orderBy?: Prisma.CourseSectionOrderByWithRelationInput;
   }) {
+    console.log('findAll params: ', JSON.stringify(params, null, 2));
     const { skip, take, where, orderBy } = params;
-    return this.prisma.courseSection.findMany({
+    const sections = await this.prisma.courseSection.findMany({
       skip,
       take,
       where,
       orderBy,
       include: {
-        course: true,
-        schoolYear: true,
-        term: true,
+        course: {
+          include: {
+            department: true,
+            minGradeLevel: true,
+          },
+        },
+        academicCycle: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
         timeBlock: true,
         room: true,
-        teacher: true,
+        teacher: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                email: true,
+              },
+            },
+          },
+        },
+        _count: {
+          select: {
+            scheduleCourseSections: true,
+            waitlist: true,
+          },
+        },
       },
     });
+    return sections.map((s) => this.toSectionWithComputedEnrollment(s));
   }
 
   async findOne(id: string) {
     const section = await this.prisma.courseSection.findUnique({
       where: { id },
       include: {
-        course: true,
-        schoolYear: true,
-        term: true,
+        course: {
+          include: {
+            department: true,
+            minGradeLevel: true,
+          },
+        },
+        academicCycle: true,
         timeBlock: true,
         room: true,
-        teacher: true,
+        teacher: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                email: true
+              },
+            },
+          },
+        },
+        _count: {
+          select: {
+            scheduleCourseSections: true,
+            waitlist: true,
+          },
+        },
       },
     });
 
@@ -193,7 +307,7 @@ export class CourseSectionsService {
       throw new NotFoundException(errorResponse);
     }
 
-    return section;
+    return this.toSectionWithComputedEnrollment(section);
   }
 
   async update(id: string, updateCourseSectionDto: UpdateCourseSectionDto) {
@@ -212,34 +326,19 @@ export class CourseSectionsService {
     }
 
     // If updating time block, room, teacher, or rotation day, check for conflicts
-    if (updateCourseSectionDto.timeBlockId || updateCourseSectionDto.roomId || updateCourseSectionDto.teacherId || updateCourseSectionDto.rotationDay !== undefined) {
+    if (updateCourseSectionDto.timeBlockId || updateCourseSectionDto.roomId || updateCourseSectionDto.teacherId) {
       const newTimeBlockId = updateCourseSectionDto.timeBlockId || section.timeBlockId;
       const newRoomId = updateCourseSectionDto.roomId || section.roomId;
       const newTeacherId = updateCourseSectionDto.teacherId || section.teacherId;
-      const newRotationDay = updateCourseSectionDto.rotationDay !== undefined ? updateCourseSectionDto.rotationDay : section.rotationDay;
 
       const existingSection = await this.prisma.courseSection.findFirst({
         where: {
           id: { not: id },
-          schoolYearId: section.schoolYearId,
-          termId: section.termId,
+          academicCycleId: section.academicCycleId,
           timeBlockId: newTimeBlockId,
-          AND: [
-            {
-              OR: [
-                // Same rotation day
-                { rotationDay: newRotationDay },
-                // If either section has no rotation day, they conflict (both run every day)
-                { rotationDay: null },
-                ...(newRotationDay === null ? [{ rotationDay: null }] : []),
-              ],
-            },
-            {
-              OR: [
-                { roomId: newRoomId },
-                { teacherId: newTeacherId },
-              ],
-            },
+          OR: [
+            { roomId: newRoomId },
+            { teacherId: newTeacherId },
           ],
         },
       });
@@ -255,18 +354,34 @@ export class CourseSectionsService {
       }
     }
 
-    return this.prisma.courseSection.update({
+    const updated = await this.prisma.courseSection.update({
       where: { id },
       data: updateCourseSectionDto,
       include: {
-        course: true,
-        schoolYear: true,
-        term: true,
+        course: {
+          include: {
+            department: true,
+            minGradeLevel: true,
+          },
+        },
+        academicCycle: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
         timeBlock: true,
         room: true,
         teacher: true,
+        _count: {
+          select: {
+            scheduleCourseSections: true,
+            waitlist: true,
+          },
+        },
       },
     });
+    return this.toSectionWithComputedEnrollment(updated);
   }
 
   async remove(id: string) {
@@ -284,8 +399,11 @@ export class CourseSectionsService {
       throw new NotFoundException(errorResponse);
     }
 
-    // Check if section has enrolled students
-    if (section.currentEnrollment > 0) {
+    // Check if section has enrolled students (source of truth: scheduleCourseSections)
+    const actualEnrollment = await this.prisma.scheduleCourseSection.count({
+      where: { courseSectionId: id },
+    });
+    if (actualEnrollment > 0) {
       const errorResponse = ApiErrorResponseBuilder.create(
         ErrorCode.CSSD,
         'Cannot delete section with enrolled students'
@@ -325,14 +443,23 @@ export class CourseSectionsService {
       throw new BadRequestException(errorResponse);
     }
 
-    return this.prisma.courseSection.update({
+    const updated = await this.prisma.courseSection.update({
       where: { id },
       data: {
         currentEnrollment: {
           increment: 1,
         },
       },
+      include: {
+        _count: {
+          select: {
+            scheduleCourseSections: true,
+            waitlist: true,
+          },
+        },
+      },
     });
+    return this.toSectionWithComputedEnrollment(updated);
   }
 
   async decrementEnrollment(id: string) {
@@ -360,13 +487,160 @@ export class CourseSectionsService {
       throw new BadRequestException(errorResponse);
     }
 
-    return this.prisma.courseSection.update({
+    const updated = await this.prisma.courseSection.update({
       where: { id },
       data: {
         currentEnrollment: {
           decrement: 1,
         },
       },
+      include: {
+        _count: {
+          select: {
+            scheduleCourseSections: true,
+            waitlist: true,
+          },
+        },
+      },
     });
+    return this.toSectionWithComputedEnrollment(updated);
+  }
+
+  async findAllByCourseId(courseId: string, where: Prisma.CourseSectionWhereInput) {
+    const sections = await this.prisma.courseSection.findMany({
+      where: { courseId, ...where },
+      include: {
+        course: {
+          include: {
+            department: true,
+            minGradeLevel: true,
+          },
+        },
+        timeBlock: true,
+        room: true,
+        teacher: true,
+        _count: {
+          select: {
+            scheduleCourseSections: true,
+            waitlist: true,
+          },
+        },
+      },
+    });
+    return sections.map((s) => this.toSectionWithComputedEnrollment(s));
+  }
+
+  async findAllByRoomId(roomId: string, where: Prisma.CourseSectionWhereInput) {
+    const sections = await this.prisma.courseSection.findMany({
+      where: { roomId, ...where },
+      include: {
+        course: {
+          include: {
+            department: true,
+            minGradeLevel: true,
+          },
+        },
+        timeBlock: true,
+        room: true,
+        teacher: true,
+        _count: {
+          select: {
+            scheduleCourseSections: true,
+            waitlist: true,
+          },
+        },
+      },
+    });
+    return sections.map((s) => this.toSectionWithComputedEnrollment(s));
+  }
+
+  async checkConflictForAcademicCycle(academicCycleId: string) {
+
+    const conflictedSections: ConflictedSection[] = [];
+    const sections = await this.prisma.courseSection.findMany({
+      where: { academicCycleId },
+    });
+
+    if (!sections) {
+      const errorResponse = ApiErrorResponseBuilder.create(
+        ErrorCode.CSSN,
+        'Course sections not found'
+      )
+        .withLogger(this.logger)
+        .build();
+      throw new NotFoundException(errorResponse);
+    }
+
+    for (const section of sections) {
+      // Check the section has conflicts with other sections it might be timeblock, room or teacher
+      const hasConflicts = await this.prisma.courseSection.findMany({
+        where: { 
+          academicCycleId: academicCycleId,
+          timeBlockId: section.timeBlockId,
+          OR: [
+            { roomId: section.roomId },
+            { teacherId: section.teacherId },
+          ],
+          id: { not: section.id },
+        },
+        include: {
+          room: true,
+          teacher: true,
+          timeBlock: true,
+          course: true,
+        },
+      });
+
+      if (hasConflicts && hasConflicts.length > 0) {
+        conflictedSections.push({ courseSection: section, conflictWithSections: hasConflicts });
+      }
+    }
+
+    return {
+      success: true,
+      data: conflictedSections,
+    };
+  }
+
+  async getStudentsForCourseSection(courseSectionId: string) {
+    // Verify course section exists
+    const section = await this.prisma.courseSection.findUnique({
+      where: { id: courseSectionId },
+    });
+    if (!section) {
+      const errorResponse = ApiErrorResponseBuilder.create(
+        ErrorCode.CSSN,
+        'Course section not found'
+      )
+        .withLogger(this.logger)
+        .build();
+      throw new NotFoundException(errorResponse);
+    }
+
+    // Get students enrolled in this course section
+    const scheduleCourseSections = await this.prisma.scheduleCourseSection.findMany({
+      where: { courseSectionId },
+      include: {
+        schedule: {
+          include: {
+            student: {
+              include: {
+                user: true,
+                gradeLevel: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    return scheduleCourseSections;
   }
 } 
+
+// Create type for conflictedSections
+export type ConflictedSection = {
+  courseSection: CourseSection;
+  conflictWithSections: CourseSection[];
+};
+

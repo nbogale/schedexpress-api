@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Email Template Tester</title>
+    <script src="https://unpkg.com/ejs@3.1.9/ejs.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        .template-section {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .template-title {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 15px;
+            color: #333;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #555;
+        }
+        input, textarea, select {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            margin-right: 10px;
+        }
+        button:hover {
+            opacity: 0.9;
+        }
+        .preview {
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 20px;
+            margin-top: 20px;
+            background: #fafafa;
+        }
+        .preview-title {
+            font-weight: bold;
+            margin-bottom: 10px;
+            color: #333;
+        }
+        .email-preview {
+            max-width: 600px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        }
+        .template-selector {
+            margin-bottom: 20px;
+        }
+        .template-selector select {
+            width: 200px;
+            padding: 10px;
+            border-radius: 6px;
+            border: 1px solid #ddd;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Email Template Tester</h1>
+            <p>Test and preview EJS email templates</p>
+        </div>
+
+        <div class="template-section">
+            <div class="template-selector">
+                <label for="templateSelect">Select Template:</label>
+                <select id="templateSelect" onchange="loadTemplate()">
+                    <option value="notification">General Notification</option>
+                    <option value="grade-notification">Grade Notification</option>
+                    <option value="schedule-change">Schedule Change</option>
+                </select>
+            </div>
+
+            <div id="notificationForm" class="template-form">
+                <div class="template-title">General Notification Template</div>
+                <div class="form-group">
+                    <label for="subject">Subject:</label>
+                    <input type="text" id="subject" value="Welcome to SchedExpress">
+                </div>
+                <div class="form-group">
+                    <label for="title">Title:</label>
+                    <input type="text" id="title" value="Welcome to SchedExpress">
+                </div>
+                <div class="form-group">
+                    <label for="message">Message:</label>
+                    <textarea id="message" rows="4">Welcome to SchedExpress! We're excited to have you on board. This platform will help you manage your academic schedule efficiently.</textarea>
+                </div>
+                <div class="form-group">
+                    <label for="actionUrl">Action URL (optional):</label>
+                    <input type="text" id="actionUrl" value="https://schedexpress.com/dashboard">
+                </div>
+                <div class="form-group">
+                    <label for="actionText">Action Text (optional):</label>
+                    <input type="text" id="actionText" value="Go to Dashboard">
+                </div>
+                <button onclick="renderTemplate()">Render Template</button>
+            </div>
+
+            <div id="gradeForm" class="template-form" style="display: none;">
+                <div class="template-title">Grade Notification Template</div>
+                <div class="form-group">
+                    <label for="studentName">Student Name:</label>
+                    <input type="text" id="studentName" value="John Doe">
+                </div>
+                <div class="form-group">
+                    <label for="courseName">Course Name:</label>
+                    <input type="text" id="courseName" value="Mathematics 101">
+                </div>
+                <div class="form-group">
+                    <label for="grade">Grade:</label>
+                    <select id="grade">
+                        <option value="A">A</option>
+                        <option value="A-">A-</option>
+                        <option value="B+">B+</option>
+                        <option value="B">B</option>
+                        <option value="B-">B-</option>
+                        <option value="C+">C+</option>
+                        <option value="C">C</option>
+                        <option value="C-">C-</option>
+                        <option value="D+">D+</option>
+                        <option value="D">D</option>
+                        <option value="F">F</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="isPassed">Is Passing:</label>
+                    <select id="isPassed">
+                        <option value="true">Yes</option>
+                        <option value="false">No</option>
+                    </select>
+                </div>
+                <button onclick="renderTemplate()">Render Template</button>
+            </div>
+
+            <div id="scheduleForm" class="template-form" style="display: none;">
+                <div class="template-title">Schedule Change Template</div>
+                <div class="form-group">
+                    <label for="requesterName">Requester Name:</label>
+                    <input type="text" id="requesterName" value="Jane Smith">
+                </div>
+                <div class="form-group">
+                    <label for="courseNameSchedule">Course Name:</label>
+                    <input type="text" id="courseNameSchedule" value="Physics 201">
+                </div>
+                <div class="form-group">
+                    <label for="reason">Reason:</label>
+                    <textarea id="reason" rows="3">Schedule conflict with another course</textarea>
+                </div>
+                <div class="form-group">
+                    <label for="status">Status:</label>
+                    <select id="status">
+                        <option value="Pending">Pending</option>
+                        <option value="Approved">Approved</option>
+                        <option value="Rejected">Rejected</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="actionUrlSchedule">Action URL (optional):</label>
+                    <input type="text" id="actionUrlSchedule" value="https://schedexpress.com/admin/requests">
+                </div>
+                <button onclick="renderTemplate()">Render Template</button>
+            </div>
+        </div>
+
+        <div class="preview">
+            <div class="preview-title">Email Preview:</div>
+            <div id="emailPreview" class="email-preview">
+                <div style="text-align: center; padding: 40px; color: #666;">
+                    Select a template and click "Render Template" to see the preview
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Template definitions
+        const templates = {
+            'notification': `<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><%= subject %></title>
+</head>
+<body style="font-family: Arial, sans-serif; margin: 0; padding: 0; background-color: #f4f4f4;">
+    <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff;">
+        <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; text-align: center;">
+            <h1 style="color: #ffffff; margin: 0; font-size: 24px; font-weight: 600; text-shadow: 0 2px 4px rgba(0,0,0,0.1);">SchedExpress</h1>
+        </div>
+        
+        <div style="padding: 30px;">
+            <h2 style="color: #374151; margin-bottom: 20px;"><%= title %></h2>
+            
+            <div style="background-color: #F3F4F6; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+                <p style="margin: 0; color: #374151; line-height: 1.6;"><%= message %></p>
+            </div>
+            
+            <% if (actionUrl) { %>
+            <div style="text-align: center; margin: 30px 0;">
+                <a href="<%= actionUrl %>" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: #ffffff; padding: 14px 28px; text-decoration: none; border-radius: 8px; display: inline-block; font-weight: 600; box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3); transition: all 0.3s ease;">
+                    <%= actionText || 'View Details' %>
+                </a>
+            </div>
+            <% } %>
+            
+            <div style="border-top: 1px solid #e5e7eb; padding-top: 20px; margin-top: 30px;">
+                <p style="color: #6B7280; font-size: 14px; margin: 0;">
+                    This is an automated message from SchedExpress. Please do not reply to this email.
+                </p>
+            </div>
+        </div>
+    </div>
+</body>
+</html>`,
+
+            'grade-notification': `<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Grade Update - <%= courseName %></title>
+</head>
+<body style="font-family: Arial, sans-serif; margin: 0; padding: 0; background-color: #f4f4f4;">
+    <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff;">
+        <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; text-align: center;">
+            <h1 style="color: #ffffff; margin: 0; font-size: 24px; font-weight: 600; text-shadow: 0 2px 4px rgba(0,0,0,0.1);">SchedExpress</h1>
+        </div>
+        
+        <div style="padding: 30px;">
+            <h2 style="color: #374151; margin-bottom: 20px;">Grade Update</h2>
+            
+            <div style="background-color: #F3F4F6; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+                <p style="margin: 0; color: #374151; line-height: 1.6;">
+                    Dear <strong><%= studentName %></strong>,
+                </p>
+                <br>
+                <p style="margin: 0; color: #374151; line-height: 1.6;">
+                    Your grade for <strong><%= courseName %></strong> has been updated.
+                </p>
+                <br>
+                <div style="background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%); padding: 20px; border-radius: 12px; border-left: 4px solid #667eea; box-shadow: 0 4px 12px rgba(0,0,0,0.05);">
+                    <p style="margin: 0; font-size: 20px; font-weight: 600;">
+                        <strong>Grade:</strong> <span style="color: #667eea; font-weight: bold; font-size: 24px;"><%= grade %></span>
+                    </p>
+                    <% if (isPassed) { %>
+                    <p style="margin: 8px 0 0 0; font-size: 16px; color: #64748b;">
+                        <strong>Status:</strong> <span style="color: #10b981; font-weight: 600;">Passing</span>
+                    </p>
+                    <% } else { %>
+                    <p style="margin: 8px 0 0 0; font-size: 16px; color: #64748b;">
+                        <strong>Status:</strong> <span style="color: #ef4444; font-weight: 600;">Failing</span>
+                    </p>
+                    <% } %>
+                </div>
+            </div>
+            
+            <div style="border-top: 1px solid #e5e7eb; padding-top: 20px; margin-top: 30px;">
+                <p style="color: #6B7280; font-size: 14px; margin: 0;">
+                    This is an automated message from SchedExpress. Please do not reply to this email.
+                </p>
+            </div>
+        </div>
+    </div>
+</body>
+</html>`,
+
+            'schedule-change': `<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Schedule Change Request</title>
+</head>
+<body style="font-family: Arial, sans-serif; margin: 0; padding: 0; background-color: #f4f4f4;">
+    <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff;">
+        <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; text-align: center;">
+            <h1 style="color: #ffffff; margin: 0; font-size: 24px; font-weight: 600; text-shadow: 0 2px 4px rgba(0,0,0,0.1);">SchedExpress</h1>
+        </div>
+        
+        <div style="padding: 30px;">
+            <h2 style="color: #374151; margin-bottom: 20px;">Schedule Change Request</h2>
+            
+            <div style="background-color: #F3F4F6; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+                <p style="margin: 0; color: #374151; line-height: 1.6;">
+                    A new schedule change request has been submitted.
+                </p>
+                <br>
+                <div style="background-color: #ffffff; padding: 15px; border-radius: 6px;">
+                    <p style="margin: 0; font-size: 14px;"><strong>Requested By:</strong> <%= requesterName %></p>
+                    <p style="margin: 5px 0; font-size: 14px;"><strong>Course:</strong> <%= courseName %></p>
+                    <p style="margin: 5px 0; font-size: 14px;"><strong>Reason:</strong> <%= reason %></p>
+                    <p style="margin: 5px 0; font-size: 14px;"><strong>Status:</strong> <%= status %></p>
+                </div>
+            </div>
+            
+            <% if (actionUrl) { %>
+            <div style="text-align: center; margin: 30px 0;">
+                <a href="<%= actionUrl %>" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: #ffffff; padding: 14px 28px; text-decoration: none; border-radius: 8px; display: inline-block; font-weight: 600; box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3); transition: all 0.3s ease;">
+                    Review Request
+                </a>
+            </div>
+            <% } %>
+            
+            <div style="border-top: 1px solid #e5e7eb; padding-top: 20px; margin-top: 30px;">
+                <p style="color: #6B7280; font-size: 14px; margin: 0;">
+                    This is an automated message from SchedExpress. Please do not reply to this email.
+                </p>
+            </div>
+        </div>
+    </div>
+</body>
+</html>`
+        };
+
+        function loadTemplate() {
+            const templateSelect = document.getElementById('templateSelect');
+            const selectedTemplate = templateSelect.value;
+            
+            // Hide all forms
+            document.querySelectorAll('.template-form').forEach(form => {
+                form.style.display = 'none';
+            });
+            
+            // Show selected form
+            if (selectedTemplate === 'notification') {
+                document.getElementById('notificationForm').style.display = 'block';
+            } else if (selectedTemplate === 'grade-notification') {
+                document.getElementById('gradeForm').style.display = 'block';
+            } else if (selectedTemplate === 'schedule-change') {
+                document.getElementById('scheduleForm').style.display = 'block';
+            }
+        }
+
+        function renderTemplate() {
+            const templateSelect = document.getElementById('templateSelect');
+            const selectedTemplate = templateSelect.value;
+            
+            let data = {};
+            
+            if (selectedTemplate === 'notification') {
+                data = {
+                    subject: document.getElementById('subject').value,
+                    title: document.getElementById('title').value,
+                    message: document.getElementById('message').value,
+                    actionUrl: document.getElementById('actionUrl').value || null,
+                    actionText: document.getElementById('actionText').value || null
+                };
+            } else if (selectedTemplate === 'grade-notification') {
+                data = {
+                    studentName: document.getElementById('studentName').value,
+                    courseName: document.getElementById('courseName').value,
+                    grade: document.getElementById('grade').value,
+                    isPassed: document.getElementById('isPassed').value === 'true'
+                };
+            } else if (selectedTemplate === 'schedule-change') {
+                data = {
+                    requesterName: document.getElementById('requesterName').value,
+                    courseName: document.getElementById('courseNameSchedule').value,
+                    reason: document.getElementById('reason').value,
+                    status: document.getElementById('status').value,
+                    actionUrl: document.getElementById('actionUrlSchedule').value || null
+                };
+            }
+            
+            try {
+                const template = templates[selectedTemplate];
+                const rendered = ejs.render(template, data);
+                document.getElementById('emailPreview').innerHTML = rendered;
+            } catch (error) {
+                document.getElementById('emailPreview').innerHTML = `
+                    <div style="padding: 40px; text-align: center; color: #ef4444;">
+                        <h3>Error rendering template</h3>
+                        <p>${error.message}</p>
+                    </div>
+                `;
+            }
+        }
+
+        // Initialize with first template
+        loadTemplate();
+    </script>
+</body>
+</html> 

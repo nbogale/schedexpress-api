@@ -15,7 +15,7 @@ export class CourseRulesController {
 
   @Post()
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.ADMIN)
+  @Roles(UserRole.ADMIN, UserRole.PLATFORM_ADMIN)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Create a new course rule' })
   @ApiResponse({ 
@@ -49,8 +49,7 @@ export class CourseRulesController {
 
   @Put(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.ADMIN)
-  @ApiBearerAuth()
+  @Roles(UserRole.ADMIN, UserRole.PLATFORM_ADMIN)
   @ApiOperation({ summary: 'Update a course rule' })
   @ApiResponse({ status: 200, description: 'The course rule has been successfully updated' })
   @ApiResponse({ status: 404, description: 'Course rule not found' })
@@ -60,7 +59,7 @@ export class CourseRulesController {
 
   @Patch(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.ADMIN)
+  @Roles(UserRole.PLATFORM_ADMIN, UserRole.ADMIN)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Partially update a course rule' })
   @ApiResponse({ status: 200, description: 'The course rule has been successfully updated' })
@@ -71,7 +70,7 @@ export class CourseRulesController {
 
   @Delete(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.ADMIN)
+  @Roles(UserRole.PLATFORM_ADMIN, UserRole.ADMIN)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Delete a course rule' })
   @ApiResponse({ status: 200, description: 'The course rule has been successfully deleted' })

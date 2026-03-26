@@ -206,6 +206,7 @@ For production, ensure the following environment variables are properly set:
 - `PORT` - Server port (default is 3001)
 - `API_GLOBAL_PREFIX` - API path prefix (default is `/api`)
 
+
 ## License
 
 This project is licensed under the MIT License.

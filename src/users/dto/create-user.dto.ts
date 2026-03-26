@@ -20,6 +20,14 @@ export class CreateUserDto {
   lastName: string;
 
   @ApiProperty({
+    example: 'johnsmith',
+    description: 'User username',
+  })
+  @IsString()
+  @IsNotEmpty()
+  username: string;
+
+  @ApiProperty({
     example: 'john.smith@schedexpress.com',
     description: 'User email address',
   })
@@ -62,4 +70,13 @@ export class CreateUserDto {
   @IsString()
   @IsOptional()
   gradeLevel?: string;
+
+  @ApiProperty({
+    example: '1234567890',
+    description: 'Student ID (for students)',
+    required: false,
+  })
+  @IsString()
+  @IsOptional()
+  studentId?: string;
 }

@@ -1,64 +1,99 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { Controller, Get, Post, Put, Delete, Body, Param, Query, Patch, UseGuards } from '@nestjs/common';
 import { TimeBlocksService } from './time-blocks.service';
-import { CreateTimeBlockDto } from './dto/create-time-block.dto';
-import { UpdateTimeBlockDto } from './dto/update-time-block.dto';
+import { ApiBearerAuth } from '@nestjs/swagger';
+import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
+import { RolesGuard } from 'src/auth/guards/roles.guard';
+import { Roles } from 'src/auth/decorators/roles.decorator';
+import { UserRole } from '@prisma/client';
 
-@ApiTags('time-blocks')
-@ApiBearerAuth()
-@UseGuards(JwtAuthGuard)
 @Controller('time-blocks')
 export class TimeBlocksController {
   constructor(private readonly timeBlocksService: TimeBlocksService) {}
 
   @Post()
-  @ApiOperation({ summary: 'Create a new time block' })
-  @ApiResponse({ status: 201, description: 'The time block has been successfully created.' })
-  @ApiResponse({ status: 400, description: 'Invalid input data.' })
-  create(@Body() createTimeBlockDto: CreateTimeBlockDto) {
-    return this.timeBlocksService.create(createTimeBlockDto);
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.COUNSELOR, UserRole.PRINCIPAL, UserRole.ADMIN, UserRole.PLATFORM_ADMIN)
+  @ApiBearerAuth()
+  async createTimeBlock(@Body() data: {
+    name: string;
+    startTime: string; // Format: "09:30 AM" or "2:45 PM"
+    endTime: string;   // Format: "10:45 AM" or "4:00 PM"
+    isActive?: boolean;
+    rotationDay?: string | null;
+    blockNumber?: number | null;
+  }) {
+    return this.timeBlocksService.createTimeBlock(data);
   }
 
   @Get()
-  @ApiOperation({ summary: 'Get all time blocks' })
-  @ApiResponse({ status: 200, description: 'Return all time blocks.' })
-  findAll() {
-    return this.timeBlocksService.findAll();
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.COUNSELOR, UserRole.PRINCIPAL, UserRole.ADMIN, UserRole.PLATFORM_ADMIN, UserRole.TEACHER)
+  @ApiBearerAuth()
+  async getAllTimeBlocks(@Query('includeInactive') includeInactive?: string) {
+    return this.timeBlocksService.getAllTimeBlocks(includeInactive === 'true');
   }
 
   @Get(':id')
-  @ApiOperation({ summary: 'Get a time block by id' })
-  @ApiResponse({ status: 200, description: 'Return the time block.' })
-  @ApiResponse({ status: 404, description: 'Time block not found.' })
-  findOne(@Param('id') id: string) {
-    return this.timeBlocksService.findOne(id);
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.COUNSELOR, UserRole.PRINCIPAL, UserRole.ADMIN, UserRole.PLATFORM_ADMIN, UserRole.TEACHER)
+  @ApiBearerAuth()
+  async getTimeBlockById(@Param('id') id: string) {
+    return this.timeBlocksService.getTimeBlockById(id);
   }
 
-  @Patch(':id')
-  @ApiOperation({ summary: 'Update a time block' })
-  @ApiResponse({ status: 200, description: 'The time block has been successfully updated.' })
-  @ApiResponse({ status: 404, description: 'Time block not found.' })
-  update(@Param('id') id: string, @Body() updateTimeBlockDto: UpdateTimeBlockDto) {
-    return this.timeBlocksService.update(id, updateTimeBlockDto);
-  }
-
-  @Delete(':id')
-  @ApiOperation({ summary: 'Delete a time block' })
-  @ApiResponse({ status: 200, description: 'The time block has been successfully deleted.' })
-  @ApiResponse({ status: 404, description: 'Time block not found.' })
-  remove(@Param('id') id: string) {
-    return this.timeBlocksService.remove(id);
+  @Put(':id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.COUNSELOR, UserRole.PRINCIPAL, UserRole.ADMIN, UserRole.PLATFORM_ADMIN)
+  @ApiBearerAuth()
+  async updateTimeBlock(
+    @Param('id') id: string,
+    @Body() data: {
+      name?: string;
+      startTime?: string; // Format: "09:30 AM"
+      endTime?: string;   // Format: "10:45 AM"
+      isActive?: boolean;
+      rotationDay?: string | null;
+      blockNumber?: number | null;
+    }
+  ) {
+    return this.timeBlocksService.updateTimeBlock(id, data);
   }
 
   @Patch(':id/toggle-status')
-  @ApiOperation({ summary: 'Toggle time block active status' })
-  @ApiResponse({ status: 200, description: 'The time block status has been successfully toggled.' })
-  @ApiResponse({ status: 404, description: 'Time block not found.' })
-  toggleStatus(
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.COUNSELOR, UserRole.PRINCIPAL, UserRole.ADMIN, UserRole.PLATFORM_ADMIN)
+  @ApiBearerAuth()
+  async toggleStatus(
     @Param('id') id: string,
-    @Body('isActive') isActive: boolean,
+    @Body() data: { isActive: boolean }
   ) {
-    return this.timeBlocksService.toggleStatus(id, isActive);
+    return this.timeBlocksService.toggleTimeBlockStatus(id, data.isActive);
+  }
+
+  @Delete(':id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.COUNSELOR, UserRole.PRINCIPAL, UserRole.ADMIN, UserRole.PLATFORM_ADMIN)
+  @ApiBearerAuth()
+  async deleteTimeBlock(@Param('id') id: string) {
+    return this.timeBlocksService.deleteTimeBlock(id);
+  }
+
+  @Get('overlap/check')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.COUNSELOR, UserRole.PRINCIPAL, UserRole.ADMIN, UserRole.PLATFORM_ADMIN)
+  @ApiBearerAuth()
+  async checkOverlappingTimeBlocks(
+    @Query('startTime') startTime: string,
+    @Query('endTime') endTime: string
+  ) {
+    return this.timeBlocksService.getOverlappingTimeBlocks(startTime, endTime);
+  }
+
+  @Post('default')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.COUNSELOR, UserRole.PRINCIPAL, UserRole.ADMIN, UserRole.PLATFORM_ADMIN)
+  @ApiBearerAuth()
+  async createDefaultTimeBlocks() {
+    return this.timeBlocksService.createDefaultTimeBlocks();
   }
 } 

@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Param, Delete, Put, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Delete, Put, UseGuards, Query } from '@nestjs/common';
 import { SchedulesService } from './schedules.service';
 import { CreateScheduleDto } from './dto/create-schedule.dto';
 import { UpdateScheduleDto } from './dto/update-schedule.dto';
@@ -56,6 +56,16 @@ export class SchedulesController {
   @ApiResponse({ status: 404, description: 'Student or schedule not found' })
   findByStudent(@Param('id') id: string) {
     return this.schedulesService.findByStudent(id);
+  }
+
+  @Get('student/:id/current-academic-year')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get the current academic cycle schedule by student id and current academic cycle' })
+  @ApiResponse({ status: 200, description: 'Return the current academic cycle schedule' })
+  @ApiResponse({ status: 404, description: 'Student or schedule not found' })
+  findCurrentAcademicCycleByStudent(@Param('id') id: string) {
+    return this.schedulesService.findStudentScheduleForCurrentAcademicYear(id);
   }
 
   @Put(':id')

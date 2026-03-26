@@ -1,9 +1,13 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, Query, ParseIntPipe, DefaultValuePipe } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, Query, ParseIntPipe, DefaultValuePipe, UseGuards } from '@nestjs/common';
 import { CourseSectionsService } from './course-sections.service';
 import { CreateCourseSectionDto } from './dto/create-course-section.dto';
 import { UpdateCourseSectionDto } from './dto/update-course-section.dto';
-import { ApiTags, ApiOperation, ApiResponse, ApiQuery } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiQuery, ApiBearerAuth } from '@nestjs/swagger';
 import { Prisma } from '@prisma/client';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../auth/guards/roles.guard';
+import { Roles } from '../auth/decorators/roles.decorator';
+import { UserRole } from '@prisma/client';
 
 @ApiTags('course-sections')
 @Controller('course-sections')
@@ -11,6 +15,9 @@ export class CourseSectionsController {
   constructor(private readonly courseSectionsService: CourseSectionsService) {}
 
   @Post()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.PLATFORM_ADMIN, UserRole.COUNSELOR, UserRole.PRINCIPAL)
+  @ApiBearerAuth()
   @ApiOperation({ summary: 'Create a new course section' })
   @ApiResponse({ status: 201, description: 'The course section has been successfully created.' })
   @ApiResponse({ status: 400, description: 'Invalid input or time block conflict.' })
@@ -20,28 +27,30 @@ export class CourseSectionsController {
   }
 
   @Get()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.PLATFORM_ADMIN, UserRole.COUNSELOR, UserRole.PRINCIPAL, UserRole.TEACHER, UserRole.STUDENT)
+  @ApiBearerAuth()
   @ApiOperation({ summary: 'Get all course sections with optional filtering' })
   @ApiQuery({ name: 'skip', required: false, type: Number })
   @ApiQuery({ name: 'take', required: false, type: Number })
   @ApiQuery({ name: 'courseId', required: false, type: String })
-  @ApiQuery({ name: 'schoolYearId', required: false, type: String })
-  @ApiQuery({ name: 'termId', required: false, type: String })
+  @ApiQuery({ name: 'academicCycleId', required: false, type: String })
   @ApiQuery({ name: 'teacherId', required: false, type: String })
+  @ApiQuery({ name: 'roomId', required: false, type: String })
   @ApiResponse({ status: 200, description: 'Return all course sections.' })
   findAll(
     @Query('skip', new DefaultValuePipe(0), ParseIntPipe) skip?: number,
-    @Query('take', new DefaultValuePipe(10), ParseIntPipe) take?: number,
+    @Query('take', new DefaultValuePipe(0), ParseIntPipe) take?: number,
     @Query('courseId') courseId?: string,
-    @Query('schoolYearId') schoolYearId?: string,
-    @Query('termId') termId?: string,
+    @Query('academicCycleId') academicCycleId?: string,
     @Query('teacherId') teacherId?: string,
+    @Query('roomId') roomId?: string,
   ) {
     const where: Prisma.CourseSectionWhereInput = {};
     if (courseId) where.courseId = courseId;
-    if (schoolYearId) where.schoolYearId = schoolYearId;
-    if (termId) where.termId = termId;
+    if (academicCycleId) where.academicCycleId = academicCycleId;
     if (teacherId) where.teacherId = teacherId;
-
+    if (roomId) where.roomId = roomId;
     return this.courseSectionsService.findAll({
       skip,
       take,
@@ -59,6 +68,9 @@ export class CourseSectionsController {
   }
 
   @Patch(':id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.PLATFORM_ADMIN, UserRole.COUNSELOR, UserRole.PRINCIPAL)
+  @ApiBearerAuth()
   @ApiOperation({ summary: 'Update a course section' })
   @ApiResponse({ status: 200, description: 'The course section has been successfully updated.' })
   @ApiResponse({ status: 400, description: 'Invalid input or time block conflict.' })
@@ -68,6 +80,9 @@ export class CourseSectionsController {
   }
 
   @Delete(':id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.PLATFORM_ADMIN, UserRole.COUNSELOR, UserRole.PRINCIPAL)
+  @ApiBearerAuth()
   @ApiOperation({ summary: 'Delete a course section' })
   @ApiResponse({ status: 200, description: 'The course section has been successfully deleted.' })
   @ApiResponse({ status: 400, description: 'Cannot delete section with enrolled students.' })
@@ -92,5 +107,52 @@ export class CourseSectionsController {
   @ApiResponse({ status: 404, description: 'Course section not found.' })
   decrementEnrollment(@Param('id') id: string) {
     return this.courseSectionsService.decrementEnrollment(id);
+  }
+
+  @Get('course/:courseId')
+  @ApiOperation({ summary: 'Get all course sections for a course' })
+  @ApiQuery({ name: 'academicCycleId', required: false, type: String })
+  @ApiQuery({ name: 'teacherId', required: false, type: String })
+  @ApiResponse({ status: 200, description: 'Return all course sections for a course.' })
+  @ApiResponse({ status: 404, description: 'Course not found.' })
+  findAllByCourseId(@Param('courseId') courseId: string,
+    @Query('academicCycleId') academicCycleId?: string,
+      @Query('teacherId') teacherId?: string,) {
+
+    const where: Prisma.CourseSectionWhereInput = {};
+   
+    if (academicCycleId) where.academicCycleId = academicCycleId;
+    if (teacherId) where.teacherId = teacherId;
+
+    return this.courseSectionsService.findAllByCourseId(courseId, where);
+  }
+
+  @Get('room/:roomId')  
+  @ApiOperation({ summary: 'Get all course sections for a room' })
+  @ApiQuery({ name: 'academicCycleId', required: false, type: String })
+  @ApiResponse({ status: 200, description: 'Return all course sections for a room.' })
+  @ApiResponse({ status: 404, description: 'Room not found.' })
+  findAllByRoomId(@Param('roomId') roomId: string, @Query('academicCycleId') academicCycleId?: string) {
+    const where: Prisma.CourseSectionWhereInput = {};
+   
+    if (academicCycleId) where.academicCycleId = academicCycleId;
+    return this.courseSectionsService.findAllByRoomId(roomId, where);
+  }
+
+  // Check course sections conflict for an academic cycle
+  @Get('academic-cycle/:academicCycleId/check-conflict')
+  @ApiOperation({ summary: 'Check course sections conflict for an academic cycle' })
+  @ApiResponse({ status: 200, description: 'Return all course sections for a academic cycle.' })
+  @ApiResponse({ status: 404, description: 'Academic cycle not found.' })
+  checkConflictForAcademicCycle(@Param('academicCycleId') academicCycleId: string) {
+    return this.courseSectionsService.checkConflictForAcademicCycle(academicCycleId);
+  }
+
+  @Get(':id/students')
+  @ApiOperation({ summary: 'Get all students enrolled in a course section' })
+  @ApiResponse({ status: 200, description: 'Return all enrolled students for the course section.' })
+  @ApiResponse({ status: 404, description: 'Course section not found.' })
+  getStudentsForCourseSection(@Param('id') id: string) {
+    return this.courseSectionsService.getStudentsForCourseSection(id);
   }
 } 

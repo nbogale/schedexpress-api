@@ -19,8 +19,8 @@ export class ConflictsService {
   async detectConflicts(studentId: string, currentCourseId: string, newCourseId: string, requestId: string) {
     const conflicts = [];
 
-    // Get schedule and student
-    const schedule = await this.prisma.schedule.findUnique({
+    // Get schedule and student - use findFirst since studentId is no longer unique
+    const schedule = await this.prisma.schedule.findFirst({
       where: { studentId },
       include: {
         scheduleCourseSections: {
@@ -36,6 +36,7 @@ export class ConflictsService {
           }
         },
       },
+      orderBy: { createdAt: 'desc' }, // Get most recent schedule
     });
 
     if (!schedule) {

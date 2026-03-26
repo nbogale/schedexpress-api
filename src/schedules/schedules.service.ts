@@ -7,20 +7,28 @@ import { ErrorCode } from 'src/common/error-codes';
 import { ApiErrorResponseBuilder } from 'src/common/api-error-builder';
 import { NotificationsService } from 'src/notifications/notifications.service';
 import { NotificationType } from 'src/schedule-change-requests/enums/request-enums';
+import { AcademicPeriodStatus, CycleType } from '@prisma/client';
+import { AcademicPeriodBusinessRulesService } from '../academic-cycles/academic-period-business-rules.service';
+import { EnrollmentRuleConfig } from '../academic-cycles/interfaces/academic-period-business-rules.interface';
+import { AcademicCyclesService } from '../academic-cycles/academic-cycles.service';
 
 @Injectable()
 export class SchedulesService {
   private readonly logger = new Logger(SchedulesService.name);
 
-  constructor(private readonly prisma: PrismaService, private readonly notificationsService: NotificationsService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly notificationsService: NotificationsService,
+    private readonly businessRulesService: AcademicPeriodBusinessRulesService,
+    private readonly academicCyclesService: AcademicCyclesService,
+  ) {}
 
   async create(createScheduleDto: CreateScheduleDto) {
-    const { studentId, courseSectionIds, schoolYearId, termId, ...scheduleData } = createScheduleDto;
+    const { studentId, courseSectionIds, academicCycleId, ...scheduleData } = createScheduleDto;
 
     // Check if student exists
     const student = await this.prisma.student.findUnique({
       where: { id: studentId },
-      include: { schedule: true },
     });
 
     if (!student) {
@@ -33,11 +41,20 @@ export class SchedulesService {
       throw new NotFoundException(errorResponse);
     }
 
-    // Check if student already has a schedule
-    if (student.schedule) {
+    // Check if student already has a schedule for this academic cycle
+    const existingSchedule = await this.prisma.schedule.findUnique({
+      where: {
+        studentId_academicCycleId: {
+          studentId,
+          academicCycleId,
+        },
+      },
+    });
+
+    if (existingSchedule) {
       const errorResponse = ApiErrorResponseBuilder.create(
         ErrorCode.SCHC,
-        `Student already has a schedule`
+        `Student already has a schedule for this academic cycle`
       )
         .withLogger(this.logger)
         .build();
@@ -71,21 +88,6 @@ export class SchedulesService {
       throw new NotFoundException(errorResponse);
     }
 
-    // Check capacity for each course
-    const overCapacityCourses = courseSections.filter(
-      course => course.currentEnrollment >= course.maxEnrollment
-    );
-
-    if (overCapacityCourses.length > 0) {
-      const errorResponse = ApiErrorResponseBuilder.create(
-        ErrorCode.SCHC,
-        `Some courses are at capacity: ${overCapacityCourses.map(c => c.course.name).join(', ')}`
-      )
-        .withLogger(this.logger)
-        .build();
-      throw new ConflictException(errorResponse);
-    }
-
     // Check for period conflicts
     const periods = courseSections.map(course => course.timeBlockId);
     const uniquePeriods = new Set(periods);
@@ -114,33 +116,127 @@ export class SchedulesService {
       throw new BadRequestException(errorResponse);
     }
 
-    return this.prisma.schedule.create({
-      data: {
-        ...scheduleData,
-        schoolYear: { connect: { id: schoolYearId } },
-        term: { connect: { id: termId } },
-        student: { connect: { id: studentId } },
-        scheduleCourseSections: {
-          create: courseSectionIds.map(id => ({
-            courseSection: { connect: { id } }
-          }))
+    // Check if enrollment is allowed based on business rules
+    const enrollmentValidation = await this.businessRulesService.canEnroll(
+      studentId,
+      academicCycleId
+    );
+
+    if (!enrollmentValidation.allowed) {
+      const errorCode = enrollmentValidation.errorCode || ErrorCode.SCHB;
+      const errorResponse = ApiErrorResponseBuilder.create(
+        errorCode,
+        enrollmentValidation.reason || 'Enrollment is not allowed at this time.'
+      )
+        .withLogger(this.logger)
+        .build();
+      throw new BadRequestException(errorResponse);
+    }
+
+    // Source-of-truth enrollment counts (scheduleCourseSections) for accurate capacity checks
+    const enrollmentCounts = await this.prisma.scheduleCourseSection.groupBy({
+      by: ['courseSectionId'],
+      where: { courseSectionId: { in: courseSectionIds } },
+      _count: { courseSectionId: true },
+    });
+    const enrollmentCountBySectionId = new Map<string, number>(
+      enrollmentCounts.map((r) => [r.courseSectionId, r._count.courseSectionId]),
+    );
+
+    // Check capacity based on business rules
+    const enrollmentRules = await this.businessRulesService.getRuleCategory('enrollment') as EnrollmentRuleConfig;
+    if (enrollmentRules && enrollmentRules.isActive && enrollmentRules.capacity.checkCapacity) {
+      const overCapacityCourses = courseSections.filter(course => {
+        const effectiveEnrollment = enrollmentCountBySectionId.get(course.id) ?? course.currentEnrollment;
+        const isOverCapacity = effectiveEnrollment >= course.maxEnrollment;
+        if (!isOverCapacity) return false;
+        
+        // Check if over-enrollment is allowed
+        if (enrollmentRules.capacity.allowOverEnrollment && enrollmentRules.capacity.overEnrollmentLimit) {
+          const currentPercentage = (effectiveEnrollment / course.maxEnrollment) * 100;
+          return currentPercentage > enrollmentRules.capacity.overEnrollmentLimit;
+        }
+        return true;
+      });
+
+      if (overCapacityCourses.length > 0) {
+        // Check if any course exceeds over-enrollment limit
+        const exceedsLimit = overCapacityCourses.some(course => {
+          if (enrollmentRules.capacity.allowOverEnrollment && enrollmentRules.capacity.overEnrollmentLimit) {
+            const effectiveEnrollment = enrollmentCountBySectionId.get(course.id) ?? course.currentEnrollment;
+            const currentPercentage = (effectiveEnrollment / course.maxEnrollment) * 100;
+            return currentPercentage > enrollmentRules.capacity.overEnrollmentLimit;
+          }
+          return true; // At capacity and over-enrollment not allowed
+        });
+
+        const errorCode = exceedsLimit ? ErrorCode.ACRE7 : ErrorCode.ACRE6;
+        const errorResponse = ApiErrorResponseBuilder.create(
+          errorCode,
+          `Some courses are at capacity: ${overCapacityCourses.map(c => c.course.name).join(', ')}`
+        )
+          .withLogger(this.logger)
+          .build();
+        throw new ConflictException(errorResponse);
+      }
+    } else {
+      // Fallback to basic capacity check if rules are disabled
+      const overCapacityCourses = courseSections.filter(
+        course => (enrollmentCountBySectionId.get(course.id) ?? course.currentEnrollment) >= course.maxEnrollment
+      );
+
+      if (overCapacityCourses.length > 0) {
+        const errorResponse = ApiErrorResponseBuilder.create(
+          ErrorCode.CSSE,
+          `Some courses are at capacity: ${overCapacityCourses.map(c => c.course.name).join(', ')}`
+        )
+          .withLogger(this.logger)
+          .build();
+        throw new ConflictException(errorResponse);
+      }
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      const schedule = await tx.schedule.create({
+        data: {
+          ...scheduleData,
+          academicCycle: { connect: { id: academicCycleId } },
+          student: { connect: { id: studentId } },
+          scheduleCourseSections: {
+            create: courseSectionIds.map(id => ({
+              courseSection: { connect: { id } }
+            }))
+          },
         },
-      },
-      include: {
-        student: true,
-        scheduleCourseSections: {
-          include: {
-            courseSection: {
-              include: {
-                course: true,
-                timeBlock: true,
-                room: true,
-                teacher: true,
+        include: {
+          student: true,
+          scheduleCourseSections: {
+            include: {
+              courseSection: {
+                include: {
+                  course: true,
+                  timeBlock: true,
+                  room: true,
+                  teacher: true,
+                }
               }
             }
-          }
+          },
         },
-      },
+      });
+
+      // Keep denormalized currentEnrollment in sync (best-effort) with actual enrollments
+      await Promise.all(
+        courseSections.map((section) => {
+          const effectiveEnrollment = enrollmentCountBySectionId.get(section.id) ?? section.currentEnrollment;
+          return tx.courseSection.update({
+            where: { id: section.id },
+            data: { currentEnrollment: effectiveEnrollment + 1 },
+          });
+        }),
+      );
+
+      return schedule;
     });
   }
 
@@ -158,8 +254,7 @@ export class SchedulesService {
             },
           },
         },
-        schoolYear: true,
-        term: true,
+        academicCycle: true,
         scheduleCourseSections: {
           include: {
             courseSection: {
@@ -181,8 +276,7 @@ export class SchedulesService {
       where: { id },
       include: {
         student: true,
-        schoolYear: true,
-        term: true,
+        academicCycle: true,
         scheduleCourseSections: {
           include: {
             courseSection: {
@@ -211,7 +305,114 @@ export class SchedulesService {
     return schedule;
   }
 
-  async findByStudent(studentId: string) {
+  async findByStudent(studentId: string, academicCycleId?: string) {
+    const student = await this.prisma.student.findUnique({
+      where: { userId: studentId },
+    });
+
+    if (!student) {
+      throw new NotFoundException(`Student with ID ${studentId} not found`);
+    }
+
+    // If academicCycleId is provided, find schedule for that cycle
+    // Otherwise, find the most recent schedule
+    const schedule = academicCycleId
+      ? await this.prisma.schedule.findUnique({
+          where: {
+            studentId_academicCycleId: {
+              studentId: student.id,
+              academicCycleId,
+            },
+          },
+          include: {
+            student: {
+              include: {
+                user: {
+                  select: {
+                    firstName: true,
+                    lastName: true,
+                    email: true,
+                  },
+                },
+              },
+            },
+            academicCycle: true,
+            scheduleCourseSections: {
+              include: {
+                courseSection: {
+                  include: {
+                    course: true,
+                    timeBlock: true,
+                    room: true,
+                    teacher: true,
+                  }
+                }
+              },
+              orderBy: {
+                courseSection: {
+                  timeBlock: {
+                    startTime: 'asc',
+                  },
+                },
+              },
+            },
+          },
+        })
+      : await this.prisma.schedule.findFirst({
+          where: { studentId: student.id },
+          orderBy: { createdAt: 'desc' },
+          include: {
+            student: {
+              include: {
+                user: {
+                  select: {
+                    firstName: true,
+                    lastName: true,
+                    email: true,
+                  },
+                },
+              },
+            },
+            academicCycle: true,
+            scheduleCourseSections: {
+              include: {
+                courseSection: {
+                  include: {
+                    course: true,
+                    timeBlock: true,
+                    room: true,
+                    teacher: true,
+                  }
+                }
+              },
+              orderBy: {
+                courseSection: {
+                  timeBlock: {
+                    startTime: 'asc',
+                  },
+                },
+              },
+            },
+          },
+        });
+
+    if (!schedule) {
+      throw new NotFoundException(`Schedule not found for student ID ${studentId}`);
+    }
+
+    return schedule;
+  }
+
+
+  async findStudentScheduleForCurrentAcademicYear(studentId: string) {
+
+    const currentAcademicCycle = await this.academicCyclesService.findCurrentCycle(CycleType.SCHOOL_YEAR);
+
+    console.log('Current academic cycle:', JSON.stringify(currentAcademicCycle, null, 2));
+
+    if(!currentAcademicCycle) {
+      throw new NotFoundException(`Current academic cycle not found`);
+    }
     const student = await this.prisma.student.findUnique({
       where: { userId: studentId },
     });
@@ -221,7 +422,12 @@ export class SchedulesService {
     }
 
     const schedule = await this.prisma.schedule.findUnique({
-      where: { studentId: student.id },
+      where: {
+        studentId_academicCycleId: {
+          studentId: student.id,
+          academicCycleId: currentAcademicCycle.id,
+        },
+      },
       include: {
         student: {
           include: {
@@ -234,8 +440,7 @@ export class SchedulesService {
             },
           },
         },
-        schoolYear: true,
-        term: true,
+        academicCycle: true,
         scheduleCourseSections: {
           include: {
             courseSection: {
@@ -259,11 +464,12 @@ export class SchedulesService {
     });
 
     if (!schedule) {
-      throw new NotFoundException(`Schedule not found for student ID ${studentId}`);
+      throw new NotFoundException(`Schedule not found for student ID ${studentId} for the academic year ${currentAcademicCycle.name}`);
     }
 
     return schedule;
   }
+
 
   async update(id: string, updateScheduleDto: UpdateScheduleDto) {
     const { addCourseSectionIds, removeCourseSectionIds, ...scheduleData } = updateScheduleDto;

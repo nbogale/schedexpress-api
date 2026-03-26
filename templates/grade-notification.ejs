@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Grade Update - <%= courseName %></title>
+</head>
+<body style="font-family: Arial, sans-serif; margin: 0; padding: 0; background-color: #f4f4f4;">
+    <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff;">
+        <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; text-align: center;">
+            <h1 style="color: #ffffff; margin: 0; font-size: 24px; font-weight: 600; text-shadow: 0 2px 4px rgba(0,0,0,0.1);">SchedExpress</h1>
+        </div>
+        
+        <div style="padding: 30px;">
+            <h2 style="color: #374151; margin-bottom: 20px;">Grade Update</h2>
+            
+            <div style="background-color: #F3F4F6; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+                <p style="margin: 0; color: #374151; line-height: 1.6;">
+                    Dear <strong><%= studentName %></strong>,
+                </p>
+                <br>
+                <p style="margin: 0; color: #374151; line-height: 1.6;">
+                    Your grade for <strong><%= courseName %></strong> has been updated.
+                </p>
+                <br>
+                <div style="background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%); padding: 20px; border-radius: 12px; border-left: 4px solid #667eea; box-shadow: 0 4px 12px rgba(0,0,0,0.05);">
+                    <p style="margin: 0; font-size: 20px; font-weight: 600;">
+                        <strong>Grade:</strong> <span style="color: #667eea; font-weight: bold; font-size: 24px;"><%= grade %></span>
+                    </p>
+                    <% if (isPassed) { %>
+                    <p style="margin: 8px 0 0 0; font-size: 16px; color: #64748b;">
+                        <strong>Status:</strong> <span style="color: #10b981; font-weight: 600;">Passing</span>
+                    </p>
+                    <% } else { %>
+                    <p style="margin: 8px 0 0 0; font-size: 16px; color: #64748b;">
+                        <strong>Status:</strong> <span style="color: #ef4444; font-weight: 600;">Failing</span>
+                    </p>
+                    <% } %>
+                </div>
+            </div>
+            
+            <div style="border-top: 1px solid #e5e7eb; padding-top: 20px; margin-top: 30px;">
+                <p style="color: #6B7280; font-size: 14px; margin: 0;">
+                    This is an automated message from Schedule Express. Please do not reply to this email.
+                </p>
+            </div>
+        </div>
+    </div>
+</body>
+</html> 
